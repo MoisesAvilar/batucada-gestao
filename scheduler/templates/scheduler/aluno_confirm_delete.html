@@ -1,0 +1,23 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white">
+                Confirmar Exclusão de Aluno
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Você tem certeza que deseja excluir o aluno "{{ aluno.nome_completo }}"?</h5>
+                <p class="text-danger fw-bold">Esta ação não pode ser desfeita e todas as aulas associadas a este aluno também serão removidas.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+                    <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger text-white">
+                Confirmar Exclusão
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Você tem certeza que deseja excluir esta aula?</h5>
+                <p class="card-text">
+                    <strong>Aluno:</strong> {{ aula.aluno.nome_completo }}<br>
+                    <strong>Modalidade:</strong> {{ aula.modalidade }}<br>
+                    <strong>Data:</strong> {{ aula.data_hora|date:"d/m/Y \à\s H:i" }}
+                </p>
+                <p class="text-danger fw-bold">Esta ação não pode ser desfeita.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+                    <a href="{% url 'scheduler:dashboard' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ titulo }}</h1>
+  {# O botão "Adicionar Novo Professor" foi removido como você solicitou antes #}
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th scope="col">Nome de Usuário</th>
+          <th scope="col">Nome Completo</th>
+          <th scope="col">Email</th>
+          <th scope="col">Ativo</th>
+          <th scope="col">Tipo</th>
+          <th scope="col" class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for professor in professores %}
+        <tr>
+          <td>
+            {# Nome de usuário do professor agora é um link #}
+            <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>
+          </td>
+          <td>{{ professor.get_full_name|default:"N/A" }}</td>
+          <td>{{ professor.email|default:"N/A" }}</td>
+          <td>
+            {% if professor.is_active %}
+              <span class="badge bg-success">Sim</span>
+            {% else %}
+              <span class="badge bg-danger">Não</span>
+            {% endif %}
+          </td>
+          <td>{{ professor.tipo|capfirst }}</td>
+          <td class="text-end">
+            <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square"></i> Editar
+            </a>
+            <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-trash"></i> Excluir
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">Nenhum professor cadastrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

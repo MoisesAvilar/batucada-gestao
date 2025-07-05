@@ -1,0 +1,163 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ titulo|title }}</h1>
+  {% if user.tipo == 'admin' %}
+  <div>
+      <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-primary me-2">
+          <i class="bi bi-pencil-square"></i> Editar Aluno
+      </a>
+      <a href="{% url 'scheduler:aluno_excluir' aluno.pk %}" class="btn btn-danger">
+          <i class="bi bi-trash"></i> Excluir Aluno
+      </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-header">
+        <h5>Informações do Aluno</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Nome Completo:</strong> {{ aluno.nome_completo|title }}</p>
+        <p><strong>Email:</strong> {{ aluno.email|default:"Não informado" }}</p>
+        <p><strong>Telefone:</strong> {{ aluno.telefone|default:"Não informado" }}</p>
+        <p><strong>Membro Desde:</strong> {{ aluno.data_criacao|date:"d/m/Y H:i" }}</p>
+    </div>
+</div>
+
+<h3 class="mb-3">Histórico de Aulas ({{ aluno.aula_set.count }} aulas)</h3> {# Conta todas as aulas do aluno #}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Modalidade</th>
+            <th scope="col">Professor Atribuído</th>
+            <th scope="col">Professor Realizou</th>
+            <th scope="col">Data e Hora</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for aula in aulas_do_aluno %} {# Itera sobre as aulas paginadas #}
+          <tr>
+            <td>{{ aula.modalidade.nome|title }}</td>
+            <td>
+              {% if user.tipo == 'professor' and aula.professor == request.user %}
+                <span class="badge bg-primary">Eu</span>
+              {% else %}
+                {{ aula.professor.username|title }}
+              {% endif %}
+            </td>
+            <td>
+              {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
+                {% if user.tipo == 'professor' and aula.relatorioaula.professor_que_validou == request.user %}
+                  <span class="badge bg-primary">Eu</span>
+                {% else %}
+                  {{ aula.relatorioaula.professor_que_validou.username|title }}
+                {% endif %}
+              {% else %}
+                <span class="text-muted small">Aguardando Validação</span>
+              {% endif %}
+            </td>
+            <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
+            <td>
+              {% if aula.status == 'Agendada' %}
+                <span class="badge bg-info text-dark">{{ aula.status }}</span>
+              {% elif aula.status == 'Realizada' %}
+                <span class="badge bg-success">{{ aula.status }}</span>
+              {% elif aula.status == 'Cancelada' %}
+                <span class="badge bg-danger">{{ aula.status }}</span>
+              {% elif aula.status == 'Aluno Ausente' %}
+                <span class="badge bg-warning text-dark">{{ aula.status }}</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ aula.status }}</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if user.tipo == 'admin' %}
+                <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
+                  <i class="bi bi-pencil-square"></i>
+                </a>
+                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
+                  <i class="bi bi-file-earmark-text"></i>
+                </a>
+                <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                  <i class="bi bi-trash"></i>
+                </a>
+              {% else %} {# É professor #}
+                {% if aula.status == 'Agendada' %}
+                    {% if aula.professor == request.user %}
+                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
+                            <i class="bi bi-check-circle"></i> Validar Aula
+                        </a>
+                    {% else %}
+                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning" title="Substituir e Validar">
+                            <i class="bi bi-person-replace"></i> Substituir
+                        </a>
+                    {% endif %}
+                {% elif aula.status == 'Realizada' %}
+                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório">
+                        <i class="bi bi-eye"></i> Ver Relatório
+                    </a>
+                {% else %} {# Cancelada ou outro status #}
+                    <span class="text-muted small">N/A</span>
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">Nenhuma aula encontrada para este aluno.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {# Controles de Paginação para aulas do aluno #}
+      {% if aulas_do_aluno.has_other_pages %}
+        <nav aria-label="Navegação de Páginas das Aulas">
+          <ul class="pagination justify-content-center">
+            {% if aulas_do_aluno.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ aulas_do_aluno.previous_page_number }}">Anterior</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">Anterior</span>
+              </li>
+            {% endif %}
+
+            {% for i in aulas_do_aluno.paginator.page_range %}
+              {% if aulas_do_aluno.number == i %}
+                <li class="page-item active" aria-current="page">
+                  <span class="page-link">{{ i }}</span>
+                </li>
+              {% else %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                </li>
+              {% endif %}
+            {% endfor %}
+
+            {% if aulas_do_aluno.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ aulas_do_aluno.next_page_number }}">Próximo</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">Próximo</span>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

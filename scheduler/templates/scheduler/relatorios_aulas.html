@@ -1,0 +1,162 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Relatórios de Aulas</h1>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<div class="mb-3 card p-3 shadow-sm">
+    <h5>Filtros de Relatório</h5>
+    <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}" class="d-flex flex-wrap align-items-end"> 
+        <div class="col-md-3 mb-2 mb-md-0 me-2"> 
+            <label for="id_data_inicial" class="form-label">Data Inicial</label>
+            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
+        </div>
+        <div class="col-md-3 mb-2 mb-md-0 me-2">
+            <label for="id_data_final" class="form-label">Data Final</label>
+            <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
+        </div>
+        <div class="col-md-3 mb-2 mb-md-0 me-2">
+            <label for="id_professor_filtro" class="form-label">Professor</label>
+            <select id="id_professor_filtro" name="professor_filtro" class="form-select">
+                <option value="">Todos os Professores</option>
+                {% for prof in professores_list %}
+                    <option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>
+                        {{ prof.username|title }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 mb-2 mb-md-0">
+            <label for="id_modalidade_filtro" class="form-label">Modalidade</label>
+            <select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select">
+                <option value="">Todas as Modalidades</option>
+                {% for modalidade in modalidades_list %}
+                    <option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>
+                        {{ modalidade.nome|title }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 mt-2 me-2">
+            <label for="id_status_filtro" class="form-label">Status</label>
+            <select id="id_status_filtro" name="status_filtro" class="form-select">
+                <option value="">Todos os Status</option>
+                {% for status_value, status_label in status_choices %}
+                    <option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>
+                        {{ status_label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 d-flex justify-content-end mt-3">
+            <button class="btn btn-primary me-2" type="submit">
+                <i class="bi bi-filter"></i> Aplicar Filtros
+            </button>
+            {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
+                <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger">
+                    <i class="bi bi-x-circle"></i> Limpar Filtros
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{# Resultados dos Relatórios #}
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h5>Resumo Geral</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>Total de Aulas no Período:</strong> {{ total_aulas }}</p>
+        <p><strong>Total de Aulas Agendadas:</strong> {{ total_agendadas }}</p>
+        <p><strong>Total de Aulas Realizadas:</strong> {{ total_realizadas }}</p>
+        <p><strong>Total de Aulas Canceladas:</strong> {{ total_canceladas }}</p>
+        <p><strong>Total de Aulas com Aluno Ausente:</strong> {{ total_aluno_ausente }}</p>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h5>Aulas por Professor</h5>
+    </div>
+    <div class="card-body">
+        {% if aulas_por_professor %}
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Professor</th>
+                        <th scope="col">Total de Aulas (Atribuídas ou Realizadas)</th>
+                        <th scope="col">Aulas Realizadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in aulas_por_professor %}
+                    <tr>
+                        <td>
+                            {% if item.professor_id %} {# Verifica se o ID do professor existe #}
+                                <a href="{% url 'scheduler:professor_detalhe' item.professor_id %}">{{ item.professor_username|title }}</a>
+                            {% else %}
+                                <span class="text-muted">Não Atribuído</span> {# Se houver aulas sem professor atribuído/realizado #}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.total_aulas }}</td>
+                        <td>{{ item.aulas_realizadas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5>Aulas por Modalidade</h5>
+    </div>
+    <div class="card-body">
+        {% if aulas_por_modalidade %}
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Modalidade</th>
+                        <th scope="col">Total de Aulas</th>
+                        <th scope="col">Aulas Realizadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in aulas_por_modalidade %}
+                    <tr>
+                        <td>
+                            {# Mostra o nome da modalidade, ou "Sem Modalidade" se for N/A #}
+                            {% if item.modalidade__id %}
+                                {{ item.modalidade__nome|title }}
+                            {% else %}
+                                <span class="text-muted">Sem Modalidade</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.total_aulas }}</td>
+                        <td>{{ item.aulas_realizadas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">Nenhum dado de aulas por modalidade para os filtros aplicados.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

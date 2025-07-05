@@ -1,0 +1,359 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ titulo|title }}</h1>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+    <div
+      class="alert alert-{{ message.tags }} alert-dismissible fade show"
+      role="alert"
+    >
+      {{ message }}
+      <button
+        type="button"
+        class="btn-close"
+        data-bs-dismiss="alert"
+        aria-label="Close"
+      ></button>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label for="{{ form.aluno.id_for_label }}" class="form-label">Aluno</label>
+        <select name="{{ form.aluno.name }}" id="{{ form.aluno.id_for_label }}" class="form-select">
+            <option value="">Selecione um aluno</option>
+            {% for aluno_obj in alunos_list %}
+                <option value="{{ aluno_obj.pk }}" {% if form.aluno.value|stringformat:"d" == aluno_obj.pk|stringformat:"d" %}selected{% endif %}>
+                    {{ aluno_obj.nome_completo|title }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if form.aluno.errors %}
+        <div class="text-danger">{{ form.aluno.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.professor.id_for_label }}" class="form-label">Professor</label>
+        <select name="{{ form.professor.name }}" id="{{ form.professor.id_for_label }}" class="form-select">
+            <option value="">Selecione um professor</option>
+            {% for professor_obj in professores_list %}
+                <option value="{{ professor_obj.pk }}" {% if form.professor.value|stringformat:"d" == professor_obj.pk|stringformat:"d" %}selected{% endif %}>
+                    {{ professor_obj.username|title }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if form.professor.errors %}
+        <div class="text-danger">{{ form.professor.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.modalidade.id_for_label }}" class="form-label">Modalidade</label>
+        <select name="{{ form.modalidade.name }}" id="{{ form.modalidade.id_for_label }}" class="form-select">
+            <option value="">Selecione uma modalidade</option>
+            {% for modalidade_obj in modalidades_list %}
+                <option value="{{ modalidade_obj.pk }}" {% if form.modalidade.value|stringformat:"d" == modalidade_obj.pk|stringformat:"d" %}selected{% endif %}>
+                    {{ modalidade_obj.nome|title }}
+                </option>
+            {% endfor %}
+        </select>
+        {% if form.modalidade.errors %}
+        <div class="text-danger">{{ form.modalidade.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.data_hora.id_for_label }}" class="form-label"
+          >{{ form.data_hora.label }}</label
+        >
+        {{ form.data_hora }}
+        {% if form.data_hora.errors %}
+        <div class="text-danger">{{ form.data_hora.errors }}</div>
+        {% endif %}
+        {# Div para exibir a mensagem de conflito #}
+        <div id="conflito-feedback" class="mt-2"></div>
+      </div>
+
+      <div class="mb-3">
+        <label for="{{ form.status.id_for_label }}" class="form-label"
+          >{{ form.status.label }}</label
+        >
+        {{ form.status }}
+        {% if form.status.errors %}
+        <div class="text-danger">{{ form.status.errors }}</div>
+        {% endif %}
+      </div>
+
+      {# Checkbox de recorrência #}
+      {% if form.recorrente_mensal %}
+      <div class="mb-3 form-check">
+        {{ form.recorrente_mensal }}
+        <label
+          class="form-check-label"
+          for="{{ form.recorrente_mensal.id_for_label }}"
+        >
+          {{ form.recorrente_mensal.label }}
+        </label>
+        {% if form.recorrente_mensal.help_text %}
+        <div class="form-text">{{ form.recorrente_mensal.help_text }}</div>
+        {% endif %}
+        {% if form.recorrente_mensal.errors %}
+        <div class="text-danger">{{ form.recorrente_mensal.errors }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary mt-3" id="submit-button">
+        Salvar
+      </button>
+      <a href="{% url 'scheduler:dashboard' %}" class="btn btn-secondary mt-3"
+        >Cancelar</a
+      >
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const professorSelect = document.getElementById("id_professor");
+    const dataHoraInput = document.getElementById("id_data_hora");
+    const conflitoFeedbackDiv = document.getElementById("conflito-feedback");
+    const submitButton = document.getElementById("submit-button");
+
+    const pathParts = window.location.pathname.split("/");
+    let aulaId = null;
+    if (pathParts.includes("editar")) {
+      const pkIndex = pathParts.indexOf("editar") - 1;
+      if (pkIndex >= 0 && pkIndex < pathParts.length) {
+        aulaId = parseInt(pathParts[pkIndex]);
+      }
+    }
+    
+    let fpInstance;
+    let cachedDiasComAulas = []; // Cache para armazenar os dias com aulas do professor
+
+    function fetchHorariosEDiasOcupados(professorId, dateStr, callback) {
+        console.log("fetchHorariosEDiasOcupados chamado com:", { professorId, dateStr });
+        if (!professorId) { 
+            console.log("Professor não fornecido para fetchHorariosEDiasOcupados.");
+            callback([], []); // Retorna listas vazias
+            return;
+        }
+
+        const url = "{% url 'scheduler:get_horarios_ocupados' %}";
+        const params = new URLSearchParams();
+        params.append('professor_id', professorId);
+        if (dateStr) { 
+            params.append('data', dateStr);
+        }
+        if (aulaId) {
+            params.append('aula_id', aulaId);
+        }
+
+        fetch(`${url}?${params.toString()}`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            console.log("Resposta da API de horários e dias ocupados:", response);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Dados recebidos da API de horários e dias ocupados:", data);
+            if (data.horarios_ocupados && data.dias_com_aulas) {
+                cachedDiasComAulas = data.dias_com_aulas; // Atualiza o cache
+                callback(data.horarios_ocupados, data.dias_com_aulas);
+            } else {
+                console.error('Erro ao buscar horários e dias ocupados:', data.erro);
+                callback([], []);
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição de horários e dias ocupados:', error);
+            callback([], []);
+        });
+    }
+
+    fpInstance = flatpickr(dataHoraInput, {
+        enableTime: true,
+        noCalendar: false,
+        dateFormat: "Y-m-d H:i",
+        time_24hr: true,
+        minuteIncrement: 15,
+        locale: "pt",
+        altInput: true,
+        altFormat: "d/m/Y H:i",
+        
+        // NOVO: Hook para adicionar classes aos dias (CORRIGIDO)
+        onDayCreate: function(dObj, dStr, fp, dayElem) {
+            // Usamos dStr (a string de data já formatada) e pegamos só a parte da data
+            const dateOnlyStr = dStr.split(' ')[0]; // Ex: "2025-07-05 10:00" -> "2025-07-05"
+            if (cachedDiasComAulas.includes(dateOnlyStr)) {
+                dayElem.classList.add("has-class-day");
+            }
+        },
+
+        onOpen: function(selectedDates, dateStr, instance) {
+            console.log("Flatpickr onOpen disparado.");
+            const professorId = professorSelect.value;
+            const selectedDate = instance.selectedDates[0] || new Date();
+            const dateOnlyStr = flatpickr.formatDate(selectedDate, "Y-m-d");
+
+            fetchHorariosEDiasOcupados(professorId, dateOnlyStr, function(occupiedTimes, occupiedDays) {
+                console.log("Horários ocupados recebidos para desabilitar (onOpen):", occupiedTimes);
+                console.log("Dias com aulas recebidos (onOpen):", occupiedDays);
+                
+                // Aplica a desabilitação de horários para o dia atual
+                instance.set('disable', [
+                    function(date) {
+                        const timeStr = flatpickr.formatDate(date, "H:i");
+                        return occupiedTimes.includes(timeStr);
+                    }
+                ]);
+                instance.redraw();
+            });
+        },
+        
+        onClose: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length > 0) {
+                verificarConflito(true);
+            }
+        },
+        onChange: function(selectedDates, dateStr, instance) {
+            console.log("Flatpickr onChange disparado.");
+            if (selectedDates.length > 0 && professorSelect.value) {
+                const professorId = professorSelect.value;
+                const dateOnlyStr = flatpickr.formatDate(selectedDates[0], "Y-m-d");
+                
+                fetchHorariosEDiasOcupados(professorId, dateOnlyStr, function(occupiedTimes, occupiedDays) {
+                    console.log("Horários ocupados recebidos no onChange para desabilitar:", occupiedTimes);
+                    console.log("Dias com aulas recebidos no onChange:", occupiedDays);
+                    
+                    instance.set('disable', [
+                        function(date) {
+                            const timeStr = flatpickr.formatDate(date, "H:i");
+                            return occupiedTimes.includes(timeStr);
+                        }
+                    ]);
+                    instance.redraw();
+                    verificarConflito(true);
+                });
+            } else {
+                conflitoFeedbackDiv.innerHTML = '';
+                submitButton.disabled = false;
+            }
+        }
+    });
+
+    function verificarConflito(isFullCheck = false) {
+        const professorId = professorSelect.value;
+        const dataHora = dataHoraInput.value;
+
+        conflitoFeedbackDiv.innerHTML = "";
+        submitButton.disabled = false;
+
+        if (!professorId || !dataHora) {
+            return;
+        }
+
+        const url = "{% url 'scheduler:verificar_conflito_aula' %}";
+        const params = new URLSearchParams();
+        params.append('professor_id', professorId);
+        params.append('data_hora', dataHora);
+        if (aulaId) {
+            params.append('aula_id', aulaId);
+        }
+
+        fetch(`${url}?${params.toString()}`, {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.conflito) {
+                conflitoFeedbackDiv.innerHTML = `<div class="alert alert-danger p-2 text-center" role="alert"><i class="bi bi-x-circle-fill me-2"></i>${data.mensagem}</div>`;
+                submitButton.disabled = true;
+            } else {
+                conflitoFeedbackDiv.innerHTML = `<div class="alert alert-success p-2 text-center" role="alert"><i class="bi bi-check-circle-fill me-2"></i>${data.mensagem}</div>`;
+                submitButton.disabled = false;
+            }
+        })
+        .catch(error => {
+            conflitoFeedbackDiv.innerHTML = `<div class="alert alert-warning p-2" role="alert">Erro ao verificar conflito. Tente novamente.</div>`;
+            submitButton.disabled = false;
+        });
+    }
+
+    // Adiciona event listener ao mudar o professor (CORRIGIDO)
+    professorSelect.addEventListener('change', function() {
+        console.log("Professor selecionado mudou.");
+        const professorId = professorSelect.value;
+        
+        // Se um professor é selecionado, buscamos todos os dias com aulas para ele
+        // E, se uma data já estiver selecionada no Flatpickr, atualizamos os horários também.
+        const selectedDate = fpInstance.selectedDates.length > 0 ? fpInstance.selectedDates[0] : null; // CORRIGIDO
+        const dateOnlyStr = selectedDate ? flatpickr.formatDate(selectedDate, "Y-m-d") : null;
+
+        fetchHorariosEDiasOcupados(professorId, dateOnlyStr, function(occupiedTimes, occupiedDays) {
+            console.log("Horários ocupados recebidos após mudança de professor:", occupiedTimes);
+            console.log("Dias com aulas recebidos após mudança de professor:", occupiedDays);
+
+            // Re-aplica a desabilitação de horários para o dia atual (se houver data selecionada)
+            if (selectedDate) { // Aplica disable apenas se houver uma data no picker
+                fpInstance.set('disable', [
+                    function(date) {
+                        const timeStr = flatpickr.formatDate(date, "H:i");
+                        return occupiedTimes.includes(timeStr);
+                    }
+                ]);
+            } else {
+                // Se não há data selecionada, limpa desabilitações de tempo, só o onDayCreate aplica classes de dia
+                fpInstance.set('disable', []);
+            }
+            fpInstance.redraw(); // Redesenha para aplicar as classes e desabilitações
+            
+            // Se houver uma data selecionada, verifica o conflito exato
+            if (selectedDate) {
+                verificarConflito(true);
+            } else { // Se não há data, limpa feedback de conflito
+                conflitoFeedbackDiv.innerHTML = '';
+                submitButton.disabled = false;
+            }
+        });
+    });
+    
+    // Verifica o conflito ao carregar a página se os campos já estiverem preenchidos (ex: em edição)
+    // E busca os dias com aulas para o professor pré-selecionado.
+    if (professorSelect.value) { // Verifica se um professor já está selecionado
+        const professorId = professorSelect.value;
+        const selectedDate = fpInstance.selectedDates.length > 0 ? fpInstance.selectedDates[0] : null; // CORRIGIDO
+        const dateOnlyStr = selectedDate ? flatpickr.formatDate(selectedDate, "Y-m-d") : null;
+
+        fetchHorariosEDiasOcupados(professorId, dateOnlyStr, function(occupiedTimes, occupiedDays) {
+            // Os horários ocupados já serão aplicados pelo onOpen/onChange se o calendário for aberto
+            // ou pela verificação de conflito se a data já estiver preenchida.
+            // O importante é que cachedDiasComAulas seja preenchido para o onDayCreate.
+            if (selectedDate) { // Dispara a verificação de conflito exata apenas se a data estiver preenchida
+                verificarConflito(true); 
+            }
+        });
+    }
+  });
+</script>
+{% endblock %}

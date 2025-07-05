@@ -1,0 +1,28 @@
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+.env/
+
+# Database
+db.sqlite3
+*.sqlite3-journal
+
+
+# IDEs and Editors
+.vscode/           # VS Code
+
+# Logs
+*.log
+logs/
+
+# Environment Variables / Sensitive Data
+.env
+*.env

@@ -1,0 +1,51 @@
+from django.urls import path
+from . import views
+
+app_name = 'scheduler'
+
+urlpatterns = [
+    # Página inicial/dashboard que será diferente para admin e professor
+    path('', views.dashboard, name='dashboard'),
+
+    # --- URLs para Gestão de Aulas ---
+    path('aulas/', views.listar_aulas, name='aula_listar'),
+    path('aula/agendar/', views.agendar_aula, name='aula_agendar'),
+    path('aula/<int:pk>/validar/', views.validar_aula, name='aula_validar'),
+    path('aula/<int:pk>/relatorio/', views.validar_aula, name='aula_relatorio'),
+    path('aula/<int:pk>/editar/', views.editar_aula, name='aula_editar'),
+    path('aula/<int:pk>/excluir/', views.excluir_aula, name='aula_excluir'),
+
+    # URL para verificação de conflito via AJAX
+    path('aula/verificar_conflito/', views.verificar_conflito_aula, name='verificar_conflito_aula'),
+
+    # URL para exportação de aulas
+    path('aulas/exportar/', views.exportar_aulas, name='exportar_aulas'),
+
+    # URL para obter horários ocupados via AJAX
+    path('aulas/get_horarios_ocupados/', views.get_horarios_ocupados, name='get_horarios_ocupados'),
+
+    # NOVO: URL para obter eventos do FullCalendar
+    path('aulas/eventos_calendario/', views.get_eventos_calendario, name='get_eventos_calendario'),
+
+    # --- URLs para Gestão de Alunos ---
+    path('alunos/', views.listar_alunos, name='aluno_listar'),
+    path('alunos/novo/', views.criar_aluno, name='aluno_criar'),
+    path('alunos/<int:pk>/', views.detalhe_aluno, name='aluno_detalhe'),
+    path('alunos/<int:pk>/editar/', views.editar_aluno, name='aluno_editar'),
+    path('alunos/<int:pk>/excluir/', views.excluir_aluno, name='aluno_excluir'),
+
+    # --- URLs para Gestão de Modalidades ---
+    path('modalidades/', views.listar_modalidades, name='modalidade_listar'),
+    path('modalidades/novo/', views.criar_modalidade, name='modalidade_criar'),
+    path('modalidades/<int:pk>/editar/', views.editar_modalidade, name='modalidade_editar'),
+    path('modalidades/<int:pk>/excluir/', views.excluir_modalidade, name='modalidade_excluir'),
+
+    # --- URLs para Gestão de Professores ---
+    path('professores/', views.listar_professores, name='professor_listar'),
+    path('professores/<int:pk>/', views.detalhe_professor, name='professor_detalhe'),
+    path('professores/<int:pk>/editar/', views.editar_professor, name='professor_editar'),
+    path('professores/<int:pk>/excluir/', views.excluir_professor, name='professor_excluir'),
+
+    # --- URLs para Relatórios ---
+    path('relatorios/', views.relatorios_aulas, name='relatorios_aulas'),
+]

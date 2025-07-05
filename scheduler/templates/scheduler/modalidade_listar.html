@@ -1,0 +1,51 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ titulo }}</h1>
+  <a href="{% url 'scheduler:modalidade_criar' %}" class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i> Adicionar Nova Modalidade
+  </a>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th scope="col">Nome da Modalidade</th>
+          <th scope="col" class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for modalidade in modalidades %}
+        <tr>
+          <td>{{ modalidade.nome|title }}</td>
+          <td class="text-end">
+            <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square"></i> Editar
+            </a>
+            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-trash"></i> Excluir
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="2" class="text-center text-muted">Nenhuma modalidade cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

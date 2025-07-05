@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio Batucada - Gestão</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    />
+    {# NOVO: Flatpickr CSS #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    {# OPCIONAL: Tema Flatpickr (ex: dark, material_blue) #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css"> 
+    {# NOVO: FullCalendar CSS #}
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css' rel='stylesheet' />
+    
+    {# CSS para destacar dias com aulas (já existente) #}
+    <style>
+      .flatpickr-day.has-class-day {
+        background-color: #d4edda; /* Um verde claro */
+        color: #155724; /* Texto verde escuro */
+        border-color: #c3e6cb;
+        font-weight: bold;
+      }
+      .flatpickr-day.has-class-day:hover,
+      .flatpickr-day.has-class-day.selected {
+        background-color: #28a745 !important; /* Verde mais escuro no hover/seleção */
+        color: white !important;
+      }
+      /* NOVO: Estilo para eventos no FullCalendar */
+      .fc-event {
+        color: white !important;
+        font-size: .85em;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-size: .85em;
+        padding: 2px 5px;
+        border-radius: 3px;
+        white-space: pre-wrap; /* <--- CORREÇÃO AQUI: Isso fará o '\n' virar quebra de linha */
+        overflow: hidden; /* Garante que o texto não "vaze" se a célula for pequena */
+        text-overflow: ellipsis; /* Adiciona "..." se o texto for muito longo e não quebrar */
+      }
+      .fc-event-main-frame { /* Para quebra de linha em mobile */
+        flex-wrap: wrap; 
+      }
+      /* Cores por status (opcional, se quiser diferenciar) */
+      .fc-event.status-Realizada {
+          background-color: #28a745; /* Verde */
+          border-color: #28a745;
+      }
+      .fc-event.status-Cancelada {
+          background-color: #dc3545; /* Vermelho */
+          border-color: #dc3545;
+      }
+      .fc-event.status-AlunoAusente {
+          background-color: #ffc107; /* Amarelo */
+          border-color: #ffc107;
+          color: #212529 !important; /* Texto escuro no amarelo */
+      }
+      .fc-event.status-Agendada {
+          background-color: #17a2b8; /* Azul claro / Ciano */
+          border-color: #17a2b8;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'scheduler:dashboard' %}"
+          >Studio Batucada</a
+        >
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            {% if user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link active" href="{% url 'scheduler:dashboard' %}"
+                >Dashboard</a
+              >
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:aula_listar' %}"
+                >Aulas</a
+              >
+            </li>
+
+            {% if user.tipo == 'admin' %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:aula_agendar' %}"
+                >Agendar Aula</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}"
+                >Alunos</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:modalidade_listar' %}"
+                >Modalidades</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:professor_listar' %}"
+                >Professores</a
+              >
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'scheduler:relatorios_aulas' %}"
+                >Relatórios</a
+              >
+            </li>
+            {% endif %} {% endif %}
+          </ul>
+          <ul class="navbar-nav">
+            {% if user.is_authenticated %}
+            <li class="nav-item dropdown">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                id="navbarDropdown"
+                role="button"
+                data-bs-toggle="dropdown"
+              >
+                {# SE HOUVER FOTO DE PERFIL (Google) #}
+                {% if user.profile_picture_url %}
+                  <img src="{{ user.profile_picture_url }}" 
+                       alt="Foto de {{ user.username }}" 
+                       class="rounded-circle me-2" 
+                       style="width: 30px; height: 30px; object-fit: cover;">
+                {% else %}
+                  {# SE NÃO HOUVER FOTO, CALCULA E EXIBE INICIAIS #}
+                  {% if user.first_name and user.last_name %}
+                      {% with first_initial=user.first_name|slice:"0:1"|upper %}
+                      {% with last_initial=user.last_name|slice:"0:1"|upper %}
+                          <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2"
+                               style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold; vertical-align:middle; cursor:default;"
+                               title="{{ user.get_full_name|default:user.username }}">
+                              {{ first_initial|add:last_initial }}
+                          </div>
+                      {% endwith %}
+                      {% endwith %}
+                  {% elif user.username %}
+                      <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2"
+                           style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold; vertical-align:middle; cursor:default;"
+                           title="{{ user.get_full_name|default:user.username }}">
+                          {{ user.username|slice:"0:1"|upper }}
+                      </div>
+                  {% else %} {# Fallback final para '?' se nenhum nome for encontrado #}
+                      <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2"
+                           style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold; vertical-align:middle; cursor:default;"
+                           title="{{ user.get_full_name|default:user.username }}">
+                          ?
+                      </div>
+                  {% endif %}
+                {% endif %} {# FECHA O if user.profile_picture_url #}
+                {# Nome de usuário ao lado da foto/iniciais #}
+                {{ user.username|title }}
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <form
+                    id="logout-form"
+                    action="{% url 'accounts:logout' %}"
+                    method="post"
+                  >
+                    {% csrf_token %}
+                    <button type="submit" class="dropdown-item">Sair</button>
+                  </form>
+                </li>
+              </ul>
+            </li>
+            {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:login' %}">Entrar</a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container mt-4">
+      {% if messages %} {% for message in messages %}
+      <div
+        class="alert alert-{{ message.tags }} alert-dismissible fade show"
+        role="alert"
+      >
+        {{ message }}
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="alert"
+          aria-label="Close"
+        ></button>
+      </div>
+      {% endfor %} {% endif %} {% block content %} {% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script> 
+    {# NOVO: FullCalendar JS #}
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    {% block extra_js %}
+    {% endblock %}
+  </body>
+</html>

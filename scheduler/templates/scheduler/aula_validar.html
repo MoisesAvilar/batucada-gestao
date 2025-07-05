@@ -1,0 +1,229 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<h1 class="mb-1">Relatório da Aula</h1>
+<p class="text-muted mb-4">
+    <strong>Aluno(a):</strong> {{ aula.aluno.nome_completo|title }} | 
+    <strong>Data:</strong> {{ aula.data_hora|date:"d/m/Y, H:i" }} |
+    <strong>Professor Atribuído:</strong> 
+        {% if aula.professor %}
+            <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
+        {% else %}
+            Não Atribuído
+        {% endif %}
+</p>
+
+{# Condicional para exibir em modo de visualização ou modo de edição #}
+{# Admin sempre pode editar. Professor só edita se a aula não estiver realizada ou se ele for o professor atribuído. #}
+{% if aula.status == 'Realizada' and user.tipo != 'admin' %}
+    {# MODO VISUALIZAÇÃO PARA PROFESSORES (AULA JÁ REALIZADA) #}
+    <div class="alert alert-info" role="alert">
+        Esta aula já foi marcada como "Realizada". Você está visualizando o relatório.
+    </div>
+    {% if relatorio %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>1. Parte Teórica</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Conteúdo Teórico Abordado:</strong></p>
+                <p class="card-text">{{ relatorio.conteudo_teorico|default:"Não informado."|linebreaksbr }}</p>
+            </div>
+            <div class="card-header">
+                <h5>2. Rudimentos</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Exercícios de Rudimentos:</strong></p>
+                <p class="card-text">{{ relatorio.exercicios_rudimentos|default:"Não informado."|linebreaksbr }}</p>
+                <p><strong>BPM dos Rudimentos:</strong> {{ relatorio.bpm_rudimentos|default:"Não informado." }}</p>
+            </div>
+        </div>
+        
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>3. Ritmo</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Exercícios de Ritmo:</strong></p>
+                <p class="card-text">{{ relatorio.exercicios_ritmo|default:"Não informado."|linebreaksbr }}</p>
+                <p><strong>Livro/Método de Ritmo:</strong> {{ relatorio.livro_ritmo|default:"Não informado." }}</p>
+                <p><strong>Clique/BPM do Ritmo:</strong> {{ relatorio.clique_ritmo|default:"Não informado." }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>4. Viradas</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Exercícios de Viradas:</strong></p>
+                <p class="card-text">{{ relatorio.exercicios_viradas|default:"Não informado."|linebreaksbr }}</p>
+                <p><strong>Clique/BPM das Viradas:</strong> {{ relatorio.clique_viradas|default:"Não informado." }}</p>
+            </div>
+        </div>
+        
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>5. Repertório</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Músicas do Repertório:</strong></p>
+                <p class="card-text">{{ relatorio.repertorio_musicas|default:"Não informado."|linebreaksbr }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>6. Observações Finais</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Observações Gerais sobre a Aula:</strong></p>
+                <p class="card-text">{{ relatorio.observacoes_gerais|default:"Não informado."|linebreaksbr }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>7. Informações de Validação</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Professor que Realizou a Aula:</strong> 
+                    {% if relatorio.professor_que_validou %}
+                        <a href="{% url 'scheduler:professor_detalhe' relatorio.professor_que_validou.pk %}">{{ relatorio.professor_que_validou.username|title }}</a>
+                        {% if aula.professor and aula.professor != relatorio.professor_que_validou %}
+                            (Substituiu {{ aula.professor.username|title }})
+                        {% endif %}
+                    {% else %}
+                        Não Registrado
+                    {% endif %}
+                </p>
+                <p><strong>Data do Registro do Relatório:</strong> {{ relatorio.data_registro|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            Não há relatório detalhado para esta aula ainda.
+        </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-secondary">Voltar para a Lista de Aulas</a>
+    </div>
+
+{% else %}
+    {# MODO EDIÇÃO/CRIAÇÃO DO FORMULÁRIO (AULA NÃO REALIZADA OU ADMIN EDITANDO) #}
+    {% if not relatorio %}
+    <div class="alert alert-info" role="alert">
+        Esta aula ainda não tem relatório. Preencha os campos abaixo.
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>1. Parte Teórica</h5>
+            </div>
+            <div class="card-body">
+            <div class="mb-3">
+                <label for="{{ form.conteudo_teorico.id_for_label }}" class="form-label">{{ form.conteudo_teorico.label }}</label>
+                {{ form.conteudo_teorico }}
+                {% if form.conteudo_teorico.errors %}<div class="text-danger">{{ form.conteudo_teorico.errors }}</div>{% endif %}
+            </div>
+        </div>
+            <div class="card-header">
+                <h5>2. Rudimentos</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.exercicios_rudimentos.id_for_label }}" class="form-label">{{ form.exercicios_rudimentos.label }}</label>
+                    {{ form.exercicios_rudimentos }}
+                    {% if form.exercicios_rudimentos.errors %}<div class="text-danger">{{ form.exercicios_rudimentos.errors }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.bpm_rudimentos.id_for_label }}" class="form-label">{{ form.bpm_rudimentos.label }}</label>
+                    {{ form.bpm_rudimentos }}
+                    {% if form.bpm_rudimentos.errors %}<div class="text-danger">{{ form.bpm_rudimentos.errors }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>3. Ritmo</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.exercicios_ritmo.id_for_label }}" class="form-label">{{ form.exercicios_ritmo.label }}</label>
+                    {{ form.exercicios_ritmo }}
+                    {% if form.exercicios_ritmo.errors %}<div class="text-danger">{{ form.exercicios_ritmo.errors }}</div>{% endif %}
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.livro_ritmo.id_for_label }}" class="form-label">{{ form.livro_ritmo.label }}</label>
+                        {{ form.livro_ritmo }}
+                        {% if form.livro_ritmo.errors %}<div class="text-danger">{{ form.livro_ritmo.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.clique_ritmo.id_for_label }}" class="form-label">{{ form.clique_ritmo.label }}</label>
+                        {{ form.clique_ritmo }}
+                        {% if form.clique_ritmo.errors %}<div class="text-danger">{{ form.clique_ritmo.errors }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>4. Viradas</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.exercicios_viradas.id_for_label }}" class="form-label">{{ form.exercicios_viradas.label }}</label>
+                    {{ form.exercicios_viradas }}
+                    {% if form.exercicios_viradas.errors %}<div class="text-danger">{{ form.exercicios_viradas.errors }}</div>{% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="{{ form.clique_viradas.id_for_label }}" class="form-label">{{ form.clique_viradas.label }}</label>
+                    {{ form.clique_viradas }}
+                    {% if form.clique_viradas.errors %}<div class="text-danger">{{ form.clique_viradas.errors }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>5. Repertório</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.repertorio_musicas.id_for_label }}" class="form-label">{{ form.repertorio_musicas.label }}</label>
+                    {{ form.repertorio_musicas }}
+                    {% if form.repertorio_musicas.errors %}<div class="text-danger">{{ form.repertorio_musicas.errors }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header">
+                <h5>6. Observações Finais</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.observacoes_gerais.id_for_label }}" class="form-label">{{ form.observacoes_gerais.label }}</label>
+                    {{ form.observacoes_gerais }}
+                    {% if form.observacoes_gerais.errors %}<div class="text-danger">{{ form.observacoes_gerais.errors }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-success">Salvar Relatório e Finalizar Aula</button>
+            <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+{% endif %} {# Fim do if/else para MODO EDIÇÃO/VISUALIZAÇÃO #}
+
+{% endblock %}
