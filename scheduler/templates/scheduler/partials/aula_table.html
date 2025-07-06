@@ -1,104 +1,166 @@
 <div class="table-responsive">
   <table class="table table-hover align-middle">
-<thead>
-  <tr>
-    {# Monta a query string base com todos os filtros atuais para usar nos links de ordenação #}
-    {% with base_query_params="&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
-    <th scope="col">
-      <a href="?order_by=aluno&direction={% if order_by == 'aluno' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-        Aluno {% if order_by == 'aluno' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-      </a>
-    </th>
-    <th scope="col">
-        <a href="?order_by=modalidade&direction={% if order_by == 'modalidade' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-            Modalidade {% if order_by == 'modalidade' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-        </a>
-    </th>
-    <th scope="col">
-        <a href="?order_by=professor_atribuido&direction={% if order_by == 'professor_atribuido' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-            Professor Atribuído {% if order_by == 'professor_atribuido' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-        </a>
-    </th>
     
-    {# --- LINHA CORRIGIDA AQUI --- #}
-    <th scope="col">
-        <a href="?order_by=professor_realizou&direction={% if order_by == 'professor_realizou' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-            Professor Realizou {% if order_by == 'professor_realizou' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-        </a>
-    </th>
-    {# --- FIM DA CORREÇÃO --- #}
+    {# --- INÍCIO DA LÓGICA DO CABEÇALHO ADAPTÁVEL --- #}
+    {% if show_sorting_headers %}
+      {# VERSÃO COMPLETA: com links de ordenação para a página aula_listar #}
+      <thead>
+        <tr>
+          {% with base_query_params="&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
+          <th scope="col"><a href="?order_by=aluno&direction={% if order_by == 'aluno' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Aluno {% if order_by == 'aluno' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col"><a href="?order_by=modalidade&direction={% if order_by == 'modalidade' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Modalidade {% if order_by == 'modalidade' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col"><a href="?order_by=professor_atribuido&direction={% if order_by == 'professor_atribuido' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Professor Atribuído {% if order_by == 'professor_atribuido' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col"><a href="?order_by=professor_realizou&direction={% if order_by == 'professor_realizou' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Professor Realizou {% if order_by == 'professor_realizou' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col"><a href="?order_by=data_hora&direction={% if order_by == 'data_hora' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Data e Hora {% if order_by == 'data_hora' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col"><a href="?order_by=status&direction={% if order_by == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Status {% if order_by == 'status' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
+          <th scope="col" class="text-end">Ações</th>
+          {% endwith %}
+        </tr>
+      </thead>
+    {% else %}
+      {# VERSÃO SIMPLES: sem links, para as páginas de detalhe #}
+      <thead>
+        <tr>
+          <th scope="col">Aluno</th>
+          <th scope="col">Modalidade</th>
+          <th scope="col">Professor Atribuído</th>
+          <th scope="col">Professor Realizou</th>
+          <th scope="col">Data e Hora</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="text-end">Ações</th>
+        </tr>
+      </thead>
+    {% endif %}
+    {# --- FIM DA LÓGICA DO CABEÇALHO ADAPTÁVEL --- #}
 
-    <th scope="col">
-        <a href="?order_by=data_hora&direction={% if order_by == 'data_hora' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-            Data e Hora {% if order_by == 'data_hora' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-        </a>
-    </th>
-    <th scope="col">
-        <a href="?order_by=status&direction={% if order_by == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">
-            Status {% if order_by == 'status' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}
-        </a>
-    </th>
-    <th scope="col" class="text-end">Ações</th>
-    {% endwith %}
-  </tr>
-</thead>
     <tbody>
       {% for aula in aulas %}
+      {# A tag 'with' cria apelidos para as variáveis, deixando o código mais limpo #}
+      {% with prof_atribuido=aula.professor prof_realizou=aula.relatorioaula.professor_que_validou prof_da_pagina=professor_context %}
       <tr>
+        {# Coluna Aluno e Modalidade #}
         <td><a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}">{{ aula.aluno.nome_completo|title }}</a></td>
         <td>{{ aula.modalidade.nome|title }}</td>
+
+        {# --- COLUNA "PROFESSOR ATRIBUÍDO" CORRIGIDA --- #}
         <td>
-          {% if aula.professor %}<a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>{% else %}Não Atribuído{% endif %}
-        </td>
-        <td>
-          {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}<a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}">{{ aula.relatorioaula.professor_que_validou.username|title }}</a>{% else %}<span class="text-muted small">Aguardando</span>{% endif %}
-        </td>
-        <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
-        <td>
-          {% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">{{ aula.status }}</span>
-          {% elif aula.status == 'Realizada' %}<span class="badge bg-success">{{ aula.status }}</span>
-          {% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">{{ aula.status }}</span>
-          {% elif aula.status == 'Aluno Ausente' %}<span class="badge bg-warning text-dark">{{ aula.status }}</span>
-          {% else %}<span class="badge bg-secondary">{{ aula.status }}</span>
+          {% if prof_atribuido %}
+            {# Se o professor atribuído é o mesmo da página, mostra "Eu" #}
+            {% if prof_da_pagina and prof_atribuido == prof_da_pagina %}
+              <span class="fw-bold">Eu</span>
+            {# Senão, mostra o nome do professor com link #}
+            {% else %}
+              <a href="{% url 'scheduler:professor_detalhe' prof_atribuido.pk %}">{{ prof_atribuido.username|title }}</a>
+            {% endif %}
+          {% else %}
+            Não Atribuído
           {% endif %}
         </td>
+
+        {# --- COLUNA "PROFESSOR REALIZOU" CORRIGIDA --- #}
+        <td>
+          {% if aula.status == 'Realizada' and prof_realizou %}
+            {# Se quem realizou é o mesmo da página, mostra "Eu" #}
+            {% if prof_da_pagina and prof_realizou == prof_da_pagina %}
+                <span class="fw-bold">Eu</span>
+            {# Senão, mostra o nome de quem realizou com link #}
+            {% else %}
+                <a href="{% url 'scheduler:professor_detalhe' prof_realizou.pk %}">{{ prof_realizou.username|title }}</a>
+            {% endif %}
+          {% else %}
+            <span class="text-muted small">Aguardando</span>
+          {% endif %}
+        </td>
+        
+        {# Coluna Data/Hora #}
+        <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
+
+        {# Coluna Status com a lógica de substituição #}
+        <td class="text-center">
+  {% if aula.status == 'Agendada' %}
+    <span class="badge bg-info text-dark">Agendada</span>
+
+  {% elif aula.status == 'Realizada' %}
+    {# Criamos apelidos para facilitar a leitura #}
+    {% with prof_atribuido=aula.professor prof_realizou=aula.relatorioaula.professor_que_validou prof_da_pagina=professor_context %}
+
+      {# Primeiro, verificamos se de fato houve uma substituição #}
+      {% if prof_atribuido and prof_realizou and prof_atribuido != prof_realizou %}
+        {# SIM, HOUVE SUBSTITUIÇÃO. VAMOS VERIFICAR A PERSPECTIVA. #}
+
+        {# Se estamos na página de um professor específico... #}
+        {% if prof_da_pagina %}
+          
+          {# E o professor da página é quem FOI SUBSTITUÍDO... #}
+          {% if prof_da_pagina == prof_atribuido %}
+            <span class="badge bg-warning text-dark" title="Sua aula foi realizada por {{ prof_realizou.username|title }}">Substituído</span>
+          
+          {# E o professor da página FOI O SUBSTITUTO... #}
+          {% elif prof_da_pagina == prof_realizou %}
+            <span class="badge bg-success">Realizada</span>
+          
+          {# Vendo de um terceiro perfil (caso raro, mas seguro ter) #}
+          {% else %}
+            <span class="badge bg-success">Realizada</span>
+            <span class="badge bg-warning text-dark ms-1" title="Substituição">Subst.</span>
+          {% endif %}
+
+        {# Se não estamos na página de um professor (ex: lista geral de aulas), mostra ambos os badges #}
+        {% else %}
+          <span class="badge bg-success">Realizada</span>
+          <span class="badge bg-warning text-dark ms-1" title="Aula realizada por substituto">Subst.</span>
+        {% endif %}
+
+      {% else %}
+        {# NÃO, NÃO HOUVE SUBSTITUIÇÃO. AULA NORMAL. #}
+        <span class="badge bg-success">Realizada</span>
+      {% endif %}
+
+    {% endwith %}
+    
+  {% elif aula.status == 'Cancelada' %}
+    <span class="badge bg-danger">Cancelada</span>
+  {% elif aula.status == 'Aluno Ausente' %}
+    <span class="badge bg-warning text-dark">Aluno Ausente</span>
+  {% else %}
+    <span class="badge bg-secondary">{{ aula.status }}</span>
+  {% endif %}
+</td>
+
+        {# Coluna de Ações #}
         <td class="text-end">
             {% include 'scheduler/partials/aula_actions.html' %}
         </td>
       </tr>
+      {% endwith %}
       {% empty %}
       <tr>
-        <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada para os filtros aplicados.</td>
+        <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 
+  {# A paginação também precisa ser adaptável #}
   {% if aulas.has_other_pages %}
     <nav aria-label="Navegação de Páginas das Aulas">
-      {% with base_query_params="&order_by="|add:order_by|add:"&direction="|add:direction|add:"&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
-      <ul class="pagination justify-content-center">
-        {% if aulas.has_previous %}
-          <li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}{{ base_query_params }}">Anterior</a></li>
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">Anterior</span></li>
-        {% endif %}
-
-        {% for i in aulas.paginator.page_range %}
-          {% if aulas.number == i %}
-            <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
-          {% else %}
-            <li class="page-item"><a class="page-link" href="?page={{ i }}{{ base_query_params }}">{{ i }}</a></li>
-          {% endif %}
-        {% endfor %}
-
-        {% if aulas.has_next %}
-          <li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}{{ base_query_params }}">Próximo</a></li>
-        {% else %}
-          <li class="page-item disabled"><span class="page-link">Próximo</span></li>
-        {% endif %}
-      </ul>
-      {% endwith %}
+      {# Se a ordenação estiver ativa, mantém os parâmetros #}
+      {% if show_sorting_headers %}
+        {% with base_query_params="&order_by="|add:order_by|add:"&direction="|add:direction|add:"&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
+          <ul class="pagination justify-content-center">
+            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}{{ base_query_params }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
+            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}{{ base_query_params }}">{{ i }}</a></li>{% endif %}{% endfor %}
+            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}{{ base_query_params }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
+          </ul>
+        {% endwith %}
+      {# Senão, usa uma paginação simples #}
+      {% else %}
+        <ul class="pagination justify-content-center">
+            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
+            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>{% endif %}{% endfor %}
+            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
+        </ul>
+      {% endif %}
     </nav>
   {% endif %}
 </div>

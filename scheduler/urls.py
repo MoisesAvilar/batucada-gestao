@@ -27,6 +27,7 @@ urlpatterns = [
 
     # NOVO: URL para obter eventos do FullCalendar
     path('aulas/eventos_calendario/', views.get_eventos_calendario, name='get_eventos_calendario'),
+    path('aulas/substituir/', views.aulas_para_substituir, name='aulas_para_substituir'),
 
     # --- URLs para Gestão de Alunos ---
     path('alunos/', views.listar_alunos, name='aluno_listar'),

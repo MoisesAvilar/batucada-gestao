@@ -1,0 +1,21 @@
+{% if aulas.has_other_pages %}
+    <nav aria-label="Navegação de Páginas das Aulas">
+      {# Se a ordenação estiver ativa, mantém os parâmetros #}
+      {% if show_sorting_headers %}
+        {% with base_query_params="&order_by="|add:order_by|add:"&direction="|add:direction|add:"&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
+          <ul class="pagination justify-content-center">
+            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}{{ base_query_params }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
+            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}{{ base_query_params }}">{{ i }}</a></li>{% endif %}{% endfor %}
+            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}{{ base_query_params }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
+          </ul>
+        {% endwith %}
+      {# Senão, usa uma paginação simples #}
+      {% else %}
+        <ul class="pagination justify-content-center">
+            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
+            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>{% endif %}{% endfor %}
+            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
+        </ul>
+      {% endif %}
+    </nav>
+  {% endif %}

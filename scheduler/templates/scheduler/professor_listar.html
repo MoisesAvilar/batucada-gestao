@@ -30,7 +30,8 @@
               <th scope="col">Professor</th>
               <th scope="col">Aulas Realizadas</th>
               <th scope="col">Próxima Aula</th>
-              <th scope="col">Alunos Atendidos</th>
+              {# Alterando o título da coluna para mais clareza #}
+              <th scope="col">Alunos Únicos Atendidos</th>
               <th scope="col" class="text-end">Ações</th>
             </tr>
           </thead>
@@ -40,9 +41,7 @@
               <td>
                 <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">
                     {{ professor.username|title }}
-                    {% if professor.tipo == 'admin' %}
-                        <span class="badge bg-primary">Admin</span>
-                    {% endif %}
+                    {% if professor.tipo == 'admin' %}<span class="badge bg-primary">Admin</span>{% endif %}
                 </a>
                 <small class="d-block text-muted">{{ professor.first_name|title }} {{ professor.last_name|title }}</small>
               </td>
@@ -50,14 +49,11 @@
                 <span class="badge bg-success fs-6">{{ professor.total_aulas_realizadas }}</span>
               </td>
               <td>
-                {% if professor.proxima_aula %}
-                    {{ professor.proxima_aula|date:"d/m/Y, H:i" }}
-                {% else %}
-                    <span class="text-muted small">Nenhuma agendada</span>
-                {% endif %}
+                {% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma agendada</span>{% endif %}
               </td>
               <td class="text-center">
-                 <span class="badge bg-secondary">{{ professor.total_alunos_unicos }}</span>
+                {# Usando a nova variável corrigida #}
+                <span class="badge bg-secondary">{{ professor.total_alunos_atendidos }}</span>
               </td>
               <td class="text-end">
                 <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-info" title="Ver Dashboard">

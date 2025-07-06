@@ -1,0 +1,65 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>{{ titulo }}</h1>
+  <p class="text-muted">Veja aulas de outros professores que você pode cobrir.</p>
+</div>
+
+{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
+
+
+<div class="aulas-feed">
+
+    {% if not aulas %}
+        <div class="text-center text-muted p-5">
+            <h4>Nenhuma aula disponível para substituição no momento.</h4>
+        </div>
+    {% endif %}
+
+    {% regroup aulas by data_hora.date as aulas_por_dia %}
+
+    {% for grupo in aulas_por_dia %}
+        <h4 class="mb-3 mt-4 border-bottom pb-2">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
+        
+        {% for aula in grupo.list %}
+            <div class="card shadow-sm mb-3 border-start border-info border-5">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
+                            <span class="badge bg-info text-dark">Agendada</span>
+                        </div>
+                        <div class="col-md-5">
+                            <h5 class="card-title mb-1">{{ aula.aluno.nome_completo|title }}</h5>
+                            <p class="card-text text-muted">{{ aula.modalidade.nome|title }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="d-block text-muted">Professor Atribuído:</small>
+                            <strong class="d-block">
+                                {% if aula.professor %}
+                                    <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </strong>
+                        </div>
+                        <div class="col-md-2 text-end">
+                            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-warning">
+                                <i class="bi bi-person-replace"></i> Substituir
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+</div>
+
+{# Paginação #}
+<div class="mt-4">
+    {% include 'scheduler/partials/pagination.html' with page_obj=aulas %}
+</div>
+
+{% endblock %}

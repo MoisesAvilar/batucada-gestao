@@ -61,76 +61,69 @@ def _check_conflito_aula(professor_id, data_hora, aula_id=None):
 # --- Views Principais (dashboard) ---
 @login_required
 def dashboard(request):
-    # Parâmetros de ordenação e busca existentes
-    order_by = request.GET.get("order_by", "data_hora")
-    direction = request.GET.get("direction", "asc")
-    search_query = request.GET.get("q", "")
-    data_inicial_str = request.GET.get("data_inicial", "")
-    data_final_str = request.GET.get("data_final", "")
+    now = timezone.now()
+    today = now.date()
+    next_week = today + timezone.timedelta(days=7)
+    
+    # --- LÓGICA PARA O DASHBOARD DO ADMIN ---
+    if request.user.tipo == 'admin':
+        # KPIs do Admin
+        # Query base para as aulas relevantes de hoje (não canceladas)
+        aulas_do_dia_queryset = Aula.objects.filter(data_hora__date=today).exclude(status__in=['Cancelada', 'Aluno Ausente'])
 
-    valid_order_fields = {
-        "aluno": "aluno__nome_completo",
-        "modalidade": "modalidade__nome",
-        "professor_atribuido": "professor__username",
-        "professor_realizou": "relatorioaula__professor_que_validou__username",
-        "data_hora": "data_hora",
-        "status": "status",
-    }
+        # A contagem do KPI agora reflete a mesma lógica
+        aulas_hoje_count = aulas_do_dia_queryset.count()
+        aulas_semana_count = Aula.objects.filter(data_hora__date__range=[today, next_week]).count()
+        aulas_agendadas_total = Aula.objects.filter(status='Agendada', data_hora__gte=now).count()
 
-    if order_by not in valid_order_fields:
-        order_by = "data_hora"
+        # Listas para o Admin
+        aulas_do_dia = Aula.objects.filter(data_hora__date=today).order_by('data_hora')
+        aulas_da_semana = Aula.objects.filter(data_hora__date__range=[today, next_week]).order_by('data_hora')
+        
+        # Lista de professores para o filtro do calendário
+        professores_list = CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username")
+        
+        contexto = {
+            "titulo": "Dashboard do Administrador",
+            "today": today,
+            "aulas_hoje_count": aulas_hoje_count,
+            "aulas_semana_count": aulas_semana_count,
+            "aulas_agendadas_total": aulas_agendadas_total,
+            "aulas_do_dia": aulas_do_dia,
+            "aulas_da_semana": aulas_da_semana,
+            "professores_list": professores_list,
+        }
+    
+    # --- LÓGICA PARA O DASHBOARD DO PROFESSOR ---
+    else: # Se não é admin, é professor
+        # Queryset base com todas as aulas do professor
+        aulas_do_professor = Aula.objects.filter(
+            Q(professor=request.user) | Q(relatorioaula__professor_que_validou=request.user)
+        ).distinct()
 
-    order_field = valid_order_fields[order_by]
+        # KPIs do Professor
+        aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
+        aulas_semana_count = aulas_do_professor.filter(data_hora__date__range=[today, next_week]).count()
+        
+        # Aulas que já aconteceram mas ainda estão "Agendadas", ou seja, pendentes de relatório
+        aulas_pendentes_count = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).count()
 
-    if direction == "desc":
-        order_field = "-" + order_field
+        # Listas para o Professor
+        aulas_do_dia = aulas_do_professor.filter(data_hora__date=today).order_by('data_hora')
+        proximas_aulas_semana = aulas_do_professor.filter(status='Agendada', data_hora__gte=now, data_hora__date__lte=next_week).order_by('data_hora')
+        aulas_pendentes_validacao = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).order_by('data_hora')
 
-    aulas_queryset = Aula.objects.filter(status="Agendada")
+        contexto = {
+            "titulo": "Meu Dashboard",
+            "aulas_hoje_count": aulas_hoje_count,
+            "aulas_semana_count": aulas_semana_count,
+            "aulas_pendentes_count": aulas_pendentes_count,
+            "aulas_do_dia": aulas_do_dia,
+            "proximas_aulas_semana": proximas_aulas_semana,
+            "aulas_pendentes_validacao": aulas_pendentes_validacao,
+        }
 
-    if search_query:
-        aulas_queryset = aulas_queryset.filter(
-            Q(aluno__nome_completo__icontains=search_query)
-            | Q(professor__username__icontains=search_query)
-            | Q(modalidade__nome__icontains=search_query)
-            | Q(status__icontains=search_query)
-        )
-
-    if data_inicial_str:
-        try:
-            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
-        except ValueError:
-            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
-
-    if data_final_str:
-        try:
-            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
-        except ValueError:
-            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
-
-    aulas_queryset = aulas_queryset.order_by(order_field)
-
-    paginator = Paginator(aulas_queryset, 10)
-    page = request.GET.get("page")
-    try:
-        aulas = paginator.page(page)
-    except PageNotAnInteger:
-        aulas = paginator.page(1)
-    except EmptyPage:
-        aulas = paginator.page(paginator.num_pages)
-
-    contexto = {
-        "aulas": aulas,
-        "is_admin": request.user.tipo == "admin",
-        "order_by": order_by,
-        "direction": direction,
-        "search_query": search_query,
-        "data_inicial": data_inicial_str,
-        "data_final": data_final_str,
-    }
     return render(request, "scheduler/dashboard.html", contexto)
-
 
 # --- Views de Aulas (agendar_aula, editar_aula, excluir_aula) ---
 @user_passes_test(is_admin)
@@ -318,6 +311,37 @@ def excluir_aula(request, pk):
         messages.success(request, "Aula excluída com sucesso!")
         return redirect("scheduler:dashboard")
     return render(request, "scheduler/aula_confirm_delete.html", {"aula": aula})
+
+
+# scheduler/views.py
+
+@login_required
+@user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
+def aulas_para_substituir(request):
+    """
+    Mostra uma lista de aulas futuras agendadas para outros professores,
+    disponíveis para substituição.
+    """
+    now = timezone.now()
+
+    # Busca aulas futuras, com status 'Agendada', e que NÃO SÃO do professor logado
+    aulas_disponiveis = Aula.objects.filter(
+        data_hora__gte=now,
+        status='Agendada'
+    ).exclude(
+        professor=request.user
+    ).order_by('data_hora')
+
+    # Paginação para a lista
+    paginator = Paginator(aulas_disponiveis, 10)
+    page_number = request.GET.get('page')
+    aulas = paginator.get_page(page_number)
+
+    contexto = {
+        'titulo': 'Aulas Disponíveis para Substituição',
+        'aulas': aulas,
+    }
+    return render(request, 'scheduler/aulas_para_substituir.html', contexto)
 
 
 # --- VIEWS DE GERENCIAMENTO DE ALUNOS ---
@@ -525,10 +549,12 @@ def listar_aulas(request):
         aulas_queryset = aulas_queryset.filter(status=status_filtro)
 
     # 4. Cálculo dos KPIs para os cards de resumo (APÓS todos os filtros serem aplicados)
-    total_aulas_filtradas = aulas_queryset.count()
-    total_realizadas_filtradas = aulas_queryset.filter(status="Realizada").count()
-    total_canceladas_filtradas = aulas_queryset.filter(status="Cancelada").count()
-    total_ausentes_filtradas = aulas_queryset.filter(status="Aluno Ausente").count()
+    aulas_kanban = {
+        'agendada': aulas_queryset.filter(status='Agendada').order_by('data_hora'),
+        'realizada': aulas_queryset.filter(status='Realizada').order_by('-data_hora')[:10], # Limita para as 10 últimas
+        'cancelada': aulas_queryset.filter(status='Cancelada').order_by('-data_hora')[:10],
+        'aluno_ausente': aulas_queryset.filter(status='Aluno Ausente').order_by('-data_hora')[:10],
+    }
 
     # 5. Aplicação da ordenação
     valid_order_fields = {
@@ -575,11 +601,7 @@ def listar_aulas(request):
         "modalidades_list": modalidades_list,
         "status_choices": status_choices,
 
-        # KPIs para os cards de resumo
-        "total_aulas_filtradas": total_aulas_filtradas,
-        "total_realizadas_filtradas": total_realizadas_filtradas,
-        "total_canceladas_filtradas": total_canceladas_filtradas,
-        "total_ausentes_filtradas": total_ausentes_filtradas,
+        "aulas_kanban": aulas_kanban,
     }
 
     return render(request, "scheduler/aula_listar.html", contexto)
@@ -845,7 +867,7 @@ def listar_professores(request):
     # 2. Usamos a Subquery na anotação
     professores_queryset = professores_queryset.annotate(
         total_aulas_realizadas=Count('aulas_validadas_por_mim', distinct=True),
-        total_alunos_unicos=Count('aula__aluno', distinct=True),
+        total_alunos_atendidos=Count('aulas_validadas_por_mim__aula__aluno', distinct=True),
         # A anotação agora usa a Subquery corretamente
         proxima_aula=Subquery(proxima_aula_subquery)
     )
@@ -928,39 +950,49 @@ def detalhe_professor(request, pk):
         return redirect("scheduler:dashboard")
 
     professor = get_object_or_404(CustomUser, pk=pk, tipo__in=['professor', 'admin'])
-
-    # --- NOVO: LER PARÂMETROS DE FILTRO DE DATA ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
+    data_inicial, data_final = None, None
+    aulas_relacionadas = Aula.objects.filter(Q(professor=professor) | Q(relatorioaula__professor_que_validou=professor)).distinct()
 
-    # Queryset base para todas as aulas relacionadas a este professor
-    aulas_relacionadas = Aula.objects.filter(
-        Q(professor=professor) | Q(relatorioaula__professor_que_validou=professor)
-    ).distinct()
-
-    # --- NOVO: APLICAR FILTROS DE DATA AO QUERYSET BASE ---
+    # Converte as datas UMA VEZ
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__gte=data_inicial)
-        except ValueError:
-            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
-
+        except ValueError: pass
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
-        except ValueError:
-            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
-    
+        except ValueError: pass
     # --- A PARTIR DAQUI, TODAS AS CONTAGENS USARÃO O QUERYSET JÁ FILTRADO ---
     
     # KPIs de Status de Aulas
     total_aulas_geral = aulas_relacionadas.count()
-    total_realizadas = aulas_relacionadas.filter(status="Realizada").count()
     total_canceladas = aulas_relacionadas.filter(status="Cancelada").count()
     total_aluno_ausente = aulas_relacionadas.filter(status="Aluno Ausente").count()
     total_agendadas = aulas_relacionadas.filter(status="Agendada").count()
+
+    # NOVA LÓGICA PARA 'AULAS REALIZADAS'
+    # Vamos contar diretamente os relatórios validados pelo professor, respeitando os filtros de data
+    relatorios_do_professor = RelatorioAula.objects.filter(professor_que_validou=professor)
+    if data_inicial:
+        aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__gte=data_inicial)
+        relatorios_do_professor = relatorios_do_professor.filter(aula__data_hora__date__gte=data_inicial)
+    
+    if data_final:
+        aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
+        relatorios_do_professor = relatorios_do_professor.filter(aula__data_hora__date__lte=data_final)
+   
+    
+    # A contagem final e precisa
+    total_realizadas = relatorios_do_professor.count()
+
+    total_substituido = aulas_relacionadas.filter(
+        professor=professor,  # Aulas que foram ATRIBUÍDAS a ele
+        status='Realizada'    # E que foram realizadas...
+    ).exclude(
+        relatorioaula__professor_que_validou=professor # ...mas NÃO por ele.
+    ).count()
 
     # Cálculo da Taxa de Presença
     aulas_contabilizaveis_presenca = total_realizadas + total_aluno_ausente
@@ -1001,6 +1033,7 @@ def detalhe_professor(request, pk):
         "total_canceladas": total_canceladas,
         "total_aluno_ausente": total_aluno_ausente,
         "total_agendadas": total_agendadas,
+        "total_substituido": total_substituido,
         "taxa_presenca": taxa_presenca,
 
         # Listas
@@ -1399,7 +1432,6 @@ def get_horarios_ocupados(request):
 def get_eventos_calendario(request):
     start_str = request.GET.get("start")
     end_str = request.GET.get("end")
-
     professor_filtro_id = request.GET.get("professor_filtro_id", "")
 
     events = []
@@ -1409,82 +1441,53 @@ def get_eventos_calendario(request):
             start_date = datetime.fromisoformat(start_str.replace("Z", "+00:00")).date()
             end_date = datetime.fromisoformat(end_str.replace("Z", "+00:00")).date()
 
-            aulas_no_periodo = Aula.objects.filter(
-                data_hora__date__range=(start_date, end_date)
-            )
+            aulas_no_periodo = Aula.objects.filter(data_hora__date__range=(start_date, end_date))
 
+            # A lógica de filtro por professor continua a mesma...
             if request.user.tipo == "professor":
-                aulas_no_periodo = aulas_no_periodo.filter(
-                    Q(professor=request.user)
-                    | Q(relatorioaula__professor_que_validou=request.user)
-                )
+                aulas_no_periodo = aulas_no_periodo.filter(Q(professor=request.user) | Q(relatorioaula__professor_que_validou=request.user))
             elif request.user.tipo == "admin" and professor_filtro_id:
-                professor_filtro_id = int(professor_filtro_id)
-                aulas_no_periodo = aulas_no_periodo.filter(
-                    Q(professor_id=professor_filtro_id)
-                    | Q(relatorioaula__professor_que_validou_id=professor_filtro_id)
-                )
-            elif request.user.tipo == "admin" and not professor_filtro_id:
-                pass
-
+                aulas_no_periodo = aulas_no_periodo.filter(Q(professor_id=professor_filtro_id) | Q(relatorioaula__professor_que_validou_id=professor_filtro_id))
+            
             aulas_no_periodo = aulas_no_periodo.select_related(
-                "aluno",
-                "professor",
-                "modalidade",
-                "relatorioaula",
-                "relatorioaula__professor_que_validou",
-            )
+                "aluno", "professor", "modalidade", "relatorioaula", "relatorioaula__professor_que_validou"
+            ).distinct()
 
             for aula in aulas_no_periodo:
-                title_parts = [
-                    f"{aula.modalidade.nome.title()} ({aula.aluno.nome_completo})"
-                ]
-                if aula.professor:
-                    title_parts.append(
-                        f"Prof: {aula.professor.username.title()}"
-                    )
+                
+                # --- INÍCIO DA MUDANÇA ---
+                # ANTES:
+                # title_parts = [ f"{aula.modalidade.nome.title()} ({aula.aluno.nome_completo})" ]
+                # if aula.professor: title_parts.append(f"Prof: {aula.professor.username.title()}")
+                # ... etc ...
+                # title = "\n".join(title_parts)
 
-                relatorio_aula_obj = getattr(aula, "relatorioaula", None)
-                professor_que_validou_username = "N/A"
-                if relatorio_aula_obj and relatorio_aula_obj.professor_que_validou:
-                    professor_que_validou_username = (
-                        relatorio_aula_obj.professor_que_validou.username
-                    )
-                    if (
-                        aula.professor
-                        and relatorio_aula_obj.professor_que_validou != aula.professor
-                    ):
-                        title_parts.append(
-                            f"Realizado por: {professor_que_validou_username}"
-                        )
+                # DEPOIS (MAIS LIMPO):
+                # Pega apenas o primeiro nome do aluno para economizar espaço
+                primeiro_nome_aluno = aula.aluno.nome_completo.split()[0].title()
+                title = f"{primeiro_nome_aluno} ({aula.modalidade.nome.title()})"
+                # --- FIM DA MUDANÇA ---
 
+                # O resto da lógica para extendedProps e classNames continua igual
                 event_class = f'status-{aula.status.replace(" ", "")}'
-
-                events.append(
-                    {
-                        "title": "\n".join(
-                            title_parts
-                        ),  # <--- AQUI O '\n' É USADO PARA JUNTAR AS PARTES DO TÍTULO
-                        "start": aula.data_hora.isoformat(),
-                        "url": f"/aula/{aula.pk}/validar/",
-                        "classNames": [event_class],
-                        "extendedProps": {
-                            "status": aula.status,
-                            "aluno": aula.aluno.nome_completo,
-                            "professor_atribuido": (
-                                aula.professor.username if aula.professor else "N/A"
-                            ),
-                            "professor_realizou": professor_que_validou_username,
-                            "modalidade": aula.modalidade.nome,
-                        },
-                    }
-                )
+                professor_realizou = getattr(aula, 'relatorioaula', None) and getattr(aula.relatorioaula, 'professor_que_validou', None)
+                
+                events.append({
+                    "title": title, # <-- Usamos o novo título simplificado
+                    "start": aula.data_hora.isoformat(),
+                    "url": f"/aula/{aula.pk}/validar/",
+                    "classNames": [event_class],
+                    "extendedProps": {
+                        "status": aula.status,
+                        "aluno": aula.aluno.nome_completo,
+                        "professor_atribuido": aula.professor.username if aula.professor else "N/A",
+                        "professor_realizou": professor_realizou.username if professor_realizou else "N/A",
+                        "modalidade": aula.modalidade.nome,
+                    },
+                })
 
             return JsonResponse(events, safe=False)
-
         except (ValueError, TypeError) as e:
-            return JsonResponse(
-                {"error": f"Dados de data inválidos ou erro interno: {e}"}, status=400
-            )
+            return JsonResponse({"error": f"Dados de data inválidos ou erro interno: {e}"}, status=400)
 
     return JsonResponse({"error": "Período não fornecido."}, status=400)
