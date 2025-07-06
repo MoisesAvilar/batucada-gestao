@@ -3,47 +3,16 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h1>{{ titulo }}</h1>
-  <div> {# Agrupa os botões #}
+  <div>
     {% if user.tipo == 'admin' %}
-    <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary me-2"> {# Adicionado me-2 para espaçamento #}
-      <i class="bi bi-plus-circle"></i> Agendar Nova Aula
-    </a>
-    <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success"> {# NOVO BOTÃO DE EXPORTAR #}
-      <i class="bi bi-file-earmark-arrow-down"></i> Exportar CSV
-    </a>
+      <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary me-2"><i class="bi bi-plus-circle"></i> Agendar Aula</a>
+      {# O botão de exportar agora passa todos os filtros atuais de forma dinâmica #}
+      <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success">
+        <i class="bi bi-file-earmark-arrow-down"></i> Exportar
+      </a>
     {% endif %}
   </div>
 </div>
-
-{# BARRA DE BUSCA E FILTROS DE DATA #}
-<div class="mb-3 card p-3 shadow-sm">
-    <form method="GET" action="{% url 'scheduler:aula_listar' %}" class="d-flex flex-wrap align-items-end"> 
-        <div class="col-md-6 mb-2 mb-md-0"> 
-            <label for="id_q" class="form-label">Termo de Busca</label> 
-            <input type="text" id="id_q" name="q" class="form-control" placeholder="Aluno, professor, modalidade..." value="{{ search_query }}">
-        </div>
-        <div class="col-md-3 mb-2 mb-md-0">
-            <label for="id_data_inicial" class="form-label">Data Inicial</label>
-            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
-        </div>
-        <div class="col-md-3">
-            <label for="id_data_final" class="form-label">Data Final</label>
-            <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
-        </div>
-
-        <div class="col-12 d-flex justify-content-end mt-3"> 
-            <button class="btn btn-outline-secondary me-2" type="submit">
-                <i class="bi bi-search"></i> Buscar
-            </button>
-            {% if search_query or data_inicial or data_final %} 
-                <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-danger">
-                    <i class="bi bi-x-circle"></i> Limpar Filtros
-                </a>
-            {% endif %}
-        </div>
-    </form>
-</div>
-{# FIM BARRA DE BUSCA E FILTROS DE DATA #}
 
 {% if messages %}
     {% for message in messages %}
@@ -54,195 +23,61 @@
     {% endfor %}
 {% endif %}
 
+<div class="card p-3 shadow-sm mb-4">
+    <form method="GET" action="{% url 'scheduler:aula_listar' %}"> 
+        <div class="row g-3 align-items-end">
+            <div class="col-md-12 col-lg-4">
+                <label for="id_q" class="form-label">Busca por Termo</label> 
+                <input type="text" id="id_q" name="q" class="form-control" placeholder="Aluno, professor..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-6 col-lg-2">
+                <label for="id_data_inicial" class="form-label">De:</label>
+                <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
+            </div>
+            <div class="col-md-6 col-lg-2">
+                <label for="id_data_final" class="form-label">Até:</label>
+                <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
+            </div>
+            {% if user.tipo == 'admin' %}
+            <div class="col-md-4 col-lg-4">
+                <label for="id_professor_filtro" class="form-label">Professor</label>
+                <select id="id_professor_filtro" name="professor_filtro" class="form-select">
+                    <option value="">Todos</option>
+                    {% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"s" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-4 col-lg-4">
+                <label for="id_modalidade_filtro" class="form-label">Modalidade</label>
+                <select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select">
+                    <option value="">Todas</option>
+                    {% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"s" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-4">
+                <label for="id_status_filtro" class="form-label">Status</label>
+                <select id="id_status_filtro" name="status_filtro" class="form-select">
+                    <option value="">Todos</option>
+                    {% for value, label in status_choices %}<option value="{{ value }}" {% if value == status_filtro %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex justify-content-end mt-3">
+                <button class="btn btn-primary me-2" type="submit"><i class="bi bi-filter"></i> Filtrar</button>
+                <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary"><i class="bi bi-x-circle"></i> Limpar</a>
+            </div>
+        </div>
+    </form>
+</div>
+<div class="row mb-4">
+    <div class="col-md-3"><div class="card text-center text-bg-secondary"><div class="card-body"><h5 class="card-title">Total de Aulas no Filtro</h5><p class="card-text fs-4 fw-bold">{{ total_aulas_filtradas }}</p></div></div></div>
+    <div class="col-md-3"><div class="card text-center text-bg-success"><div class="card-body"><h5 class="card-title">Aulas Realizadas</h5><p class="card-text fs-4 fw-bold">{{ total_realizadas_filtradas }}</p></div></div></div>
+    <div class="col-md-3"><div class="card text-center text-bg-warning"><div class="card-body"><h5 class="card-title">Alunos Ausentes</h5><p class="card-text fs-4 fw-bold">{{ total_ausentes_filtradas }}</p></div></div></div>
+    <div class="col-md-3"><div class="card text-center text-bg-danger"><div class="card-body"><h5 class="card-title">Aulas Canceladas</h5><p class="card-text fs-4 fw-bold">{{ total_canceladas_filtradas }}</p></div></div></div>
+</div>
 <div class="card shadow-sm">
   <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">
-              <a href="?order_by=aluno&direction={% if order_by == 'aluno' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Aluno
-                {% if order_by == 'aluno' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col">
-              <a href="?order_by=modalidade&direction={% if order_by == 'modalidade' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Modalidade
-                {% if order_by == 'modalidade' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col">
-              <a href="?order_by=professor_atribuido&direction={% if order_by == 'professor_atribuido' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Professor Atribuído
-                {% if order_by == 'professor_atribuido' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col">
-              <a href="?order_by=professor_realizou&direction={% if order_by == 'professor_realizou' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Professor Realizou
-                {% if order_by == 'professor_realizou' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col">
-              <a href="?order_by=data_hora&direction={% if order_by == 'data_hora' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Data e Hora
-                {% if order_by == 'data_hora' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col">
-              <a href="?order_by=status&direction={% if order_by == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}" 
-                 class="text-decoration-none text-dark">
-                Status
-                {% if order_by == 'status' %}
-                  {% if direction == 'asc' %}<i class="bi bi-caret-up-fill"></i>{% else %}<i class="bi bi-caret-down-fill"></i>{% endif %}
-                {% endif %}
-              </a>
-            </th>
-            <th scope="col" class="text-end">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for aula in aulas %}
-          <tr>
-            <td>
-                <a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}">{{ aula.aluno.nome_completo|title }}</a>
-            </td>
-            <td>{{ aula.modalidade.nome|title }}</td>
-            <td>
-              {% if aula.professor %}
-                <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}" class="text-decoration-none text-dark">
-                  {% if user.tipo == 'professor' and aula.professor == request.user %}
-                    <span class="badge bg-primary">Eu</span>
-                  {% else %}
-                    {{ aula.professor.username|title }}
-                  {% endif %}
-                </a>
-              {% else %}
-                Não Atribuído
-              {% endif %}
-            </td>
-            <td>
-              {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
-                <a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}" class="text-decoration-none text-dark">
-                  {% if user.tipo == 'professor' and aula.relatorioaula.professor_que_validou == request.user %}
-                    <span class="badge bg-primary">Eu</span>
-                  {% else %}
-                    {{ aula.relatorioaula.professor_que_validou.username|title }}
-                  {% endif %}
-                </a>
-              {% else %}
-                <span class="text-muted small">Aguardando Validação</span>
-              {% endif %}
-            </td>
-            <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
-            <td>
-              {% if aula.status == 'Agendada' %}
-                <span class="badge bg-info text-dark">{{ aula.status }}</span>
-              {% elif aula.status == 'Realizada' %}
-                <span class="badge bg-success">{{ aula.status }}</span>
-              {% elif aula.status == 'Cancelada' %}
-                <span class="badge bg-danger">{{ aula.status }}</span>
-              {% elif aula.status == 'Aluno Ausente' %}
-                <span class="badge bg-warning text-dark">{{ aula.status }}</span>
-              {% else %}
-                <span class="badge bg-secondary">{{ aula.status }}</span>
-              {% endif %}
-            </td>
-            <td class="text-end">
-              {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
-                  <i class="bi bi-pencil-square"></i>
-                </a>
-                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
-                  <i class="bi bi-file-earmark-text"></i>
-                </a>
-                <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
-                  <i class="bi bi-trash"></i>
-                </a>
-              {% else %} {# É professor #}
-                {% if aula.status == 'Agendada' %}
-                    {% if aula.professor == request.user %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
-                            <i class="bi bi-check-circle"></i> Validar Aula
-                        </a>
-                    {% else %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning" title="Substituir e Validar">
-                            <i class="bi bi-person-replace"></i> Substituir
-                        </a>
-                    {% endif %}
-                {% elif aula.status == 'Realizada' %}
-                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório">
-                        <i class="bi bi-eye"></i> Ver Relatório
-                    </a>
-                {% else %} {# Cancelada ou outro status #}
-                    <span class="text-muted small">N/A</span>
-                {% endif %}
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      {# Controles de Paginação #}
-      {% if aulas.has_other_pages %}
-        <nav aria-label="Navegação de Páginas">
-          <ul class="pagination justify-content-center">
-            {% if aulas.has_previous %}
-              <li class="page-item">
-                <a class="page-link" href="?page={{ aulas.previous_page_number }}&order_by={{ order_by }}&direction={{ direction }}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}">Anterior</a>
-              </li>
-            {% else %}
-              <li class="page-item disabled">
-                <span class="page-link">Anterior</span>
-              </li>
-            {% endif %}
-
-            {% for i in aulas.paginator.page_range %}
-              {% if aulas.number == i %}
-                <li class="page-item active" aria-current="page">
-                  <span class="page-link">{{ i }}</span>
-                </li>
-              {% else %}
-                <li class="page-item">
-                  <a class="page-link" href="?page={{ i }}&order_by={{ order_by }}&direction={{ direction }}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}">{{ i }}</a>
-                </li>
-              {% endif %}
-            {% endfor %}
-
-            {% if aulas.has_next %}
-              <li class="page-item">
-                <a class="page-link" href="?page={{ aulas.next_page_number }}&order_by={{ order_by }}&direction={{ direction }}{% if search_query %}&q={{ search_query }}{% endif %}{% if data_inicial %}&data_inicial={{ data_inicial }}{% endif %}{% if data_final %}&data_final={{ data_final }}{% endif %}">Próximo</a>
-              </li>
-            {% else %}
-              <li class="page-item disabled">
-                <span class="page-link">Próximo</span>
-              </li>
-            {% endif %}
-          </ul>
-        </nav>
-      {% endif %}
-    </div>
+    {% include 'scheduler/partials/aula_table.html' with aulas=aulas %}
   </div>
 </div>
+
 {% endblock %}

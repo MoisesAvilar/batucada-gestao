@@ -2,182 +2,205 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ titulo|title }}</h1>
-  {% if user.tipo == 'admin' %}
-  <div>
-      <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-primary me-2">
-          <i class="bi bi-pencil-square"></i> Editar Professor
-      </a>
-      <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-danger">
-          <i class="bi bi-trash"></i> Excluir Professor
-      </a>
-  </div>
-  {% endif %}
+    <h1>{{ titulo|title }}</h1>
+    {% if user.tipo == 'admin' %}
+    <div>
+        <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-primary me-2"><i class="bi bi-pencil-square"></i> Editar</a>
+        <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-danger"><i class="bi bi-trash"></i> Excluir</a>
+    </div>
+    {% endif %}
 </div>
 
-<div class="card mb-4 shadow-sm">
-    <div class="card-header">
-        <h5>Informações do Professor</h5>
+    {# --- INÍCIO DO FORMULÁRIO DE FILTRO DE DATA --- #}
+<div class="card p-3 shadow-sm mb-4">
+    <form method="GET" action="{{ request.path }}" class="row align-items-end g-3">
+        <div class="col-md-5">
+            <label for="id_data_inicial" class="form-label">Filtrar de:</label>
+            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
+        </div>
+        <div class="col-md-5">
+            <label for="id_data_final" class="form-label">Até:</label>
+            <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
+        </div>
+        <div class="col-md-2 d-flex">
+            <button class="btn btn-outline-secondary w-100 me-2" type="submit" title="Aplicar Filtro">
+                <i class="bi bi-search"></i>
+            </button>
+            {# Mostra o botão de limpar apenas se um filtro estiver ativo #}
+            {% if data_inicial or data_final %}
+                <a href="{{ request.path }}" class="btn btn-outline-danger w-100" title="Limpar Filtro">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{# --- FIM DO FORMULÁRIO DE FILTRO DE DATA --- #}
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Aulas Realizadas</h5>
+                        <h2 class="display-6">{{ total_realizadas }}</h2>
+                    </div>
+                    <i class="bi bi-check2-circle fs-1"></i>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <p><strong>Nome de Usuário:</strong> {{ professor.username|title }}</p>
-        <p><strong>Nome Completo:</strong> {{ professor.get_full_name|default:"Não informado" }}</p>
-        <p><strong>Email:</strong> {{ professor.email|default:"Não informado" }}</p>
-        <p><strong>Tipo de Usuário:</strong> {{ professor.tipo|capfirst }}</p>
-        <p><strong>Membro Desde:</strong> {{ professor.date_joined|date:"d/m/Y H:i" }}</p>
-        <p><strong>Ativo:</strong> 
-            {% if professor.is_active %}
-                <span class="badge bg-success">Sim</span>
-            {% else %}
-                <span class="badge bg-danger">Não</span>
-            {% endif %}
-        </p>
-        <p><strong>Staff (Acesso Admin):</strong> 
-            {% if professor.is_staff %}
-                <span class="badge bg-success">Sim</span>
-            {% else %}
-                <span class="badge bg-danger">Não</span>
-            {% endif %}
-        </p>
+    <div class="col-md-3">
+        <div class="card text-white bg-info shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Aulas Agendadas</h5>
+                        <h2 class="display-6">{{ total_agendadas }}</h2>
+                    </div>
+                    <i class="bi bi-calendar-event fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning shadow">
+            <div class="card-body">
+                 <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Alunos Ausentes</h5>
+                        <h2 class="display-6">{{ total_aluno_ausente }}</h2>
+                    </div>
+                    <i class="bi bi-person-x fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title">Aulas Canceladas</h5>
+                        <h2 class="display-6">{{ total_canceladas }}</h2>
+                    </div>
+                    <i class="bi bi-x-octagon fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h5>Resumo Geral</h5></div>
+            <div class="card-body">
+                <strong>Taxa de Presença:</strong>
+<div class="progress my-2" style="height: 25px;">
+    <div class="progress-bar bg-success fw-bold" role="progressbar" 
+         style="width: {{ taxa_presenca|floatformat:0 }}%;" {# Arredonda a largura para o inteiro mais próximo #}
+         aria-valuenow="{{ taxa_presenca|floatformat:0 }}" 
+         aria-valuemin="0" aria-valuemax="100">
+            {# Mostra o valor com uma casa decimal e vírgula #}
+            {{ taxa_presenca|floatformat:"-1" }}%
     </div>
 </div>
 
-{# ALTERADO AQUI: Contagem de aulas #}
-<h3 class="mb-3">Histórico de Aulas ({{ total_aulas_atribuidas }} atribuídas / {{ total_aulas_realizadas }} realizadas)</h3>
+                <h6 class="mt-4">Top Alunos:</h6>
+                <ul class="list-group list-group-flush">
+                    {% for aluno in top_alunos %}
+                        <li class="list-group-item">{{ aluno.aluno__nome_completo|title }} <span class="badge bg-secondary float-end">{{ aluno.contagem }} aulas</span></li>
+                    {% empty %}
+                        <li class="list-group-item text-muted">Nenhum aluno recorrente.</li>
+                    {% endfor %}
+                </ul>
 
+                <h6 class="mt-4">Top Modalidades:</h6>
+                <ul class="list-group list-group-flush">
+                    {% for modalidade in top_modalidades %}
+                        <li class="list-group-item">{{ modalidade.modalidade__nome|title }} <span class="badge bg-secondary float-end">{{ modalidade.contagem }} aulas</span></li>
+                    {% empty %}
+                         <li class="list-group-item text-muted">Nenhuma modalidade recorrente.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <h5>Distribuição de Status das Aulas</h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+<h3 class="mt-5 mb-3">Histórico de Aulas Recentes</h3>
 <div class="card shadow-sm">
   <div class="card-body">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">Aluno</th>
-            <th scope="col">Modalidade</th>
-            <th scope="col">Professor Atribuído</th>
-            <th scope="col">Professor Realizou</th>
-            <th scope="col">Data e Hora</th>
-            <th scope="col">Status</th>
-            <th scope="col" class="text-end">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for aula in aulas_do_professor %}
-          <tr>
-            <td>
-                <a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}">{{ aula.aluno.nome_completo|title }}</a>
-            </td>
-            <td>{{ aula.modalidade.nome|title }}</td>
-            <td>
-              {% if user.tipo == 'professor' and aula.professor == request.user %}
-                <span class="badge bg-primary">Eu</span>
-              {% else %}
-                {{ aula.professor.username|title }}
-              {% endif %}
-            </td>
-            <td>
-              {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
-                {% if user.tipo == 'professor' and aula.relatorioaula.professor_que_validou == request.user %}
-                  <span class="badge bg-primary">Eu</span>
-                {% else %}
-                  {{ aula.relatorioaula.professor_que_validou.username|title }}
-                {% endif %}
-              {% else %}
-                <span class="text-muted small">Aguardando Validação</span>
-              {% endif %}
-            </td>
-            <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
-            <td>
-              {% if aula.status == 'Agendada' %}
-                <span class="badge bg-info text-dark">{{ aula.status }}</span>
-              {% elif aula.status == 'Realizada' %}
-                <span class="badge bg-success">{{ aula.status }}</span>
-              {% elif aula.status == 'Cancelada' %}
-                <span class="badge bg-danger">{{ aula.status }}</span>
-              {% elif aula.status == 'Aluno Ausente' %}
-                <span class="badge bg-warning text-dark">{{ aula.status }}</span>
-              {% else %}
-                <span class="badge bg-secondary">{{ aula.status }}</span>
-              {% endif %}
-            </td>
-            <td class="text-end">
-              {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
-                  <i class="bi bi-pencil-square"></i>
-                </a>
-                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
-                  <i class="bi bi-file-earmark-text"></i>
-                </a>
-                <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
-                  <i class="bi bi-trash"></i>
-                </a>
-              {% else %} {# É professor #}
-                {% if aula.status == 'Agendada' %}
-                    {% if aula.professor == request.user %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
-                            <i class="bi bi-check-circle"></i> Validar Aula
-                        </a>
-                    {% else %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning" title="Substituir e Validar">
-                            <i class="bi bi-person-replace"></i> Substituir
-                        </a>
-                    {% endif %}
-                {% elif aula.status == 'Realizada' %}
-                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório">
-                        <i class="bi bi-eye"></i> Ver Relatório
-                    </a>
-                {% else %} {# Cancelada ou outro status #}
-                    <span class="text-muted small">N/A</span>
-                {% endif %}
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada para este professor.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      {# Controles de Paginação para aulas do professor #}
-      {% if aulas_do_professor.has_other_pages %}
-        <nav aria-label="Navegação de Páginas das Aulas">
-          <ul class="pagination justify-content-center">
-            {% if aulas_do_professor.has_previous %}
-              <li class="page-item">
-                <a class="page-link" href="?page={{ aulas_do_professor.previous_page_number }}">Anterior</a>
-              </li>
-            {% else %}
-              <li class="page-item disabled">
-                <span class="page-link">Anterior</span>
-              </li>
-            {% endif %}
-
-            {% for i in aulas_do_professor.paginator.page_range %}
-              {% if aulas_do_professor.number == i %}
-                <li class="page-item active" aria-current="page">
-                  <span class="page-link">{{ i }}</span>
-                </li>
-              {% else %}
-                <li class="page-item">
-                  <a class="page-link" href="?page={{ i }}">{{ i }}</a>
-                </li>
-              {% endif %}
-            {% endfor %}
-
-            {% if aulas_do_professor.has_next %}
-              <li class="page-item">
-                <a class="page-link" href="?page={{ aulas_do_professor.next_page_number }}">Próximo</a>
-              </li>
-            {% else %}
-              <li class="page-item disabled">
-                <span class="page-link">Próximo</span>
-              </li>
-            {% endif %}
-          </ul>
-        </nav>
-      {% endif %}
-    </div>
+      {# ADICIONE os parâmetros de data aqui para passá-los para o template da tabela #}
+      {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_professor data_inicial=data_inicial data_final=data_final %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Script para renderizar o gráfico de status de aulas
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('statusChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Realizadas', 'Agendadas', 'Ausências', 'Canceladas'],
+                datasets: [{
+                    label: 'Total de Aulas',
+                    data: [
+                        {{ total_realizadas }}, 
+                        {{ total_agendadas }},
+                        {{ total_aluno_ausente }},
+                        {{ total_canceladas }}
+                    ],
+                    backgroundColor: [
+                        'rgba(25, 135, 84, 0.7)',  // Verde (Success)
+                        'rgba(13, 202, 240, 0.7)',  // Azul (Info)
+                        'rgba(255, 193, 7, 0.7)',   // Amarelo (Warning)
+                        'rgba(220, 53, 69, 0.7)'    // Vermelho (Danger)
+                    ],
+                    borderColor: [
+                        'rgba(25, 135, 84, 1)',
+                        'rgba(13, 202, 240, 1)',
+                        'rgba(255, 193, 7, 1)',
+                        'rgba(220, 53, 69, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false // Esconde a legenda, pois as cores são autoexplicativas
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            // Garante que o eixo Y só mostre números inteiros
+                            stepSize: 1 
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

@@ -1,0 +1,39 @@
+{# Este template controla quais botões de ação são exibidos para cada aula na tabela. #}
+
+{% comment %} Lógica para o usuário ADMIN {% endcomment %}
+{% if user.tipo == 'admin' %}
+    <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
+        <i class="bi bi-pencil-square"></i>
+    </a>
+    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
+        <i class="bi bi-file-earmark-text"></i>
+    </a>
+    <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir Aula">
+        <i class="bi bi-trash"></i>
+    </a>
+
+{% comment %} Lógica para o usuário PROFESSOR {% endcomment %}
+{% else %} 
+    {% if aula.status == 'Agendada' %}
+        {# Se a aula está agendada para o professor logado, ele pode validar. #}
+        {% if aula.professor == request.user %}
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
+                <i class="bi bi-check-circle"></i> Validar Aula
+            </a>
+        {# Se a aula está agendada para OUTRO professor, ele pode substituir. #}
+        {% else %}
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning" title="Substituir e Validar">
+                <i class="bi bi-person-replace"></i> Substituir
+            </a>
+        {% endif %}
+
+    {% elif aula.status == 'Realizada' %}
+        {# Se a aula já foi realizada, qualquer professor pode ver o relatório. #}
+        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório">
+            <i class="bi bi-eye"></i> Ver Relatório
+        </a>
+    
+    {% else %} {# Para status 'Cancelada', 'Aluno Ausente', etc. #}
+        <span class="text-muted small">N/A</span>
+    {% endif %}
+{% endif %}

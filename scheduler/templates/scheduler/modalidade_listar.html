@@ -17,35 +17,77 @@
     {% endfor %}
 {% endif %}
 
+<div class="card p-3 shadow-sm mb-4">
+    <form method="GET" action="{% url 'scheduler:modalidade_listar' %}" class="d-flex align-items-end">
+        <div class="flex-grow-1 me-2">
+            <label for="id_q" class="form-label">Buscar Modalidade</label>
+            <input type="text" id="id_q" name="q" class="form-control" placeholder="Nome da modalidade..." value="{{ search_query }}">
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i> Buscar</button>
+            {% if search_query %}
+                <a href="{% url 'scheduler:modalidade_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-circle"></i></a>
+            {% endif %}
+        </div>
+    </form>
+</div>
 <div class="card shadow-sm">
   <div class="card-body">
-    <table class="table table-hover">
-      <thead>
-        <tr>
-          <th scope="col">Nome da Modalidade</th>
-          <th scope="col" class="text-end">Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for modalidade in modalidades %}
-        <tr>
-          <td>{{ modalidade.nome|title }}</td>
-          <td class="text-end">
-            <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-pencil-square"></i> Editar
-            </a>
-            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">
-              <i class="bi bi-trash"></i> Excluir
-            </a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="2" class="text-center text-muted">Nenhuma modalidade cadastrada.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Nome da Modalidade</th>
+              <th scope="col" class="text-center">Total de Aulas</th>
+              <th scope="col" class="text-center">Alunos Ativos</th>
+              <th scope="col">Próxima Aula Agendada</th>
+              <th scope="col" class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for modalidade in modalidades %}
+            <tr>
+              <td class="fw-bold">
+                <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}">
+                    {{ modalidade.nome|title }}
+                </a>
+              </td>
+              <td class="text-center">
+                <span class="badge bg-primary fs-6">{{ modalidade.total_aulas }}</span>
+              </td>
+              <td class="text-center">
+                <span class="badge bg-success fs-6">{{ modalidade.alunos_ativos }}</span>
+              </td>
+              <td>
+                {% if modalidade.proxima_aula %}
+                    {{ modalidade.proxima_aula|date:"d/m/Y, H:i" }}
+                {% else %}
+                    <span class="text-muted small">Nenhuma agendada</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                  <i class="bi bi-pencil-square"></i>
+                </a>
+                <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
+                  <i class="bi bi-trash"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">
+                {% if search_query %}
+                    Nenhuma modalidade encontrada para a busca "{{ search_query }}".
+                {% else %}
+                    Nenhuma modalidade cadastrada.
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -14,8 +14,10 @@ from .forms import (
 )
 from django.contrib import messages
 import calendar
-from django.db.models import Q, Count
 from datetime import datetime
+from django.utils import timezone
+from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery
+from django.db.models.functions import TruncMonth
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse, HttpResponse
 import csv
@@ -321,8 +323,41 @@ def excluir_aula(request, pk):
 # --- VIEWS DE GERENCIAMENTO DE ALUNOS ---
 @user_passes_test(is_admin)
 def listar_alunos(request):
-    alunos = Aluno.objects.all().order_by("nome_completo")
-    contexto = {"alunos": alunos, "titulo": "Gerenciamento de Alunos"}
+    # --- NOVO: Lógica de Busca ---
+    search_query = request.GET.get("q", "")
+
+    # Define a data/hora atual para encontrar a "próxima" aula
+    now = timezone.now()
+
+    # Queryset base anotado para incluir dados extras
+    alunos_queryset = Aluno.objects.annotate(
+        # Conta o total de aulas associadas a cada aluno
+        total_aulas=Count('aula'),
+        # Encontra a data mínima (mais próxima) de uma aula que ainda vai acontecer
+        proxima_aula=Min(
+            Case(
+                When(aula__data_hora__gte=now, then='aula__data_hora'),
+                default=None
+            )
+        )
+    )
+
+    # Aplica o filtro de busca se houver um termo
+    if search_query:
+        alunos_queryset = alunos_queryset.filter(
+            Q(nome_completo__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(telefone__icontains=search_query)
+        )
+    
+    # Ordena o resultado final pelo nome do aluno
+    alunos = alunos_queryset.order_by("nome_completo")
+
+    contexto = {
+        "alunos": alunos,
+        "titulo": "Gerenciamento de Alunos",
+        "search_query": search_query, # Passa o termo de busca para o template
+    }
     return render(request, "scheduler/aluno_listar.html", contexto)
 
 
@@ -374,9 +409,43 @@ def excluir_aluno(request, pk):
 @login_required
 def detalhe_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
-    aulas_do_aluno = Aula.objects.filter(aluno=aluno).order_by("-data_hora")
+    
+    # Queryset base com todas as aulas do aluno
+    aulas_do_aluno = Aula.objects.filter(aluno=aluno)
 
-    paginator = Paginator(aulas_do_aluno, 5)
+    # --- INÍCIO DA COLETA DE DADOS PARA O DASHBOARD DO ALUNO ---
+    
+    # 1. KPIs de Status
+    total_aulas = aulas_do_aluno.count()
+    total_realizadas = aulas_do_aluno.filter(status="Realizada").count()
+    total_canceladas = aulas_do_aluno.filter(status="Cancelada").count()
+    total_aluno_ausente = aulas_do_aluno.filter(status="Aluno Ausente").count()
+    total_agendadas = aulas_do_aluno.filter(status="Agendada").count()
+
+    # 2. Cálculo da Taxa de Presença
+    aulas_contabilizaveis_presenca = total_realizadas + total_aluno_ausente
+    taxa_presenca = 0
+    if aulas_contabilizaveis_presenca > 0:
+        taxa_presenca = (total_realizadas / aulas_contabilizaveis_presenca) * 100
+
+    # 3. Top Professores e Modalidades (filtrando apenas aulas com professor)
+    top_professores = (
+        aulas_do_aluno.filter(professor__isnull=False)
+        .values("professor__username")
+        .annotate(contagem=Count("professor"))
+        .order_by("-contagem")[:3]
+    )
+
+    top_modalidades = (
+        aulas_do_aluno.values("modalidade__nome")
+        .annotate(contagem=Count("modalidade"))
+        .order_by("-contagem")[:3]
+    )
+
+    # --- FIM DA COLETA DE DADOS ---
+
+    # Paginação para a tabela de histórico (seu código existente)
+    paginator = Paginator(aulas_do_aluno.order_by("-data_hora"), 5) # Ordena o queryset para paginação
     page = request.GET.get("page")
     try:
         aulas_do_aluno_paginated = paginator.page(page)
@@ -385,23 +454,83 @@ def detalhe_aluno(request, pk):
     except EmptyPage:
         aulas_do_aluno_paginated = paginator.page(paginator.num_pages)
 
+    # Contexto final com todos os novos dados
     contexto = {
         "aluno": aluno,
         "aulas_do_aluno": aulas_do_aluno_paginated,
         "titulo": f"Perfil do Aluno: {aluno.nome_completo}",
+        
+        # Novos KPIs para o dashboard
+        "total_aulas": total_aulas,
+        "total_realizadas": total_realizadas,
+        "total_canceladas": total_canceladas,
+        "total_aluno_ausente": total_aluno_ausente,
+        "total_agendadas": total_agendadas,
+        "taxa_presenca": taxa_presenca,
+
+        # Novas Listas
+        "top_professores": top_professores,
+        "top_modalidades": top_modalidades,
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
 
 
 @login_required
 def listar_aulas(request):
-    # Parâmetros de ordenação e busca existentes
+    # 1. Obtenção de todos os parâmetros de filtro e ordenação da URL
     order_by = request.GET.get("order_by", "data_hora")
     direction = request.GET.get("direction", "asc")
     search_query = request.GET.get("q", "")
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
+    professor_filtro_id = request.GET.get("professor_filtro", "")
+    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
+    status_filtro = request.GET.get("status_filtro", "")
 
+    # 2. Definição do queryset base, diferenciando Admin de Professor
+    if request.user.tipo == "admin":
+        aulas_queryset = Aula.objects.all()
+        contexto_titulo = "Histórico Geral de Aulas"
+    else:  # Professor
+        aulas_queryset = Aula.objects.filter(
+            Q(professor=request.user) | Q(relatorioaula__professor_que_validou=request.user)
+        ).distinct()
+        contexto_titulo = "Meu Histórico de Aulas"
+
+    # 3. Aplicação de todos os filtros ao queryset base
+    if search_query:
+        aulas_queryset = aulas_queryset.filter(
+            Q(aluno__nome_completo__icontains=search_query) |
+            Q(professor__username__icontains=search_query) |
+            Q(modalidade__nome__icontains=search_query) |
+            Q(relatorioaula__professor_que_validou__username__icontains=search_query)
+        )
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
+        except ValueError:
+            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
+        except ValueError:
+            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
+    if professor_filtro_id:
+        aulas_queryset = aulas_queryset.filter(Q(professor_id=professor_filtro_id) | Q(relatorioaula__professor_que_validou_id=professor_filtro_id))
+    if modalidade_filtro_id:
+        aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
+    if status_filtro:
+        aulas_queryset = aulas_queryset.filter(status=status_filtro)
+
+    # 4. Cálculo dos KPIs para os cards de resumo (APÓS todos os filtros serem aplicados)
+    total_aulas_filtradas = aulas_queryset.count()
+    total_realizadas_filtradas = aulas_queryset.filter(status="Realizada").count()
+    total_canceladas_filtradas = aulas_queryset.filter(status="Cancelada").count()
+    total_ausentes_filtradas = aulas_queryset.filter(status="Aluno Ausente").count()
+
+    # 5. Aplicação da ordenação
     valid_order_fields = {
         "aluno": "aluno__nome_completo",
         "modalidade": "modalidade__nome",
@@ -410,75 +539,48 @@ def listar_aulas(request):
         "data_hora": "data_hora",
         "status": "status",
     }
-
-    if order_by not in valid_order_fields:
-        order_by = "data_hora"
-
-    order_field = valid_order_fields[order_by]
-
+    order_field = valid_order_fields.get(order_by, "data_hora")
     if direction == "desc":
-        order_field = "-" + order_field
-
-    # AULAS_QUERYSET AJUSTADO AQUI
-    if request.user.tipo == "admin":
-        aulas_queryset = Aula.objects.all()  # Admin vê todas
-        contexto_titulo = "Histórico Geral de Aulas"
-    else:  # Se não for admin, é professor
-        # Professor vê APENAS as aulas atribuídas a ele OU que ele realizou
-        aulas_queryset = Aula.objects.filter(
-            Q(professor=request.user)
-            | Q(relatorioaula__professor_que_validou=request.user)
-        )
-        contexto_titulo = "Meu Histórico de Aulas"
-
-    # Aplica o filtro de busca textual se houver um termo
-    if search_query:
-        aulas_queryset = aulas_queryset.filter(
-            Q(aluno__nome_completo__icontains=search_query)
-            | Q(professor__username__icontains=search_query)
-            | Q(modalidade__nome__icontains=search_query)
-            | Q(status__icontains=search_query)
-            # A busca no professor_que_validou é importante aqui também
-            | Q(relatorioaula__professor_que_validou__username__icontains=search_query)
-        )
-
-    # Aplica o filtro de data se houver data_inicial e/ou data_final
-    if data_inicial_str:
-        try:
-            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
-        except ValueError:
-            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
-
-    if data_final_str:
-        try:
-            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
-        except ValueError:
-            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
-
+        order_field = f"-{order_field}"
+    
     aulas_queryset = aulas_queryset.order_by(order_field)
 
+    # 6. Paginação do resultado final
     paginator = Paginator(aulas_queryset, 10)
-    page = request.GET.get("page")
-    try:
-        aulas = paginator.page(page)
-    except PageNotAnInteger:
-        aulas = paginator.page(1)
-    except EmptyPage:
-        aulas = paginator.page(paginator.num_pages)
+    page_number = request.GET.get("page")
+    aulas = paginator.get_page(page_number)
 
+    # 7. Preparação de dados para popular os dropdowns de filtro no template
+    professores_list = CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username")
+    modalidades_list = Modalidade.objects.all().order_by("nome")
+    status_choices = Aula.STATUS_AULA_CHOICES
+
+    # 8. Montagem final do contexto que será enviado para o template
     contexto = {
         "aulas": aulas,
-        "titulo": contexto_titulo,  # Título dinâmico
+        "titulo": contexto_titulo,
         "order_by": order_by,
         "direction": direction,
+        
+        # Valores dos filtros para preencher o formulário
         "search_query": search_query,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
-    }
+        "professor_filtro": professor_filtro_id,
+        "modalidade_filtro": modalidade_filtro_id,
+        "status_filtro": status_filtro,
+        
+        # Listas para popular os dropdowns
+        "professores_list": professores_list,
+        "modalidades_list": modalidades_list,
+        "status_choices": status_choices,
 
-    # Removemos o if request.user.tipo != "admin" para o título aqui, já que ele está dentro do filtro aulas_queryset
+        # KPIs para os cards de resumo
+        "total_aulas_filtradas": total_aulas_filtradas,
+        "total_realizadas_filtradas": total_realizadas_filtradas,
+        "total_canceladas_filtradas": total_canceladas_filtradas,
+        "total_ausentes_filtradas": total_ausentes_filtradas,
+    }
 
     return render(request, "scheduler/aula_listar.html", contexto)
 
@@ -559,9 +661,48 @@ def validar_aula(request, pk):
 
 @user_passes_test(is_admin)
 def listar_modalidades(request):
-    modalidades = Modalidade.objects.all().order_by("nome")
-    contexto = {"modalidades": modalidades, "titulo": "Gerenciamento de Modalidades"}
+    # Lógica de Busca
+    search_query = request.GET.get("q", "")
+    now = timezone.now()
+
+    # Queryset base
+    modalidades_queryset = Modalidade.objects.all()
+
+    # --- ANOTAÇÕES PARA DADOS EXTRAS ---
+    modalidades_queryset = modalidades_queryset.annotate(
+        # Conta o total de aulas para cada modalidade
+        total_aulas=Count('aula'),
+        
+        # Conta quantos alunos únicos têm aulas futuras agendadas nesta modalidade
+        alunos_ativos=Count(
+            'aula__aluno', 
+            distinct=True, 
+            filter=Q(aula__data_hora__gte=now)
+        ),
+
+        # Encontra a data da próxima aula agendada para esta modalidade
+        proxima_aula=Min(
+            Case(
+                When(aula__data_hora__gte=now, then='aula__data_hora'),
+                default=None
+            )
+        )
+    )
+
+    # Aplica o filtro de busca
+    if search_query:
+        modalidades_queryset = modalidades_queryset.filter(nome__icontains=search_query)
+    
+    # Ordena pelo nome da modalidade
+    modalidades = modalidades_queryset.order_by("nome")
+
+    contexto = {
+        "modalidades": modalidades,
+        "titulo": "Gerenciamento de Modalidades",
+        "search_query": search_query,
+    }
     return render(request, "scheduler/modalidade_listar.html", contexto)
+
 
 
 @user_passes_test(is_admin)
@@ -614,12 +755,118 @@ def excluir_modalidade(request, pk):
     return render(request, "scheduler/modalidade_confirm_delete.html", contexto)
 
 
+@user_passes_test(is_admin) # Apenas admins podem ver os detalhes da modalidade
+def detalhe_modalidade(request, pk):
+    modalidade = get_object_or_404(Modalidade, pk=pk)
+    
+    # Queryset base para todas as aulas desta modalidade
+    aulas_da_modalidade = Aula.objects.filter(modalidade=modalidade)
+    now = timezone.now()
+
+    # --- COLETA DE DADOS PARA OS KPIs ---
+    
+    # 1. KPIs de Contagem
+    total_aulas = aulas_da_modalidade.count()
+    total_realizadas = aulas_da_modalidade.filter(status="Realizada").count()
+    
+    # Alunos ativos são alunos únicos com aulas futuras agendadas nesta modalidade
+    alunos_ativos_count = aulas_da_modalidade.filter(
+        data_hora__gte=now
+    ).values('aluno').distinct().count()
+
+    # Professores que lecionam esta modalidade (professores únicos)
+    professores_count = aulas_da_modalidade.filter(
+        professor__isnull=False
+    ).values('professor').distinct().count()
+
+    # --- DADOS PARA O GRÁFICO DE ATIVIDADE MENSAL ---
+    aulas_por_mes = aulas_da_modalidade.annotate(
+        mes=TruncMonth('data_hora') # Agrupa as aulas pelo primeiro dia do mês
+    ).values('mes').annotate(
+        contagem=Count('id') # Conta quantas aulas ocorreram em cada mês
+    ).order_by('mes')
+
+    # Prepara os dados para o JavaScript do Chart.js
+    chart_labels = [item['mes'].strftime('%b/%Y') for item in aulas_por_mes]
+    chart_data = [item['contagem'] for item in aulas_por_mes]
+    
+    # --- LISTAS DE DETALHES ---
+    
+    # Lista de todos os professores que já lecionaram esta modalidade
+    professores_da_modalidade = CustomUser.objects.filter(
+        aula__in=aulas_da_modalidade
+    ).distinct().order_by('username')
+    
+    # Paginação para o histórico de aulas
+    aulas_paginadas = Paginator(aulas_da_modalidade.order_by("-data_hora"), 10).get_page(request.GET.get("page"))
+
+    # Monta o contexto final para o template
+    contexto = {
+        "modalidade": modalidade,
+        "titulo": f"Dashboard da Modalidade: {modalidade.nome}",
+        
+        # KPIs
+        "total_aulas": total_aulas,
+        "total_realizadas": total_realizadas,
+        "alunos_ativos_count": alunos_ativos_count,
+        "professores_count": professores_count,
+        
+        # Dados do Gráfico
+        "chart_labels": chart_labels,
+        "chart_data": chart_data,
+        
+        # Listas
+        "professores_da_modalidade": professores_da_modalidade,
+        "aulas": aulas_paginadas, # Usando a chave 'aulas' para o include da tabela
+    }
+    
+    return render(request, "scheduler/modalidade_detalhe.html", contexto)
+
+
 # --- VIEWS PARA GERENCIAMENTO DE PROFESSORES ---
 # ... (listar_professores, editar_professor, excluir_professor) ...
 @user_passes_test(is_admin)
 def listar_professores(request):
-    professores = CustomUser.objects.filter(tipo="professor").order_by("username")
-    contexto = {"professores": professores, "titulo": "Gerenciamento de Professores"}
+    search_query = request.GET.get("q", "")
+    now = timezone.now()
+
+    professores_queryset = CustomUser.objects.filter(tipo__in=['professor', 'admin'])
+
+    # --- INÍCIO DA CORREÇÃO ---
+    
+    # 1. Criamos a Subquery para encontrar a próxima aula
+    #    Para cada professor (OuterRef('pk')), ela busca na tabela Aula,
+    #    filtra por aulas futuras, ordena pela mais próxima e pega só o valor da data.
+    proxima_aula_subquery = Aula.objects.filter(
+        professor=OuterRef('pk'), 
+        data_hora__gte=now
+    ).order_by('data_hora').values('data_hora')[:1]
+
+    # 2. Usamos a Subquery na anotação
+    professores_queryset = professores_queryset.annotate(
+        total_aulas_realizadas=Count('aulas_validadas_por_mim', distinct=True),
+        total_alunos_unicos=Count('aula__aluno', distinct=True),
+        # A anotação agora usa a Subquery corretamente
+        proxima_aula=Subquery(proxima_aula_subquery)
+    )
+
+    # --- FIM DA CORREÇÃO ---
+
+    if search_query:
+        professores_queryset = professores_queryset.filter(
+            Q(username__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(email__icontains=search_query)
+        )
+
+    professores = professores_queryset.order_by("username")
+
+    contexto = {
+        "professores": professores,
+        "titulo": "Gerenciamento de Professores",
+        "search_query": search_query,
+    }
     return render(request, "scheduler/professor_listar.html", contexto)
 
 
@@ -676,51 +923,89 @@ def excluir_professor(request, pk):
 # --- VISÃO DE DETALHE DO PROFESSOR ---
 @login_required
 def detalhe_professor(request, pk):
-    # Garante que apenas usuários do tipo 'professor' podem ter um perfil detalhado
-    # Ou um admin pode ver o perfil de qualquer professor
-    if not (
-        request.user.tipo == "admin"
-        or (request.user.tipo == "professor" and request.user.pk == pk)
-    ):
+    if not (request.user.tipo == "admin" or (request.user.tipo == "professor" and request.user.pk == pk)):
         messages.error(request, "Você não tem permissão para acessar este perfil.")
-        return redirect("scheduler:dashboard")  # Ou outra página de erro/acesso negado
+        return redirect("scheduler:dashboard")
 
-    professor = get_object_or_404(CustomUser, pk=pk, tipo="professor")
+    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=['professor', 'admin'])
 
-    # Busca todas as aulas onde este professor é o 'atribuído' OU o 'realizou'
-    # Usamos Q objects para o filtro OR
-    aulas_do_professor = Aula.objects.filter(
+    # --- NOVO: LER PARÂMETROS DE FILTRO DE DATA ---
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+
+    # Queryset base para todas as aulas relacionadas a este professor
+    aulas_relacionadas = Aula.objects.filter(
         Q(professor=professor) | Q(relatorioaula__professor_que_validou=professor)
-    ).order_by(
-        "-data_hora"
-    )  # Ordena as aulas pela data mais recente primeiro
+    ).distinct()
 
-    # Contagem de aulas ATRIBUÍDAS
-    total_aulas_atribuidas = Aula.objects.filter(professor=professor).count()
+    # --- NOVO: APLICAR FILTROS DE DATA AO QUERYSET BASE ---
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__gte=data_inicial)
+        except ValueError:
+            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
 
-    # Contagem de aulas REALIZADAS (validadas)
-    total_aulas_realizadas = RelatorioAula.objects.filter(
-        professor_que_validou=professor
-    ).count()
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
+        except ValueError:
+            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
+    
+    # --- A PARTIR DAQUI, TODAS AS CONTAGENS USARÃO O QUERYSET JÁ FILTRADO ---
+    
+    # KPIs de Status de Aulas
+    total_aulas_geral = aulas_relacionadas.count()
+    total_realizadas = aulas_relacionadas.filter(status="Realizada").count()
+    total_canceladas = aulas_relacionadas.filter(status="Cancelada").count()
+    total_aluno_ausente = aulas_relacionadas.filter(status="Aluno Ausente").count()
+    total_agendadas = aulas_relacionadas.filter(status="Agendada").count()
 
-    # Paginação das aulas do professor
-    paginator = Paginator(
-        aulas_do_professor, 5
-    )  # 5 aulas por página, ajuste conforme necessário
-    page = request.GET.get("page")
-    try:
-        aulas_do_professor_paginated = paginator.page(page)
-    except PageNotAnInteger:
-        aulas_do_professor_paginated = paginator.page(1)
-    except EmptyPage:
-        aulas_do_professor_paginated = paginator.page(paginator.num_pages)
+    # Cálculo da Taxa de Presença
+    aulas_contabilizaveis_presenca = total_realizadas + total_aluno_ausente
+    taxa_presenca = 0
+    if aulas_contabilizaveis_presenca > 0:
+        taxa_presenca = (total_realizadas / aulas_contabilizaveis_presenca) * 100
 
+    # Top 3 Alunos com mais aulas
+    top_alunos = (
+        aulas_relacionadas.values("aluno__nome_completo")
+        .annotate(contagem=Count("aluno"))
+        .order_by("-contagem")[:3]
+    )
+
+    # Top 3 Modalidades mais lecionadas
+    top_modalidades = (
+        aulas_relacionadas.values("modalidade__nome")
+        .annotate(contagem=Count("modalidade"))
+        .order_by("-contagem")[:3]
+    )
+
+    # Paginação (o queryset já está filtrado)
+    aulas_do_professor_paginated = Paginator(aulas_relacionadas.order_by("-data_hora"), 5).get_page(request.GET.get("page"))
+
+    # Contexto final com os novos dados
     contexto = {
         "professor": professor,
-        "aulas_do_professor": aulas_do_professor_paginated,  # Passa o objeto Page paginado
-        "titulo": f"Perfil do Professor: {professor.username}",
-        "total_aulas_atribuidas": total_aulas_atribuidas,  # NOVO
-        "total_aulas_realizadas": total_aulas_realizadas,  # NOVO
+        "titulo": f"Dashboard do Professor: {professor.username}",
+        "aulas_do_professor": aulas_do_professor_paginated,
+        
+        # Passa os valores do filtro de volta para o template
+        "data_inicial": data_inicial_str,
+        "data_final": data_final_str,
+        
+        # KPIs
+        "total_aulas_geral": total_aulas_geral,
+        "total_realizadas": total_realizadas,
+        "total_canceladas": total_canceladas,
+        "total_aluno_ausente": total_aluno_ausente,
+        "total_agendadas": total_agendadas,
+        "taxa_presenca": taxa_presenca,
+
+        # Listas
+        "top_alunos": top_alunos,
+        "top_modalidades": top_modalidades,
     }
     return render(request, "scheduler/professor_detalhe.html", contexto)
 
@@ -761,8 +1046,11 @@ def verificar_conflito_aula(request):
     )  # Requisição não-AJAX ou não-GET
 
 
-@user_passes_test(is_admin)  # Apenas administradores podem gerenciar modalidades
-def relatorios_aulas(request):
+def _get_dados_relatorio_agregado(request):
+    """
+    Função auxiliar que filtra e agrega os dados do relatório.
+    Retorna um dicionário com todos os dados calculados.
+    """
     # Parâmetros de filtro
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
@@ -770,145 +1058,94 @@ def relatorios_aulas(request):
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
 
-    # Queryset base para todas as aulas, ANTES dos filtros específicos do relatório
-    # Isso garante que as contagens totais e por professor/modalidade
-    # respeitem os filtros de data, professor, modalidade e status.
     aulas_base_queryset = Aula.objects.all()
 
-    # Aplica filtros de data
+    # Aplica filtros (lógica que você já tem)
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_base_queryset = aulas_base_queryset.filter(
-                data_hora__date__gte=data_inicial
-            )
-        except ValueError:
-            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
-            data_inicial_str = ""
-
+            aulas_base_queryset = aulas_base_queryset.filter(data_hora__date__gte=data_inicial)
+        except ValueError: pass
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_base_queryset = aulas_base_queryset.filter(
-                data_hora__date__lte=data_final
-            )
-        except ValueError:
-            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
-            data_final_str = ""
-
-    # Aplica filtros de professor, modalidade e status (esses filtros já estavam na função)
+            aulas_base_queryset = aulas_base_queryset.filter(data_hora__date__lte=data_final)
+        except ValueError: pass
     if professor_filtro_id:
-        aulas_base_queryset = aulas_base_queryset.filter(
-            Q(professor_id=professor_filtro_id)
-            | Q(relatorioaula__professor_que_validou_id=professor_filtro_id)
-        )
-
+        aulas_base_queryset = aulas_base_queryset.filter(Q(professor_id=professor_filtro_id) | Q(relatorioaula__professor_que_validou_id=professor_filtro_id))
     if modalidade_filtro_id:
-        aulas_base_queryset = aulas_base_queryset.filter(
-            modalidade_id=modalidade_filtro_id
-        )
-
+        aulas_base_queryset = aulas_base_queryset.filter(modalidade_id=modalidade_filtro_id)
     if status_filtro:
         aulas_base_queryset = aulas_base_queryset.filter(status=status_filtro)
 
-    # --- NOVO: Agregações para os Relatórios ---
+    # Agregações (lógica que você já tem)
+    aulas_por_professor_final = list(aulas_base_queryset.values('relatorioaula__professor_que_validou__username').annotate(aulas_realizadas=Count('id')).order_by('-aulas_realizadas').values('relatorioaula__professor_que_validou__username', 'aulas_realizadas'))
+    aulas_por_modalidade_final = list(aulas_base_queryset.values('modalidade__nome').annotate(total_aulas=Count('id'), aulas_realizadas=Count('id', filter=Q(status='Realizada'))).order_by('-total_aulas').values('modalidade__nome', 'total_aulas', 'aulas_realizadas'))
 
-    # 1. Resumo Geral de Aulas (contagem total e por status)
+    # Retorna um dicionário com todos os dados
+    return {
+        "aulas_por_professor": aulas_por_professor_final,
+        "aulas_por_modalidade": aulas_por_modalidade_final,
+    }
+
+
+@user_passes_test(is_admin)
+def relatorios_aulas(request):
+    # --- FILTROS E QUERYSET BASE (sem alterações) ---
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+    professor_filtro_id = request.GET.get("professor_filtro", "")
+    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
+    status_filtro = request.GET.get("status_filtro", "")
+
+    aulas_base_queryset = Aula.objects.all()
+
+    # Aplica os filtros da página ao queryset de aulas
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_base_queryset = aulas_base_queryset.filter(data_hora__date__gte=data_inicial)
+        except ValueError: pass
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_base_queryset = aulas_base_queryset.filter(data_hora__date__lte=data_final)
+        except ValueError: pass
+    if professor_filtro_id:
+        aulas_base_queryset = aulas_base_queryset.filter(Q(professor_id=professor_filtro_id) | Q(relatorioaula__professor_que_validou_id=professor_filtro_id))
+    if modalidade_filtro_id:
+        aulas_base_queryset = aulas_base_queryset.filter(modalidade_id=modalidade_filtro_id)
+    if status_filtro:
+        aulas_base_queryset = aulas_base_queryset.filter(status=status_filtro)
+    
+    # --- DADOS AGREGADOS ---
+    
+    # KPIs de Resumo Geral
     total_aulas = aulas_base_queryset.count()
-    total_agendadas = aulas_base_queryset.filter(status="Agendada").count()
     total_realizadas = aulas_base_queryset.filter(status="Realizada").count()
     total_canceladas = aulas_base_queryset.filter(status="Cancelada").count()
     total_aluno_ausente = aulas_base_queryset.filter(status="Aluno Ausente").count()
+    total_agendadas = aulas_base_queryset.filter(status="Agendada").count()
+    
+    # Tabela de Aulas por Modalidade (sem alterações)
+    aulas_por_modalidade_final = list(aulas_base_queryset.filter(modalidade__isnull=False).values('modalidade__id', 'modalidade__nome').annotate(total_aulas=Count('id'), aulas_realizadas=Count('id', filter=Q(status='Realizada'))).order_by('-total_aulas'))
 
-    # 2. Aulas por Professor (CORRIGIDO)
-    # Agrupa por professor atribuído E por professor que realizou, depois unifica
+    # Tabela de Aulas por Professor (lógica nova e correta)
+    professores = CustomUser.objects.filter(tipo__in=['professor', 'admin'])
+    aulas_por_professor_final = professores.annotate(
+        total_atribuidas=Count('aula', distinct=True, filter=Q(aula__in=aulas_base_queryset)),
+        total_realizadas=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_base_queryset))
+    ).filter(
+        Q(total_atribuidas__gt=0) | Q(total_realizadas__gt=0)
+    ).order_by('-total_realizadas', '-total_atribuidas')
 
-    # Aulas atribuídas
-    aulas_atrib_por_prof = (
-        aulas_base_queryset.values("professor", "professor__username")
-        .annotate(count=Count("id"))
-        .order_by("professor__username")
-    )
-
-    # Aulas realizadas (validadas)
-    aulas_real_por_prof = (
-        aulas_base_queryset.filter(
-            relatorioaula__professor_que_validou__isnull=False, status="Realizada"
-        )
-        .values(
-            "relatorioaula__professor_que_validou",
-            "relatorioaula__professor_que_validou__username",
-        )
-        .annotate(count=Count("id"))
-        .order_by("relatorioaula__professor_que_validou__username")
-    )
-
-    # Combinar os resultados
-    aulas_por_professor_combinado = {}
-    for item in aulas_atrib_por_prof:
-        prof_id = item["professor"]
-        if prof_id:  # Ignora aulas sem professor atribuído
-            prof_username = item["professor__username"]
-            aulas_por_professor_combinado.setdefault(
-                prof_id,
-                {
-                    "professor_id": prof_id,
-                    "professor_username": prof_username,
-                    "total_aulas": 0,
-                    "aulas_realizadas": 0,
-                },
-            )
-            aulas_por_professor_combinado[prof_id]["total_aulas"] += item[
-                "count"
-            ]  # Soma as atribuídas
-
-    for item in aulas_real_por_prof:
-        prof_id = item["relatorioaula__professor_que_validou"]
-        prof_username = item["relatorioaula__professor_que_validou__username"]
-        aulas_por_professor_combinado.setdefault(
-            prof_id,
-            {
-                "professor_id": prof_id,
-                "professor_username": prof_username,
-                "total_aulas": 0,
-                "aulas_realizadas": 0,
-            },
-        )
-        aulas_por_professor_combinado[prof_id]["total_aulas"] += item[
-            "count"
-        ]  # Soma as realizadas
-        aulas_por_professor_combinado[prof_id]["aulas_realizadas"] += item["count"]
-
-    # Converter o dicionário de volta para uma lista de valores
-    aulas_por_professor_final = sorted(
-        aulas_por_professor_combinado.values(),
-        key=lambda x: x["professor_username"] if x["professor_username"] else "",
-    )
-
-    # 3. Aulas por Modalidade (CORRIGIDO)
-    # Garante que 'N/A' seja tratado como uma modalidade sem nome, ou que aulas sem modalidade sejam filtradas
-    # Supondo que modalidade_id não seja nulo devido a on_delete=PROTECT
-    aulas_por_modalidade_query = (
-        aulas_base_queryset.values("modalidade__nome", "modalidade__id")
-        .annotate(
-            total_aulas=Count("id"),
-            aulas_realizadas=Count("id", filter=Q(status="Realizada")),
-        )
-        .order_by("modalidade__nome")
-    )
-
-    # Filtrar qualquer entrada onde modalidade__id possa ser None (embora PROTECT deva impedir)
-    # Se ainda aparecer N/A, pode ser que a aula foi criada sem modalidade antes do PROTECT.
-    aulas_por_modalidade_final = [
-        item
-        for item in aulas_por_modalidade_query
-        if item["modalidade__id"] is not None
-    ]
-
-    # --- FIM Agregações ---
-
-    # Obtém todas as modalidades e professores para popular os dropdowns de filtro
-    professores_list = CustomUser.objects.filter(tipo="professor").order_by("username")
+    # --- CORREÇÃO: PREPARAÇÃO DOS DADOS PARA O GRÁFICO ---
+    # Agora lemos os dados dos objetos de professor usando a notação de ponto (.)
+    prof_chart_labels = [professor.username.title() for professor in aulas_por_professor_final]
+    prof_chart_data_realizadas = [professor.total_realizadas for professor in aulas_por_professor_final]
+    
+    # Listas para os dropdowns de filtro
+    professores_list = CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username")
     modalidades_list = Modalidade.objects.all().order_by("nome")
     status_choices = Aula.STATUS_AULA_CHOICES
 
@@ -922,15 +1159,55 @@ def relatorios_aulas(request):
         "professores_list": professores_list,
         "modalidades_list": modalidades_list,
         "status_choices": status_choices,
+        
         "total_aulas": total_aulas,
         "total_agendadas": total_agendadas,
         "total_realizadas": total_realizadas,
         "total_canceladas": total_canceladas,
         "total_aluno_ausente": total_aluno_ausente,
-        "aulas_por_professor": aulas_por_professor_final,  # CORRIGIDO
-        "aulas_por_modalidade": aulas_por_modalidade_final,  # CORRIGIDO
+        
+        "aulas_por_professor": aulas_por_professor_final,
+        "aulas_por_modalidade": aulas_por_modalidade_final,
+        
+        "prof_chart_labels": prof_chart_labels,
+        "prof_chart_data_realizadas": prof_chart_data_realizadas,
     }
     return render(request, "scheduler/relatorios_aulas.html", contexto)
+
+
+# --- NOVA VIEW DE EXPORTAÇÃO ---
+@user_passes_test(is_admin)
+def exportar_relatorio_agregado(request):
+    # 1. Chama a MESMA função auxiliar para obter os dados já filtrados
+    dados = _get_dados_relatorio_agregado(request)
+    
+    # 2. Prepara a resposta HTTP para ser um arquivo CSV
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="relatorio_gerencial.csv"'
+    response.write(u'\ufeff'.encode('utf8')) # BOM para caracteres PT-BR no Excel
+
+    writer = csv.writer(response, delimiter=';')
+
+    # 3. Escreve os dados de "Aulas por Professor"
+    writer.writerow(['Professor', 'Aulas Realizadas'])
+    for item in dados['aulas_por_professor']:
+        writer.writerow([
+            item['relatorioaula__professor_que_validou__username'],
+            item['aulas_realizadas']
+        ])
+        
+    writer.writerow([]) # Linha em branco para separar as tabelas
+
+    # 4. Escreve os dados de "Aulas por Modalidade"
+    writer.writerow(['Modalidade', 'Total de Aulas', 'Aulas Realizadas'])
+    for item in dados['aulas_por_modalidade']:
+        writer.writerow([
+            item['modalidade__nome'],
+            item['total_aulas'],
+            item['aulas_realizadas']
+        ])
+
+    return response
 
 
 # --- NOVA VIEW PARA EXPORTAÇÃO DE DADOS ---
@@ -1160,7 +1437,7 @@ def get_eventos_calendario(request):
 
             for aula in aulas_no_periodo:
                 title_parts = [
-                    f"{aula.modalidade.nome.title()} ({aula.aluno.nome_completo.title()})"
+                    f"{aula.modalidade.nome.title()} ({aula.aluno.nome_completo})"
                 ]
                 if aula.professor:
                     title_parts.append(
@@ -1171,7 +1448,7 @@ def get_eventos_calendario(request):
                 professor_que_validou_username = "N/A"
                 if relatorio_aula_obj and relatorio_aula_obj.professor_que_validou:
                     professor_que_validou_username = (
-                        relatorio_aula_obj.professor_que_validou.username.title()
+                        relatorio_aula_obj.professor_que_validou.username
                     )
                     if (
                         aula.professor

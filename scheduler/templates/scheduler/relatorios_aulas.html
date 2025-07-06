@@ -63,6 +63,12 @@
             <button class="btn btn-primary me-2" type="submit">
                 <i class="bi bi-filter"></i> Aplicar Filtros
             </button>
+
+            {# --- NOVO BOTÃO DE EXPORTAÇÃO --- #}
+            <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?data_inicial={{ data_inicial }}&data_final={{ data_final }}&professor_filtro={{ professor_filtro }}&modalidade_filtro={{ modalidade_filtro }}&status_filtro={{ status_filtro }}" class="btn btn-success me-2">
+                <i class="bi bi-file-earmark-excel"></i> Exportar CSV
+            </a>
+            
             {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
                 <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger">
                     <i class="bi bi-x-circle"></i> Limpar Filtros
@@ -91,34 +97,38 @@
         <h5>Aulas por Professor</h5>
     </div>
     <div class="card-body">
-        {% if aulas_por_professor %}
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th scope="col">Professor</th>
-                        <th scope="col">Total de Aulas (Atribuídas ou Realizadas)</th>
-                        <th scope="col">Aulas Realizadas</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in aulas_por_professor %}
-                    <tr>
-                        <td>
-                            {% if item.professor_id %} {# Verifica se o ID do professor existe #}
-                                <a href="{% url 'scheduler:professor_detalhe' item.professor_id %}">{{ item.professor_username|title }}</a>
-                            {% else %}
-                                <span class="text-muted">Não Atribuído</span> {# Se houver aulas sem professor atribuído/realizado #}
-                            {% endif %}
-                        </td>
-                        <td>{{ item.total_aulas }}</td>
-                        <td>{{ item.aulas_realizadas }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
-        {% endif %}
+{% if aulas_por_professor %}
+    <table class="table table-hover align-middle">
+        <thead>
+            <tr>
+                <th scope="col">Professor</th>
+                <th scope="col" class="text-center">Aulas Atribuídas</th>
+                <th scope="col" class="text-center">Aulas Realizadas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {# A variável agora é um objeto 'professor' com campos anotados #}
+            {% for professor in aulas_por_professor %}
+            <tr>
+                <td>
+                    {# Agora acessamos os campos do objeto professor diretamente #}
+                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-blue">
+                        {{ professor.username|title }}
+                    </a>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-info text-dark fs-6">{{ professor.total_atribuidas }}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
+{% endif %}
     </div>
 </div>
 
@@ -128,27 +138,33 @@
     </div>
     <div class="card-body">
         {% if aulas_por_modalidade %}
-            <table class="table table-hover">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
                         <th scope="col">Modalidade</th>
-                        <th scope="col">Total de Aulas</th>
-                        <th scope="col">Aulas Realizadas</th>
+                        <th scope="col" class="text-center">Total de Aulas</th>
+                        <th scope="col" class="text-center">Aulas Realizadas</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in aulas_por_modalidade %}
                     <tr>
                         <td>
-                            {# Mostra o nome da modalidade, ou "Sem Modalidade" se for N/A #}
+                            {# AQUI ESTÁ A MUDANÇA #}
                             {% if item.modalidade__id %}
-                                {{ item.modalidade__nome|title }}
+                                <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-blue">
+                                    {{ item.modalidade__nome|title }}
+                                </a>
                             {% else %}
                                 <span class="text-muted">Sem Modalidade</span>
                             {% endif %}
                         </td>
-                        <td>{{ item.total_aulas }}</td>
-                        <td>{{ item.aulas_realizadas }}</td>
+                        <td class="text-center">
+                           <span class="badge bg-primary fs-6">{{ item.total_aulas }}</span>
+                        </td>
+                        <td class="text-center">
+                           <span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -159,4 +175,106 @@
     </div>
 </div>
 
+{# Resultados dos Relatórios #}
+
+<div class="row mb-4">
+    <div class="col-md-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <h5>Resumo Geral</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Total de Aulas no Período:</strong> <span class="badge bg-secondary fs-6">{{ total_aulas }}</span></p>
+                <hr>
+                <canvas id="statusPieChart" style="max-height: 250px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header">
+                <h5>Desempenho por Professor (Aulas Realizadas)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="professorBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card shadow-sm mb-4">
+    </div>
+
+<div class="card shadow-sm">
+    </div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Gráfico de Pizza para Status das Aulas
+    const pieCtx = document.getElementById('statusPieChart');
+    if (pieCtx) {
+        new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Realizadas', 'Agendadas', 'Ausências', 'Canceladas'],
+                datasets: [{
+                    label: 'Status das Aulas',
+                    data: [
+                        {{ total_realizadas }},
+                        {{ total_agendadas }},
+                        {{ total_aluno_ausente }},
+                        {{ total_canceladas }}
+                    ],
+                    backgroundColor: [
+                        'rgba(25, 135, 84, 0.8)',
+                        'rgba(13, 202, 240, 0.8)',
+                        'rgba(255, 193, 7, 0.8)',
+                        'rgba(220, 53, 69, 0.8)'
+                    ],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+            }
+        });
+    }
+
+    // 2. Gráfico de Barras para Desempenho dos Professores
+    const barCtx = document.getElementById('professorBarChart');
+    if (barCtx) {
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ prof_chart_labels|safe }},
+                datasets: [{
+                    label: 'Aulas Realizadas',
+                    data: {{ prof_chart_data_realizadas|safe }},
+                    backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Deixa as barras na horizontal, melhor para ler nomes
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

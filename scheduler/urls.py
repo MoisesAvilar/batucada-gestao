@@ -20,6 +20,7 @@ urlpatterns = [
 
     # URL para exportação de aulas
     path('aulas/exportar/', views.exportar_aulas, name='exportar_aulas'),
+    path("relatorios/exportar/", views.exportar_relatorio_agregado, name="exportar_relatorio_agregado"),
 
     # URL para obter horários ocupados via AJAX
     path('aulas/get_horarios_ocupados/', views.get_horarios_ocupados, name='get_horarios_ocupados'),
@@ -37,6 +38,7 @@ urlpatterns = [
     # --- URLs para Gestão de Modalidades ---
     path('modalidades/', views.listar_modalidades, name='modalidade_listar'),
     path('modalidades/novo/', views.criar_modalidade, name='modalidade_criar'),
+    path('modalidades/<int:pk>/', views.detalhe_modalidade, name='modalidade_detalhe'),
     path('modalidades/<int:pk>/editar/', views.editar_modalidade, name='modalidade_editar'),
     path('modalidades/<int:pk>/excluir/', views.excluir_modalidade, name='modalidade_excluir'),
 
