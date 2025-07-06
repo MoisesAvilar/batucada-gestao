@@ -63,11 +63,33 @@
       class="btn-close"
       data-bs-dismiss="alert"
       aria-label="Close"
-    ></button>
+      ></button>
   </div>
   {% endfor %}
 </div>
 {% endif %}
+
+{# Calendário FullCalendar #}
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Visão de Agenda</h5>
+        {# Dropdown para filtrar por Professor (apenas para Admin) #}
+        {% if user.tipo == 'admin' and professores_list %}
+            <div class="ms-auto">
+                <label for="professor_calendario_filtro" class="visually-hidden">Filtrar por Professor</label>
+                <select id="professor_calendario_filtro" class="form-select form-select-sm">
+                    <option value="">Todos os Professores</option>
+                    {% for prof in professores_list %}
+                        <option value="{{ prof.id }}">{{ prof.username|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div id='fullcalendar'></div>
+    </div>
+</div>
 
 <div class="table-responsive">
   <table class="table table-striped table-hover align-middle">
@@ -182,7 +204,7 @@
         <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
           <i class="bi bi-pencil-square"></i>
         </a>
-        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
+        <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=visualizar" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório"> {# ALTERADO AQUI #}
           <i class="bi bi-file-earmark-text"></i>
         </a>
         <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
@@ -215,8 +237,8 @@
   </tr>
   {% endfor %}
 </tbody>
-</table>{# FECHA A TAG TABLE AQUI #}
-</div>{# FECHA A TAG DIV table-responsive AQUI #}
+</table>
+</div> {# FECHA A DIV table-responsive AQUI #}
 
 {# Controles de Paginação #}
 {% if aulas.has_other_pages %}
@@ -257,16 +279,6 @@
 </nav>
 {% endif %} {# FIM DA PAGINACAO #}
 
-{# Calendário FullCalendar #}
-<div class="card shadow-sm mb-4">
-    <div class="card-header">
-        <h5>Visão de Agenda</h5>
-    </div>
-    <div class="card-body">
-        <div id='fullcalendar'></div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -283,53 +295,34 @@
             };
 
             // Ajusta para telas menores (ex: mobile)
-            if (window.innerWidth < 768) {
-                initialView = 'listWeek';
+            if (window.innerWidth < 768) { // Largura em pixels para considerar mobile (col-md-x do Bootstrap)
+                initialView = 'listWeek'; // Visão de lista semanal é ótima para mobile
                 headerToolbarConfig = {
                     left: 'prev,next',
                     center: 'title',
-                    right: 'listWeek,dayGridMonth'
+                    right: 'listWeek,dayGridMonth' // Opções mais simples para mobile
                 };
             }
 
             var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: initialView,
-                locale: 'pt-br',
-                headerToolbar: headerToolbarConfig,
-                height: 'auto', // Mantido para ajuste automático
+                initialView: initialView, // Usa a view inicial responsiva
+                locale: 'pt-br', // Localização em português
+                headerToolbar: headerToolbarConfig, // Usa a configuração do cabeçalho responsiva
+                height: 'auto', // Faz o calendário se ajustar à altura do conteúdo
                 
-                // --- NOVAS OPÇÕES PARA GERENCIAR EXIBIÇÃO E FUSO HORÁRIO ---
-                eventOverlap: false, // Prevines que eventos se sobreponham visualmente no mesmo slot (útil para timeGrid)
-                eventDisplay: 'block', // Garante que eventos sejam exibidos como blocos
-                eventTimeFormat: { // Formato da hora no evento
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    meridiem: false // Não mostra AM/PM
-                },
-                slotMinTime: "06:00:00", // Horário mínimo exibido (útil para timeGrid)
-                slotMaxTime: "23:00:00", // Horário máximo exibido
-
-                // CORREÇÃO 1: Desativa o agrupamento "+N more", fazendo as células expandirem
-                views: {
-                    dayGridMonth: {
-                        dayMaxEvents: false // <--- ALTERADO AQUI: false para expandir a célula
-                    }
-                },
-                // --- FIM NOVAS OPÇÕES ---
-
                 eventSources: [
                     {
                         url: "{% url 'scheduler:get_eventos_calendario' %}",
                         method: 'GET',
-                        extraParams: function() { 
-                            return {}; 
+                        extraParams: function() {
+                              return {
+                                professor_filtro_id: document.getElementById('professor_calendario_filtro')?.value || ""
+                            };
                         },
                         failure: function() {
                             alert('Houve um erro ao carregar os eventos do calendário!');
                         },
-                        // CORREÇÃO 2: Informa ao FullCalendar que os eventos vêm em UTC
-                        // Ele então converterá para o fuso horário local do navegador.
-                        timezone: 'UTC', // <--- ADICIONADO AQUI: Eventos do backend são UTC
+                        color: '#6f42c1',
                         textColor: 'white' 
                     }
                 ],
@@ -340,6 +333,7 @@
                     }
                 },
                 dateClick: function(info) {
+                    // CONDIÇÃO PARA ADMIN E REDIRECIONAMENTO
                     var isAdmin = {% if user.tipo == 'admin' %}true{% else %}false{% endif %};
                     if (isAdmin) {
                         var clickedDate = info.dateStr; 
@@ -351,6 +345,8 @@
             });
             calendar.render();
 
+            // Adiciona um listener para re-renderizar/ajustar o calendário ao redimensionar a janela
+            // Isso pode ser custoso se disparar demais, usar debounce se necessário em produção
             window.addEventListener('resize', function() {
                 var currentViewName = calendar.view.type;
                 var newInitialView = 'dayGridMonth';
@@ -369,12 +365,16 @@
                     };
                 }
 
+                // Apenas atualiza se a configuração da view precisar mudar
                 if (currentViewName !== newInitialView) {
+                    // Re-renderiza o calendário para aplicar a nova view
                     calendar.changeView(newInitialView);
                 }
+                // Atualiza o headerToolbar, FullCalendar já deve lidar com isso no changeView
                 calendar.setOption('headerToolbar', newHeaderToolbarConfig);
             });
         }
     });
 </script>
 {% endblock %}
+

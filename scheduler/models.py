@@ -62,35 +62,16 @@ class Aula(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_AULA_CHOICES, default="Agendada"
     )
+    
     def __str__(self):
         return f"{self.modalidade} com {self.aluno.nome_completo} em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
 
 
 class RelatorioAula(models.Model):
+    # Campos que permanecem pois são únicos por relatório
     aula = models.OneToOneField(Aula, on_delete=models.CASCADE, primary_key=True)
     conteudo_teorico = models.TextField(
         verbose_name="Conteúdo Teórico Abordado", blank=True, null=True
-    )
-    exercicios_rudimentos = models.TextField(
-        verbose_name="Exercícios de Rudimentos", blank=True, null=True
-    )
-    bpm_rudimentos = models.CharField(
-        max_length=100, verbose_name="BPM dos Rudimentos", blank=True, null=True
-    )
-    exercicios_ritmo = models.TextField(
-        verbose_name="Exercícios de Ritmo", blank=True, null=True
-    )
-    livro_ritmo = models.CharField(
-        max_length=200, verbose_name="Livro/Método de Ritmo", blank=True, null=True
-    )
-    clique_ritmo = models.CharField(
-        max_length=100, verbose_name="Clique/BPM do Ritmo", blank=True, null=True
-    )
-    exercicios_viradas = models.TextField(
-        verbose_name="Exercícios de Viradas", blank=True, null=True
-    )
-    clique_viradas = models.CharField(
-        max_length=100, verbose_name="Clique/BPM das Viradas", blank=True, null=True
     )
     repertorio_musicas = models.TextField(
         verbose_name="Músicas do Repertório", blank=True, null=True
@@ -107,9 +88,43 @@ class RelatorioAula(models.Model):
         related_name="aulas_validadas_por_mim",
         verbose_name="Professor que Realizou a Aula",
     )
-
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Relatório da aula de {self.aula.aluno.nome_completo} em {self.aula.data_hora.strftime('%d/%m/%Y')}"
+
+
+# --- NOVOS MODELOS PARA OS ITENS DINÂMICOS ---
+class ItemRudimento(models.Model):
+    """ Armazena um único exercício de rudimento associado a um relatório. """
+    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_rudimentos', on_delete=models.CASCADE)
+    descricao = models.CharField(max_length=255, verbose_name="Exercício")
+    bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="BPM")
+    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+
+    def __str__(self):
+        return f"Rudimento: {self.descricao} para {self.relatorio}"
+
+
+class ItemRitmo(models.Model):
+    """ Armazena um único exercício de ritmo associado a um relatório. """
+    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_ritmo', on_delete=models.CASCADE)
+    descricao = models.CharField(max_length=255, verbose_name="Exercício")
+    livro_metodo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Livro/Método")
+    bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
+    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+
+    def __str__(self):
+        return f"Ritmo: {self.descricao} para {self.relatorio}"
+
+
+class ItemVirada(models.Model):
+    """ Armazena um único exercício de virada associado a um relatório. """
+    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_viradas', on_delete=models.CASCADE)
+    descricao = models.CharField(max_length=255, verbose_name="Exercício")
+    bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
+    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+
+    def __str__(self):
+        return f"Virada: {self.descricao} para {self.relatorio}"

@@ -1,6 +1,19 @@
-from django import forms
-from .models import Aluno, Aula, Modalidade, RelatorioAula, CustomUser
+# forms.py (VERSÃO ATUALIZADA)
 
+from django import forms
+from django.forms import inlineformset_factory
+from .models import (
+    Aluno, 
+    Aula, 
+    Modalidade, 
+    CustomUser,
+    RelatorioAula, 
+    ItemRudimento, 
+    ItemRitmo, 
+    ItemVirada
+)
+
+# --- FORMULÁRIOS JÁ EXISTENTES (Mantidos como estão) ---
 
 class AulaForm(forms.ModelForm):
     recorrente_mensal = forms.BooleanField(
@@ -13,7 +26,6 @@ class AulaForm(forms.ModelForm):
     class Meta:
         model = Aula
         fields = ["aluno", "professor", "modalidade", "data_hora", "status"]
-
         widgets = {
             "data_hora": forms.DateTimeInput(
                 attrs={"type": "datetime-local", "class": "form-control"},
@@ -23,35 +35,6 @@ class AulaForm(forms.ModelForm):
             "professor": forms.Select(attrs={"class": "form-select"}),
             "modalidade": forms.Select(attrs={"class": "form-select"}),
             "status": forms.Select(attrs={"class": "form-select"}),
-        }
-
-
-class RelatorioAulaForm(forms.ModelForm):
-    class Meta:
-        model = RelatorioAula
-        fields = [
-            'conteudo_teorico',
-            'exercicios_rudimentos',
-            'bpm_rudimentos',
-            'exercicios_ritmo',
-            'livro_ritmo',
-            'clique_ritmo',
-            'exercicios_viradas',
-            'clique_viradas',
-            'repertorio_musicas',
-            'observacoes_gerais'
-        ]
-        widgets = {
-            'conteudo_teorico': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'exercicios_rudimentos': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'bpm_rudimentos': forms.TextInput(attrs={'class': 'form-control'}),
-            'exercicios_ritmo': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'livro_ritmo': forms.TextInput(attrs={'class': 'form-control'}),
-            'clique_ritmo': forms.TextInput(attrs={'class': 'form-control'}),
-            'exercicios_viradas': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'clique_viradas': forms.TextInput(attrs={'class': 'form-control'}),
-            'repertorio_musicas': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'observacoes_gerais': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
         }
 
 
@@ -83,6 +66,7 @@ class ModalidadeForm(forms.ModelForm):
 
 
 class ProfessorForm(forms.ModelForm):
+    # ... (Seu ProfessorForm completo permanece aqui)
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'first_name', 'last_name', 'tipo', 'is_active', 'is_staff']
@@ -100,6 +84,7 @@ class ProfessorForm(forms.ModelForm):
     password_confirm = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False, label="Confirmar Senha")
 
     def clean(self):
+        # ... (sua lógica de validação de senha)
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
         password_confirm = cleaned_data.get("password_confirm")
@@ -118,6 +103,7 @@ class ProfessorForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
+        # ... (sua lógica para salvar a senha)
         user = super().save(commit=False)
         password = self.cleaned_data.get("password")
         if password:
@@ -125,3 +111,67 @@ class ProfessorForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+
+# --- NOVOS FORMULÁRIOS PARA O RELATÓRIO DE AULA ---
+
+class RelatorioAulaForm(forms.ModelForm):
+    """
+    Formulário principal para o Relatório, agora contendo apenas
+    os campos que não são repetíveis.
+    """
+    class Meta:
+        model = RelatorioAula
+        fields = [
+            'conteudo_teorico',
+            'repertorio_musicas',
+            'observacoes_gerais'
+        ]
+        widgets = {
+            'conteudo_teorico': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'repertorio_musicas': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'observacoes_gerais': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+        }
+
+
+# --- FORMSETS PARA OS ITENS DINÂMICOS ---
+
+ItemRudimentoFormSet = inlineformset_factory(
+    parent_model=RelatorioAula,
+    model=ItemRudimento,
+    fields=('descricao', 'bpm', 'duracao_min'),
+    extra=1,  # Começa com 1 formulário em branco por padrão.
+    can_delete=True,  # Adiciona um checkbox para deletar itens existentes.
+    widgets={
+        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Toque simples (Single Stroke)'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 120)'}),
+        'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+    }
+)
+
+ItemRitmoFormSet = inlineformset_factory(
+    parent_model=RelatorioAula,
+    model=ItemRitmo,
+    fields=('descricao', 'livro_metodo', 'bpm', 'duracao_min'),
+    extra=1,
+    can_delete=True,
+    widgets={
+        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Leitura da página 15'}),
+        'livro_metodo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Livro/Método (Ex: Pozzoli)'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 70)'}),
+        'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+    }
+)
+
+ItemViradaFormSet = inlineformset_factory(
+    parent_model=RelatorioAula,
+    model=ItemVirada,
+    fields=('descricao', 'bpm', 'duracao_min'),
+    extra=1,
+    can_delete=True,
+    widgets={
+        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Virada com 2 notas por tempo'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 90)'}),
+        'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+    }
+)

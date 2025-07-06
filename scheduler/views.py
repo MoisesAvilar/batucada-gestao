@@ -1,7 +1,17 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser
-from .forms import AlunoForm, AulaForm, RelatorioAulaForm, ModalidadeForm, ProfessorForm
+# --- IMPORTS ATUALIZADOS ---
+from .forms import (
+    AlunoForm,
+    AulaForm,
+    ModalidadeForm,
+    ProfessorForm,
+    RelatorioAulaForm,      # O formulário principal, agora menor
+    ItemRudimentoFormSet,   # O novo formset de rudimentos
+    ItemRitmoFormSet,       # O novo formset de ritmo
+    ItemViradaFormSet       # O novo formset de viradas
+)
 from django.contrib import messages
 import calendar
 from django.db.models import Q, Count
@@ -474,47 +484,75 @@ def listar_aulas(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
 def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
+    # get_or_create continua sendo a abordagem correta para o objeto pai.
+    relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
 
-    if not (
-        request.user.is_authenticated
-        and (request.user.tipo == "admin" or request.user.tipo == "professor")
-    ):
-        messages.error(request, "Você não tem permissão para acessar esta página.")
-        return redirect("scheduler:dashboard")
-
-    # Tenta buscar um relatório existente. Se não existir, o valor será None.
-    try:
-        relatorio = aula.relatorioaula
-    except RelatorioAula.DoesNotExist:
-        relatorio = None
-
-    if request.method == "POST":
-        form = RelatorioAulaForm(request.POST, instance=relatorio)
-        if form.is_valid():
-            relatorio_salvo = form.save(commit=False)
-            relatorio_salvo.aula = aula
-            relatorio_salvo.professor_que_validou = request.user
-            relatorio_salvo.save()
-
-            if aula.status != "Realizada" and request.user.tipo == "professor":
-                aula.status = "Realizada"
-                aula.save()
-
-            messages.success(request, "Relatório da aula salvo com sucesso!")
-            return redirect("scheduler:aula_listar")
+    # Lógica de modo de visualização/edição (permanece a mesma)
+    url_mode = request.GET.get('mode')
+    if aula.status == "Agendada":
+        view_mode = "editar"
+    elif url_mode in ["visualizar", "editar"]:
+        view_mode = url_mode
     else:
-        # Se for um GET, preenche o formulário com os dados do relatório existente
+        view_mode = "visualizar"
+
+    # Se a requisição for POST (usuário está salvando o formulário)
+    if request.method == 'POST':
+        # 1. Instancie o formulário principal E todos os formsets com os dados do POST.
+        #    O 'instance=relatorio' conecta os formsets ao relatório correto.
+        #    O 'prefix' é crucial para o Django diferenciar os dados de cada formset.
+        form = RelatorioAulaForm(request.POST, instance=relatorio)
+        rudimentos_formset = ItemRudimentoFormSet(request.POST, instance=relatorio, prefix='rudimentos')
+        ritmo_formset = ItemRitmoFormSet(request.POST, instance=relatorio, prefix='ritmo')
+        viradas_formset = ItemViradaFormSet(request.POST, instance=relatorio, prefix='viradas')
+
+        # 2. Verifique se o formulário principal E TODOS os formsets são válidos.
+        if form.is_valid() and rudimentos_formset.is_valid() and ritmo_formset.is_valid() and viradas_formset.is_valid():
+            
+            # Salva o formulário principal (commit=False para adicionar o professor antes)
+            relatorio_salvo = form.save(commit=False)
+            relatorio_salvo.professor_que_validou = request.user
+            relatorio_salvo.save() # Agora salva o relatório no banco.
+
+            # 3. Salva os formsets. O Django magicamente cria, atualiza ou deleta
+            #    os itens (ItemRudimento, etc.) conforme a interação do usuário.
+            rudimentos_formset.save()
+            ritmo_formset.save()
+            viradas_formset.save()
+            
+            # Atualiza o status da aula e salva
+            aula.status = 'Realizada'
+            aula.save()
+
+            messages.success(request, 'Relatório da aula salvo e aula marcada como Realizada!')
+            return redirect('scheduler:aula_listar')
+        else:
+            # Se qualquer um dos formulários ou formsets for inválido, exibe um erro.
+            # O Django automaticamente re-renderizará os formulários com os erros.
+            messages.error(request, 'Erro ao salvar o relatório. Verifique os campos marcados.')
+    
+    # Se a requisição for GET (usuário está abrindo a página pela primeira vez)
+    else:
+        # Apenas instancie o formulário e os formsets vazios ou com dados existentes.
         form = RelatorioAulaForm(instance=relatorio)
+        rudimentos_formset = ItemRudimentoFormSet(instance=relatorio, prefix='rudimentos')
+        ritmo_formset = ItemRitmoFormSet(instance=relatorio, prefix='ritmo')
+        viradas_formset = ItemViradaFormSet(instance=relatorio, prefix='viradas')
 
-    contexto = {
-        "form": form,
-        "aula": aula,
-        "relatorio": relatorio,  # <--- GARANTIR QUE O OBJETO RELATÓRIO É PASSADO
+    # 4. Passe todos os formulários e formsets para o contexto do template.
+    context = {
+        'aula': aula,
+        'relatorio': relatorio,
+        'form': form, # Formulário principal
+        'rudimentos_formset': rudimentos_formset, # Formset de rudimentos
+        'ritmo_formset': ritmo_formset,           # Formset de ritmo
+        'viradas_formset': viradas_formset,       # Formset de viradas
+        'view_mode': view_mode,
     }
-    return render(request, "scheduler/aula_validar.html", contexto)
-
+    return render(request, 'scheduler/aula_validar.html', context)
 
 # --- VIEWS PARA GERENCIAMENTO DE MODALIDADES ---
 
