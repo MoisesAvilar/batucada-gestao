@@ -56,6 +56,11 @@
                         {{ status_label }}
                     </option>
                 {% endfor %}
+                
+                {# --- ADICIONE ESTA NOVA OPÇÃO MANUALMENTE --- #}
+                <option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>
+                    Substituído
+                </option>
             </select>
         </div>
 
@@ -64,7 +69,10 @@
                 <i class="bi bi-filter"></i> Aplicar Filtros
             </button>
 
-            {# --- NOVO BOTÃO DE EXPORTAÇÃO --- #}
+            <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary me-2" title="Ver a lista detalhada destas aulas">
+                <i class="bi bi-list-ul"></i> Ver Lista de Aulas
+            </a>
+
             <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?data_inicial={{ data_inicial }}&data_final={{ data_final }}&professor_filtro={{ professor_filtro }}&modalidade_filtro={{ modalidade_filtro }}&status_filtro={{ status_filtro }}" class="btn btn-success me-2">
                 <i class="bi bi-file-earmark-excel"></i> Exportar CSV
             </a>
@@ -78,152 +86,134 @@
     </form>
 </div>
 
-{# Resultados dos Relatórios #}
-<div class="card shadow-sm mb-4">
-    <div class="card-header">
-        <h5>Resumo Geral</h5>
-    </div>
-    <div class="card-body">
-        <p><strong>Total de Aulas no Período:</strong> {{ total_aulas }}</p>
-        <p><strong>Total de Aulas Agendadas:</strong> {{ total_agendadas }}</p>
-        <p><strong>Total de Aulas Realizadas:</strong> {{ total_realizadas }}</p>
-        <p><strong>Total de Aulas Canceladas:</strong> {{ total_canceladas }}</p>
-        <p><strong>Total de Aulas com Aluno Ausente:</strong> {{ total_aluno_ausente }}</p>
-    </div>
-</div>
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header">
-        <h5>Aulas por Professor</h5>
-    </div>
-    <div class="card-body">
-{% if aulas_por_professor %}
-    <table class="table table-hover align-middle">
-        <thead>
-            <tr>
-                <th scope="col">Professor</th>
-                <th scope="col" class="text-center">Aulas Atribuídas</th>
-                <th scope="col" class="text-center">Aulas Realizadas</th>
-            </tr>
-        </thead>
-        <tbody>
-            {# A variável agora é um objeto 'professor' com campos anotados #}
-            {% for professor in aulas_por_professor %}
-            <tr>
-                <td>
-                    {# Agora acessamos os campos do objeto professor diretamente #}
-                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-blue">
-                        {{ professor.username|title }}
-                    </a>
-                </td>
-                <td class="text-center">
-                    <span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span>
-                </td>
-                <td class="text-center">
-                    <span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
-{% endif %}
-    </div>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-header">
-        <h5>Aulas por Modalidade</h5>
-    </div>
-    <div class="card-body">
-        {% if aulas_por_modalidade %}
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Modalidade</th>
-                        <th scope="col" class="text-center">Total de Aulas</th>
-                        <th scope="col" class="text-center">Aulas Realizadas</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in aulas_por_modalidade %}
-                    <tr>
-                        <td>
-                            {# AQUI ESTÁ A MUDANÇA #}
-                            {% if item.modalidade__id %}
-                                <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-blue">
-                                    {{ item.modalidade__nome|title }}
-                                </a>
-                            {% else %}
-                                <span class="text-muted">Sem Modalidade</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                           <span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span>
-                        </td>
-                        <td class="text-center">
-                           <span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p class="text-muted">Nenhum dado de aulas por modalidade para os filtros aplicados.</p>
-        {% endif %}
-    </div>
-</div>
-
-{# Resultados dos Relatórios #}
-
+{# --- SEÇÃO DE CARDS DE RESUMO (KPIs) --- #}
 <div class="row mb-4">
-    <div class="col-md-5">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5>Resumo Geral</h5>
-            </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-center text-bg-secondary h-100"><div class="card-body"><h5 class="card-title">Total de Aulas no Filtro</h5><p class="card-text fs-4 fw-bold">{{ total_aulas }}</p></div></div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-center text-bg-success h-100">
             <div class="card-body">
-                <p><strong>Total de Aulas no Período:</strong> <span class="badge bg-secondary fs-6">{{ total_aulas }}</span></p>
-                <hr>
+                <h5 class="card-title">Aulas Realizadas</h5>
+                <p class="card-text fs-4 fw-bold">{{ total_realizadas }}</p>
+                {% if total_substituidas > 0 %}<p class="card-text small mb-0">({{ total_substituidas }} substituídas)</p>{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-center text-bg-warning h-100"><div class="card-body"><h5 class="card-title">Alunos Ausentes</h5><p class="card-text fs-4 fw-bold">{{ total_aluno_ausente }}</p></div></div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-center text-bg-danger h-100"><div class="card-body"><h5 class="card-title">Aulas Canceladas</h5><p class="card-text fs-4 fw-bold">{{ total_canceladas }}</p></div></div>
+    </div>
+</div>
+
+{# --- SEÇÃO DE GRÁFICOS --- #}
+<div class="row mb-4">
+    <div class="col-lg-5 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h5>Distribuição de Status</h5></div>
+            <div class="card-body d-flex align-items-center justify-content-center">
                 <canvas id="statusPieChart" style="max-height: 250px;"></canvas>
             </div>
         </div>
     </div>
-
-    <div class="col-md-7">
+    <div class="col-lg-7 mb-4">
         <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5>Desempenho por Professor (Aulas Realizadas)</h5>
-            </div>
+            <div class="card-header"><h5>Desempenho por Professor (Aulas Realizadas)</h5></div>
             <div class="card-body">
-                <canvas id="professorBarChart"></canvas>
+                <canvas id="professorBarChart" style="min-height: 250px;"></canvas>
             </div>
         </div>
     </div>
 </div>
-<div class="card shadow-sm mb-4">
-    </div>
 
-<div class="card shadow-sm">
+{# --- SEÇÃO DE TABELAS DETALHADAS --- #}
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5>Aulas por Professor</h5></div>
+            <div class="card-body">
+                {% if aulas_por_professor %}
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Professor</th>
+                                <th scope="col" class="text-center">Aulas Atribuídas</th>
+                                <th scope="col" class="text-center">Aulas Realizadas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for professor in aulas_por_professor %}
+                            <tr>
+                                <td><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">{{ professor.username|title }}</a></td>
+                                <td class="text-center"><span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span></td>
+                                <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5>Aulas por Modalidade</h5></div>
+            <div class="card-body">
+                {% if aulas_por_modalidade %}
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Modalidade</th>
+                                <th scope="col" class="text-center">Total de Aulas</th>
+                                <th scope="col" class="text-center">Aulas Realizadas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in aulas_por_modalidade %}
+                            <tr>
+                                <td>
+                                    {% if item.modalidade__id %}
+                                        <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-dark text-decoration-none">{{ item.modalidade__nome|title }}</a>
+                                    {% else %}
+                                        <span class="text-muted">Sem Modalidade</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center"><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></td>
+                                <td class="text-center"><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-muted">Nenhum dado de aulas por modalidade para os filtros aplicados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Gráfico de Pizza para Status das Aulas
+    // --- Gráfico de Pizza CORRIGIDO ---
     const pieCtx = document.getElementById('statusPieChart');
     if (pieCtx) {
         new Chart(pieCtx, {
             type: 'pie',
             data: {
+                // Removemos 'Substituídas' da legenda principal
                 labels: ['Realizadas', 'Agendadas', 'Ausências', 'Canceladas'],
                 datasets: [{
                     label: 'Status das Aulas',
                     data: [
-                        {{ total_realizadas }},
+                        {{ total_realizadas }}, // Este é o total bruto (normais + substituídas)
                         {{ total_agendadas }},
                         {{ total_aluno_ausente }},
                         {{ total_canceladas }}
@@ -237,10 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     hoverOffset: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-            }
+            options: { responsive: true, maintainAspectRatio: false }
         });
     }
 

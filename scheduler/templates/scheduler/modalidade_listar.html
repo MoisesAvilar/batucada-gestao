@@ -66,6 +66,9 @@
                 {% endif %}
               </td>
               <td class="text-end">
+                <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info" title="Ver Dashboard">
+                  <i class="bi bi-bar-chart-line"></i>
+                </a>
                 <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
                   <i class="bi bi-pencil-square"></i>
                 </a>

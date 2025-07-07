@@ -38,7 +38,7 @@
                             <small class="d-block text-muted">Professor Atribuído:</small>
                             <strong class="d-block">
                                 {% if aula.professor %}
-                                    <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
+                                    <p>{{ aula.professor.username|title }}</p>
                                 {% else %}
                                     N/A
                                 {% endif %}

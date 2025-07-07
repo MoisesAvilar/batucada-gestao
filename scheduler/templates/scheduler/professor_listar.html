@@ -38,8 +38,8 @@
           <tbody>
             {% for professor in professores %}
             <tr>
-              <td>
-                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">
+              <td class="fw-bold">
+                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">
                     {{ professor.username|title }}
                     {% if professor.tipo == 'admin' %}<span class="badge bg-primary">Admin</span>{% endif %}
                 </a>

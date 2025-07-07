@@ -16,7 +16,7 @@ from django.contrib import messages
 import calendar
 from datetime import datetime
 from django.utils import timezone
-from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery
+from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
 from django.db.models.functions import TruncMonth
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse, HttpResponse
@@ -345,7 +345,7 @@ def aulas_para_substituir(request):
 
 
 # --- VIEWS DE GERENCIAMENTO DE ALUNOS ---
-@user_passes_test(is_admin)
+@login_required
 def listar_alunos(request):
     # --- NOVO: Lógica de Busca ---
     search_query = request.GET.get("q", "")
@@ -546,7 +546,12 @@ def listar_aulas(request):
     if modalidade_filtro_id:
         aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
     if status_filtro:
-        aulas_queryset = aulas_queryset.filter(status=status_filtro)
+        if status_filtro == 'Substituído':
+            aulas_queryset = aulas_queryset.filter(
+                status='Realizada', professor__isnull=False, relatorioaula__professor_que_validou__isnull=False
+            ).exclude(professor=F('relatorioaula__professor_que_validou'))
+        else:
+            aulas_queryset = aulas_queryset.filter(status=status_filtro)
 
     # 4. Cálculo dos KPIs para os cards de resumo (APÓS todos os filtros serem aplicados)
     aulas_kanban = {
@@ -846,7 +851,6 @@ def detalhe_modalidade(request, pk):
 
 
 # --- VIEWS PARA GERENCIAMENTO DE PROFESSORES ---
-# ... (listar_professores, editar_professor, excluir_professor) ...
 @user_passes_test(is_admin)
 def listar_professores(request):
     search_query = request.GET.get("q", "")
@@ -1124,16 +1128,16 @@ def _get_dados_relatorio_agregado(request):
 
 @user_passes_test(is_admin)
 def relatorios_aulas(request):
-    # --- FILTROS E QUERYSET BASE (sem alterações) ---
+    # --- Seção 1: Obtenção de filtros da URL ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
 
+    # --- Seção 2: Queryset base e aplicação de filtros ---
     aulas_base_queryset = Aula.objects.all()
 
-    # Aplica os filtros da página ao queryset de aulas
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
@@ -1148,36 +1152,44 @@ def relatorios_aulas(request):
         aulas_base_queryset = aulas_base_queryset.filter(Q(professor_id=professor_filtro_id) | Q(relatorioaula__professor_que_validou_id=professor_filtro_id))
     if modalidade_filtro_id:
         aulas_base_queryset = aulas_base_queryset.filter(modalidade_id=modalidade_filtro_id)
+    
+    # Lógica de filtro de status condicional
     if status_filtro:
-        aulas_base_queryset = aulas_base_queryset.filter(status=status_filtro)
+        if status_filtro == 'Substituído':
+            aulas_base_queryset = aulas_base_queryset.filter(
+                status='Realizada', professor__isnull=False, relatorioaula__professor_que_validou__isnull=False
+            ).exclude(professor=F('relatorioaula__professor_que_validou'))
+        else:
+            aulas_base_queryset = aulas_base_queryset.filter(status=status_filtro)
+
+    # --- Seção 3: Cálculo dos KPIs e dados agregados ---
     
-    # --- DADOS AGREGADOS ---
-    
-    # KPIs de Resumo Geral
+    # KPIs para os cards e gráfico de pizza
     total_aulas = aulas_base_queryset.count()
-    total_realizadas = aulas_base_queryset.filter(status="Realizada").count()
+    total_realizadas_bruto = aulas_base_queryset.filter(status="Realizada").count()
     total_canceladas = aulas_base_queryset.filter(status="Cancelada").count()
     total_aluno_ausente = aulas_base_queryset.filter(status="Aluno Ausente").count()
     total_agendadas = aulas_base_queryset.filter(status="Agendada").count()
     
-    # Tabela de Aulas por Modalidade (sem alterações)
-    aulas_por_modalidade_final = list(aulas_base_queryset.filter(modalidade__isnull=False).values('modalidade__id', 'modalidade__nome').annotate(total_aulas=Count('id'), aulas_realizadas=Count('id', filter=Q(status='Realizada'))).order_by('-total_aulas'))
+    total_substituidas = aulas_base_queryset.filter(
+        status='Realizada', professor__isnull=False, relatorioaula__professor_que_validou__isnull=False
+    ).exclude(professor=F('relatorioaula__professor_que_validou')).count()
 
-    # Tabela de Aulas por Professor (lógica nova e correta)
+    # Agregação para a tabela de Professores
     professores = CustomUser.objects.filter(tipo__in=['professor', 'admin'])
     aulas_por_professor_final = professores.annotate(
         total_atribuidas=Count('aula', distinct=True, filter=Q(aula__in=aulas_base_queryset)),
         total_realizadas=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_base_queryset))
-    ).filter(
-        Q(total_atribuidas__gt=0) | Q(total_realizadas__gt=0)
-    ).order_by('-total_realizadas', '-total_atribuidas')
+    ).filter(Q(total_atribuidas__gt=0) | Q(total_realizadas__gt=0)).order_by('-total_realizadas', '-total_atribuidas')
 
-    # --- CORREÇÃO: PREPARAÇÃO DOS DADOS PARA O GRÁFICO ---
-    # Agora lemos os dados dos objetos de professor usando a notação de ponto (.)
-    prof_chart_labels = [professor.username.title() for professor in aulas_por_professor_final]
-    prof_chart_data_realizadas = [professor.total_realizadas for professor in aulas_por_professor_final]
+    # Agregação para a tabela de Modalidades
+    aulas_por_modalidade_final = list(aulas_base_queryset.filter(modalidade__isnull=False).values('modalidade__id', 'modalidade__nome').annotate(total_aulas=Count('id'), aulas_realizadas=Count('id', filter=Q(status='Realizada'))).order_by('-total_aulas'))
+
+    # Preparação de dados para o Gráfico de Barras
+    prof_chart_labels = [prof.username.title() for prof in aulas_por_professor_final]
+    prof_chart_data_realizadas = [prof.total_realizadas for prof in aulas_por_professor_final]
     
-    # Listas para os dropdowns de filtro
+    # --- Seção 4: Montagem do contexto final ---
     professores_list = CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username")
     modalidades_list = Modalidade.objects.all().order_by("nome")
     status_choices = Aula.STATUS_AULA_CHOICES
@@ -1193,15 +1205,19 @@ def relatorios_aulas(request):
         "modalidades_list": modalidades_list,
         "status_choices": status_choices,
         
+        # KPIs para os cards e gráfico
         "total_aulas": total_aulas,
         "total_agendadas": total_agendadas,
-        "total_realizadas": total_realizadas,
+        "total_realizadas": total_realizadas_bruto, # Envia o total bruto
         "total_canceladas": total_canceladas,
         "total_aluno_ausente": total_aluno_ausente,
+        "total_substituidas": total_substituidas,    # Envia o detalhe das substituições
         
+        # Dados para as tabelas
         "aulas_por_professor": aulas_por_professor_final,
         "aulas_por_modalidade": aulas_por_modalidade_final,
         
+        # Dados para o gráfico de barras
         "prof_chart_labels": prof_chart_labels,
         "prof_chart_data_realizadas": prof_chart_data_realizadas,
     }
@@ -1454,15 +1470,6 @@ def get_eventos_calendario(request):
             ).distinct()
 
             for aula in aulas_no_periodo:
-                
-                # --- INÍCIO DA MUDANÇA ---
-                # ANTES:
-                # title_parts = [ f"{aula.modalidade.nome.title()} ({aula.aluno.nome_completo})" ]
-                # if aula.professor: title_parts.append(f"Prof: {aula.professor.username.title()}")
-                # ... etc ...
-                # title = "\n".join(title_parts)
-
-                # DEPOIS (MAIS LIMPO):
                 # Pega apenas o primeiro nome do aluno para economizar espaço
                 primeiro_nome_aluno = aula.aluno.nome_completo.split()[0].title()
                 title = f"{primeiro_nome_aluno} ({aula.modalidade.nome.title()})"
