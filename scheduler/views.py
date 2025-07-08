@@ -10,7 +10,8 @@ from .forms import (
     RelatorioAulaForm,      # O formulário principal, agora menor
     ItemRudimentoFormSet,   # O novo formset de rudimentos
     ItemRitmoFormSet,       # O novo formset de ritmo
-    ItemViradaFormSet       # O novo formset de viradas
+    ItemViradaFormSet,       # O novo formset de viradas
+    UserProfileForm
 )
 from django.contrib import messages
 import calendar
@@ -347,40 +348,47 @@ def aulas_para_substituir(request):
 # --- VIEWS DE GERENCIAMENTO DE ALUNOS ---
 @login_required
 def listar_alunos(request):
-    # --- NOVO: Lógica de Busca ---
     search_query = request.GET.get("q", "")
-
-    # Define a data/hora atual para encontrar a "próxima" aula
     now = timezone.now()
 
-    # Queryset base anotado para incluir dados extras
-    alunos_queryset = Aluno.objects.annotate(
-        # Conta o total de aulas associadas a cada aluno
-        total_aulas=Count('aula'),
-        # Encontra a data mínima (mais próxima) de uma aula que ainda vai acontecer
-        proxima_aula=Min(
-            Case(
-                When(aula__data_hora__gte=now, then='aula__data_hora'),
-                default=None
+    if request.user.tipo == 'professor':
+        alunos_queryset = Aluno.objects.annotate(
+            total_aulas=Count('aula'),
+            proxima_aula=Min(
+                Case(
+                    When(
+                        aula__data_hora__gte=now,
+                        aula__professor=request.user,
+                        then='aula__data_hora'
+                    ),
+                    default=None
+                )
             )
         )
-    )
+    else:
+        alunos_queryset = Aluno.objects.annotate(
+            total_aulas=Count('aula'),
+            proxima_aula=Min(
+                Case(
+                    When(aula__data_hora__gte=now, then='aula__data_hora'),
+                    default=None
+                )
+            )
+        )
 
-    # Aplica o filtro de busca se houver um termo
     if search_query:
         alunos_queryset = alunos_queryset.filter(
             Q(nome_completo__icontains=search_query) |
             Q(email__icontains=search_query) |
             Q(telefone__icontains=search_query)
         )
-    
-    # Ordena o resultado final pelo nome do aluno
+
     alunos = alunos_queryset.order_by("nome_completo")
 
     contexto = {
         "alunos": alunos,
         "titulo": "Gerenciamento de Alunos",
-        "search_query": search_query, # Passa o termo de busca para o template
+        "search_query": search_query,
     }
     return render(request, "scheduler/aluno_listar.html", contexto)
 
@@ -1498,3 +1506,25 @@ def get_eventos_calendario(request):
             return JsonResponse({"error": f"Dados de data inválidos ou erro interno: {e}"}, status=400)
 
     return JsonResponse({"error": "Período não fornecido."}, status=400)
+
+
+@login_required
+def perfil_usuario(request):
+    user = request.user
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Seu perfil foi atualizado com sucesso!')
+            return redirect('scheduler:perfil_usuario') # Redireciona de volta para a página de perfil
+        else:
+            messages.error(request, 'Erro ao atualizar seu perfil. Verifique os dados.')
+    else:
+        form = UserProfileForm(instance=user) # Preenche o formulário com os dados do usuário
+    
+    contexto = {
+        'form': form,
+        'user_obj': user, # Passa o objeto usuário para o template (útil para exibir a foto/iniciais)
+        'titulo': 'Meu Perfil'
+    }
+    return render(request, 'scheduler/perfil_usuario.html', contexto)

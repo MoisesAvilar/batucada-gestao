@@ -38,7 +38,7 @@
   {% for aula in aulas %}
   <tr>
     {# Coluna Aluno e Modalidade #}
-    <td><a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}">{{ aula.aluno.nome_completo|title }}</a></td>
+    <td><a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}" class="fw-bold">{{ aula.aluno.nome_completo|title }}</a></td>
     <td>{{ aula.modalidade.nome|title }}</td>
 
     {# --- COLUNA "PROFESSOR ATRIBUÍDO" CORRIGIDA --- #}
@@ -50,7 +50,7 @@
             {% else %}
               {# Se o usuário for admin, mostra o link. Senão, só o nome. #}
               {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
+                <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}" class="fw-bold">{{ aula.professor.username|title }}</a>
               {% else %}
                 {{ aula.professor.username|title }}
               {% endif %}

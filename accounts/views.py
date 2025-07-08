@@ -1,5 +1,6 @@
 from django.shortcuts import redirect, render
 from django.contrib.auth import login, logout
+from django.contrib import messages
 from .forms import (
     CustomAuthenticationForm,
     CustomUserCreationForm,
@@ -11,6 +12,7 @@ def sign_up_view(request):
         user_form = CustomUserCreationForm(request.POST)
         if user_form.is_valid():
             user_form.save()
+            messages.success(request, "Sua conta foi criada com sucesso! Faça login para continuar.")
             return redirect("accounts:login")
     else:
         user_form = CustomUserCreationForm()

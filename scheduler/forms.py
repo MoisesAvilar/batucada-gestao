@@ -175,3 +175,28 @@ ItemViradaFormSet = inlineformset_factory(
         'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
     }
 )
+
+
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = CustomUser
+        fields = ['first_name', 'last_name', 'email', 'username'] # Campos que o usuário pode editar
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu primeiro nome'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu sobrenome'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'seu@email.com'}),
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu nome de usuário'}),
+        }
+    
+    # Validações adicionais, se necessário (ex: username único, email único)
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if CustomUser.objects.filter(username=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este nome de usuário já está em uso.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if CustomUser.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este e-mail já está cadastrado.")
+        return email

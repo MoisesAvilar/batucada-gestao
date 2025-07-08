@@ -32,7 +32,13 @@
             <tr>
               <th scope="col">Nome Completo</th>
               <th scope="col">Total de Aulas</th>
-              <th scope="col">Próxima Aula Agendada</th>
+              <th scope="col">
+                {% if user.tipo == 'professor' %}
+                  Próxima Aula com Este Aluno
+                {% else %}
+                  Próxima Aula Agendada
+                {% endif %}
+              </th>
               <th scope="col">Contato (Email / Telefone)</th>
               <th scope="col" class="text-end">Ações</th>
             </tr>

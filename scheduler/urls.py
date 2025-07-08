@@ -51,4 +51,5 @@ urlpatterns = [
 
     # --- URLs para Relatórios ---
     path('relatorios/', views.relatorios_aulas, name='relatorios_aulas'),
+    path('perfil/', views.perfil_usuario, name='perfil_usuario'),
 ]

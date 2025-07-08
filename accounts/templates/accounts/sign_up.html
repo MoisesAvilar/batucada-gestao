@@ -1,73 +1,104 @@
 {% extends "scheduler/base.html" %}
-{% load custom_tags %}
+{% load i18n %}
 {% load socialaccount %}
 {% load static %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="container my-5">
     <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 rounded">
-                <div class="card-body">
-                    <h3 class="card-title text-center mb-4">Criar Cadastro</h3>
-                    <form method="post">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header text-center py-4 bg-primary text-white">
+                    <h3 class="card-title my-0">Criar Cadastro</h3>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    
+                    {% if user_form.non_field_errors %}
+                        <div class="alert alert-danger p-2 mb-3" role="alert">
+                            {% for error in user_form.non_field_errors %}
+                                <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <form method="post" class="mb-4">
                         {% csrf_token %}
 
-                        {% if user_form.non_field_errors %}
-                            <div class="alert alert-danger p-2" role="alert">
-                                {% for error in user_form.non_field_errors %}
-                                    <small>{{ error }}</small>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                        <div class="mb-3">
-                            <label for="{{ user_form.username.id_for_label }}" class="form-label">Nome de Usuário</label>
+                        <div class="form-floating mb-3">
                             {{ user_form.username }}
+                            <label for="{{ user_form.username.id_for_label }}">Nome de Usuário</label>
+                            {% if user_form.username.errors %}<div class="text-danger small mt-1">{{ user_form.username.errors }}</div>{% endif %}
+                        </div>
+
+                        {# Campo de Senha 1 - ESTRUTURA CORRIGIDA #}
+                        <div class="position-relative mb-3">
+  <div class="form-floating">
+    {{ user_form.password1 }}
+    <label for="{{ user_form.password1.id_for_label }}">Senha</label>
+    <button class="btn btn-outline-secondary position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="togglePassword1" tabindex="-1">
+      <i class="bi bi-eye-slash" id="togglePassword1Icon"></i>
+    </button>
+  </div>
+  {% if user_form.password1.errors %}
+    <div class="text-danger small mt-1">{{ user_form.password1.errors }}</div>
+  {% endif %}
+</div>
+
+
+
+                        {# Campo de Senha 2 (Confirmação) - ESTRUTURA CORRIGIDA #}
+                        <div class="position-relative mb-3">
+  <div class="form-floating">
+    {{ user_form.password2 }}
+    <label for="{{ user_form.password2.id_for_label }}">Confirmação de Senha</label>
+    <button class="btn btn-outline-secondary position-absolute top-50 end-0 translate-middle-y me-2" type="button" id="togglePassword2" tabindex="-1">
+      <i class="bi bi-eye-slash" id="togglePassword2Icon"></i>
+    </button>
+  </div>
+  {% if user_form.password2.errors %}
+    <div class="text-danger small mt-1">{{ user_form.password2.errors }}</div>
+  {% endif %}
+</div>
+
+
+                        
+                        {# Campos First Name, Last Name, Email (mantidos como estão, sem form-floating) #}
+                        <div class="mb-3">
+                            <label for="{{ user_form.first_name.id_for_label }}" class="form-label">Primeiro Nome</label>
+                            {{ user_form.first_name }}
+                            {% if user_form.first_name.errors %}<div class="text-danger small mt-1">{{ user_form.first_name.errors }}</div>{% endif %}
                         </div>
                         <div class="mb-3">
-                          <label for="{{ user_form.password1.id_for_label }}" class="form-label">Senha</label>
-                          <div class="input-group">
-                            {{ user_form.password1 }}
-                            <span class="input-group-text" id="eye1" style="cursor: pointer;">
-                              <i class="fas fa-eye"></i>
-                            </span>
-                            <span class="input-group-text" id="eye-slash1" style="display:none; cursor: pointer;">
-                              <i class="fas fa-eye-slash"></i>
-                            </span>
-                          </div>
+                            <label for="{{ user_form.last_name.id_for_label }}" class="form-label">Sobrenome</label>
+                            {{ user_form.last_name }}
+                            {% if user_form.last_name.errors %}<div class="text-danger small mt-1">{{ user_form.last_name.errors }}</div>{% endif %}
                         </div>
                         <div class="mb-3">
-                          <label for="{{ user_form.password2.id_for_label }}" class="form-label">Confirmação de Senha</label>
-                          <div class="input-group">
-                            {{ user_form.password2 }}
-                            <span class="input-group-text" id="eye2" style="cursor: pointer;">
-                              <i class="fas fa-eye"></i>
-                            </span>
-                            <span class="input-group-text" id="eye-slash2" style="display:none; cursor: pointer;">
-                              <i class="fas fa-eye-slash"></i>
-                            </span>
-                          </div>
+                            <label for="{{ user_form.email.id_for_label }}" class="form-label">Email</label>
+                            {{ user_form.email }}
+                            {% if user_form.email.errors %}<div class="text-danger small mt-1">{{ user_form.email.errors }}</div>{% endif %}
                         </div>
                         
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary">Cadastrar</button>
+                        <div class="d-grid mb-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Cadastrar</button>
                         </div>
                     </form>
 
-                     <div class="d-flex align-items-center my-3">
+                    <div class="d-flex align-items-center my-3">
                         <hr class="flex-grow-1">
                         <span class="px-3 text-muted">OU</span>
                         <hr class="flex-grow-1">
                     </div>
 
-                    <div class="text-center">
-                        <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger w-100">
+                    <div class="text-center mt-4">
+                        {% provider_login_url "google" as google_url %}
+                        <a href="{{ google_url }}" class="btn btn-outline-danger btn-lg w-100">
                             <i class="bi bi-google me-2"></i> Cadastre-se com Google
                         </a>
                     </div>
+                    
                     <div class="text-center mt-3">
-                        <p>Já tem uma conta? <a href="{% url 'accounts:login' %}" class="text-decoration-none">Faça o login!</a></p>
+                        <p class="mb-0">Já tem uma conta? <a href="{% url 'accounts:login' %}" class="text-decoration-none fw-bold">Faça o login!</a></p>
                     </div>
 
                 </div>
@@ -75,4 +106,46 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const togglePassword1 = document.getElementById('togglePassword1');
+        const passwordInput1 = document.getElementById('{{ user_form.password1.id_for_label }}');
+        const togglePassword1Icon = document.getElementById('togglePassword1Icon');
+
+        if (togglePassword1 && passwordInput1 && togglePassword1Icon) {
+            togglePassword1.addEventListener('click', function() {
+                const type = passwordInput1.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput1.setAttribute('type', type);
+                if (type === 'password') {
+                    togglePassword1Icon.classList.remove('bi-eye');
+                    togglePassword1Icon.classList.add('bi-eye-slash');
+                } else {
+                    togglePassword1Icon.classList.remove('bi-eye-slash');
+                    togglePassword1Icon.classList.add('bi-eye');
+                }
+            });
+        }
+
+        const togglePassword2 = document.getElementById('togglePassword2');
+        const passwordInput2 = document.getElementById('{{ user_form.password2.id_for_label }}');
+        const togglePassword2Icon = document.getElementById('togglePassword2Icon');
+
+        if (togglePassword2 && passwordInput2 && togglePassword2Icon) {
+            togglePassword2.addEventListener('click', function() {
+                const type = passwordInput2.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput2.setAttribute('type', type);
+                if (type === 'password') {
+                    togglePassword2Icon.classList.remove('bi-eye');
+                    togglePassword2Icon.classList.add('bi-eye-slash');
+                } else {
+                    togglePassword2Icon.classList.remove('bi-eye-slash');
+                    togglePassword2Icon.classList.add('bi-eye');
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
