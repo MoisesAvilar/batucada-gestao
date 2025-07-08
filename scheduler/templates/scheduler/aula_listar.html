@@ -46,92 +46,82 @@
 </div>
 
 
-{# --- INÍCIO DO NOVO FEED DE AULAS --- #}
+{# --- FEED DE AULAS CORRIGIDO --- #}
 <div class="aulas-feed">
 
     {% if not aulas %}
-        <div class="text-center text-muted p-5">
-            <h4>Nenhuma aula encontrada para os filtros aplicados.</h4>
-        </div>
+        <div class="text-center text-muted p-5"><h4>Nenhuma aula encontrada para os filtros aplicados.</h4></div>
     {% endif %}
 
-    {# Agrupa as aulas por dia usando a data do campo data_hora #}
     {% regroup aulas by data_hora.date as aulas_por_dia %}
 
-{% for grupo in aulas_por_dia %}
+    {% for grupo in aulas_por_dia %}
     <h4 class="mb-3 mt-4 border-bottom pb-2">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
     
     {% for aula in grupo.list %}
-        
-        {# --- INÍCIO DO BLOCO CORRIGIDO --- #}
+    {% with status_slug=aula.status|slugify %}
+    <div class="card shadow-sm mb-3 border-start border-5 {% if status_slug == 'realizada' %}border-success{% elif status_slug == 'cancelada' %}border-danger{% elif status_slug == 'aluno-ausente' %}border-warning{% elif status_slug == 'agendada' %}border-info{% else %}border-secondary{% endif %}">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center">
+                    <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
+                    <span class="badge {% if status_slug == 'realizada' %}bg-success{% elif status_slug == 'cancelada' %}bg-danger{% elif status_slug == 'aluno-ausente' %}bg-warning text-dark{% elif status_slug == 'agendada' %}bg-info text-dark{% else %}bg-secondary{% endif %}">{{ aula.status }}</span>
+                </div>
 
-        {# Usamos 'with' para criar uma variável temporária com o status em formato "slug" #}
-        {% with status_slug=aula.status|slugify %}
-        
-            <div class="card shadow-sm mb-3 border-start border-5 
-                {% if status_slug == 'realizada' %}border-success
-                {% elif status_slug == 'cancelada' %}border-danger
-                {% elif status_slug == 'aluno-ausente' %}border-warning
-                {% elif status_slug == 'agendada' %}border-info
-                {% else %}border-secondary{% endif %}">
-                
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-2 text-center">
-                            <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
-                            
-                            {# A mesma lógica if/elif/else para a cor do badge #}
-                            <span class="badge 
-                                {% if status_slug == 'realizada' %}bg-success
-                                {% elif status_slug == 'cancelada' %}bg-danger
-                                {% elif status_slug == 'aluno-ausente' %}bg-warning text-dark
-                                {% elif status_slug == 'agendada' %}bg-info text-dark
-                                {% else %}bg-secondary{% endif %}">
-                                {{ aula.status }}
-                            </span>
-                        </div>
+                <div class="col-md-5">
+                    {# --- CORRIGIDO: Loop para Alunos --- #}
+                    <h5 class="card-title mb-1">
+                        {% for aluno in aula.alunos.all %}
+                            {{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            {{ aula.modalidade.nome|title }}
+                        {% endfor %}
+                    </h5>
+                    <p class="card-text text-muted">
+                        {% if aula.alunos.count > 1 %}
+                            Aula em Grupo
+                        {% else %}
+                            {{ aula.modalidade.nome|title }}
+                        {% endif %}
+                    </p>
+                </div>
 
-                        <div class="col-md-5">
-                            <h5 class="card-title mb-1">{{ aula.aluno.nome_completo|title }}</h5>
-                            <p class="card-text text-muted">{{ aula.modalidade.nome|title }}</p>
-                        </div>
+                <div class="col-md-3">
+                    {# --- CORRIGIDO: Loop para Professores --- #}
+                    <small class="d-block text-muted">Atribuído a: 
+                        <strong>
+                        {% for prof in aula.professores.all %}
+                            {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            N/A
+                        {% endfor %}
+                        </strong>
+                    </small>
+                    <small class="d-block text-muted">Realizado por: 
+                        <strong>{% if aula.relatorioaula.professor_que_validou %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% else %}Aguardando{% endif %}</strong>
+                    </small>
+                </div>
 
-                        <div class="col-md-3">
-                            <small class="d-block text-muted">Atribuído a: 
-                                <strong>{% if aula.professor %}{{ aula.professor.username|title }}{% else %}N/A{% endif %}</strong>
-                            </small>
-                            <small class="d-block text-muted">Realizado por: 
-                                <strong>{% if aula.relatorioaula.professor_que_validou %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% else %}Aguardando{% endif %}</strong>
-                            </small>
-                        </div>
-
-                        <div class="col-md-2 text-end">
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Ações
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{% url 'scheduler:aula_validar' aula.pk %}"><i class="bi bi-file-earmark-text me-2"></i>Ver Relatório</a></li>
-                                    {% if user.tipo == 'admin' %}
-                                    <li><a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar Aula</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="{% url 'scheduler:aula_excluir' aula.pk %}"><i class="bi bi-trash me-2"></i>Excluir Aula</a></li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                        </div>
-
+                <div class="col-md-2 text-end">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Ações</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'scheduler:aula_validar' aula.pk %}"><i class="bi bi-file-earmark-text me-2"></i>Ver Relatório</a></li>
+                            {% if user.tipo == 'admin' %}
+                            <li><a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar Aula</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'scheduler:aula_excluir' aula.pk %}"><i class="bi bi-trash me-2"></i>Excluir Aula</a></li>
+                            {% endif %}
+                        </ul>
                     </div>
                 </div>
             </div>
-        {% endwith %}
-        {# --- FIM DO BLOCO CORRIGIDO --- #}
-
+        </div>
+    </div>
+    {% endwith %}
     {% endfor %}
-{% endfor %}
-
+    {% endfor %}
 </div>
-{# --- FIM DO NOVO FEED DE AULAS --- #}
 
 {# Paginação #}
 <div class="mt-4">

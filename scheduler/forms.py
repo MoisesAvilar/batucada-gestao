@@ -3,39 +3,64 @@
 from django import forms
 from django.forms import inlineformset_factory
 from .models import (
-    Aluno, 
-    Aula, 
-    Modalidade, 
+    Aluno,
+    Aula,
+    Modalidade,
     CustomUser,
-    RelatorioAula, 
-    ItemRudimento, 
-    ItemRitmo, 
+    RelatorioAula,
+    ItemRudimento,
+    ItemRitmo,
     ItemVirada
 )
 
-# --- FORMULÁRIOS JÁ EXISTENTES (Mantidos como estão) ---
 
 class AulaForm(forms.ModelForm):
+    """
+    Formulário principal, contendo apenas os campos que não se repetem.
+    A seleção de alunos/professores será feita pelos formsets.
+    """
     recorrente_mensal = forms.BooleanField(
         required=False,
         label="Agendar recorrentemente (todas as semanas do mês)",
-        help_text="Marque para agendar a aula no mesmo dia da semana e horário para todas as semanas do mês atual.",
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
     )
 
     class Meta:
         model = Aula
-        fields = ["aluno", "professor", "modalidade", "data_hora", "status"]
+        fields = ["modalidade", "data_hora", "status"]
         widgets = {
             "data_hora": forms.DateTimeInput(
                 attrs={"type": "datetime-local", "class": "form-control"},
                 format="%Y-%m-%dT%H:%M",
             ),
-            "aluno": forms.Select(attrs={"class": "form-select"}),
-            "professor": forms.Select(attrs={"class": "form-select"}),
             "modalidade": forms.Select(attrs={"class": "form-select"}),
             "status": forms.Select(attrs={"class": "form-select"}),
         }
+
+
+# --- Formulários Base para os Formsets ---
+class AlunoChoiceForm(forms.Form):
+    """
+    Um formulário simples que contém apenas um campo <select> para um Aluno.
+    Este será o "molde" para cada linha no nosso formset de alunos.
+    """
+    aluno = forms.ModelChoiceField(
+        queryset=Aluno.objects.all().order_by('nome_completo'),
+        label="Aluno",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+
+class ProfessorChoiceForm(forms.Form):
+    """
+    Um formulário simples que contém apenas um campo <select> para um Professor.
+    Este será o "molde" para cada linha no nosso formset de professores.
+    """
+    professor = forms.ModelChoiceField(
+        queryset=CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by('username'),
+        label="Professor",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
 
 
 class AlunoForm(forms.ModelForm):
@@ -66,7 +91,6 @@ class ModalidadeForm(forms.ModelForm):
 
 
 class ProfessorForm(forms.ModelForm):
-    # ... (Seu ProfessorForm completo permanece aqui)
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'first_name', 'last_name', 'tipo', 'is_active', 'is_staff']
@@ -84,7 +108,6 @@ class ProfessorForm(forms.ModelForm):
     password_confirm = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False, label="Confirmar Senha")
 
     def clean(self):
-        # ... (sua lógica de validação de senha)
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
         password_confirm = cleaned_data.get("password_confirm")

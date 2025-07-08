@@ -10,7 +10,14 @@
             <div class="card-body">
                 <h5 class="card-title">Você tem certeza que deseja excluir esta aula?</h5>
                 <p class="card-text">
-                    <strong>Aluno:</strong> {{ aula.aluno.nome_completo }}<br>
+                    {# --- CORRIGIDO --- #}
+                    <strong>Aluno(s):</strong> 
+                    {% for aluno in aula.alunos.all %}
+                        {{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        Nenhum aluno associado
+                    {% endfor %}
+                    <br>
                     <strong>Modalidade:</strong> {{ aula.modalidade }}<br>
                     <strong>Data:</strong> {{ aula.data_hora|date:"d/m/Y \à\s H:i" }}
                 </p>

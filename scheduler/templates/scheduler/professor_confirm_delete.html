@@ -10,9 +10,12 @@
             <div class="card-body">
                 <h5 class="card-title">Você tem certeza que deseja excluir o professor "{{ professor.username|title }}"?</h5>
                 <p class="text-danger fw-bold">Esta ação não pode ser desfeita.</p>
-                {% if professor.aula_set.exists %}
-                    <p class="text-warning fw-bold">ATENÇÃO: Este professor está atribuído a {{ professor.aula_set.count }} aula(s). Ao excluí-lo, essas aulas ficarão sem professor atribuído.</p>
+                
+                {# --- CORREÇÃO AQUI --- #}
+                {% if professor.aulas_lecionadas.exists %}
+                    <p class="text-warning fw-bold">ATENÇÃO: Este professor está atribuído a {{ professor.aulas_lecionadas.count }} aula(s). Ao excluí-lo, essas aulas ficarão sem professor atribuído.</p>
                 {% endif %}
+                
                 {% if request.user.pk == professor.pk %}
                     <p class="text-danger fw-bold">Você NÃO pode excluir seu próprio usuário. Por favor, faça login com outra conta de administrador para excluir este usuário.</p>
                 {% endif %}

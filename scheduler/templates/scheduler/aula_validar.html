@@ -3,53 +3,63 @@
 {% block content %}
 <h1 class="mb-1">Relatório da Aula</h1>
 <p class="text-muted mb-4">
-    <strong>Aluno(a):</strong> {{ aula.aluno.nome_completo|title }} | 
+    {# --- CORRIGIDO: Loop para Alunos --- #}
+    <strong>Aluno(s):</strong> 
+    {% for aluno in aula.alunos.all %}
+        <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}">{{ aluno.nome_completo|title }}</a>{% if not forloop.last %}, {% endif %}
+    {% empty %}
+        Nenhum aluno associado.
+    {% endfor %}
+    | 
     <strong>Data:</strong> {{ aula.data_hora|date:"d/m/Y, H:i" }} <br>
 
-    {# --- INÍCIO DA NOVA LÓGICA VISUAL PARA PROFESSORES --- #}
-
-    {# Caso 1: A aula JÁ FOI REALIZADA e temos o relatório para comparar #}
+    {# --- CORRIGIDO: Lógica de Professores para ManyToMany --- #}
     {% if aula.status == 'Realizada' and aula.relatorioaula and aula.relatorioaula.professor_que_validou %}
-
-        {# Caso 1.1: O professor que realizou é o MESMO que foi atribuído. #}
-        {% if aula.professor == aula.relatorioaula.professor_que_validou %}
-            <strong>Professor:</strong> 
-            <span class="text-success fw-bold">
-                <i class="bi bi-check-circle-fill"></i> {# Ícone de 'check' verde #}
-                <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
-            </span>
-        
-        {# Caso 1.2: Houve uma SUBSTITUIÇÃO de professor. #}
-        {% else %}
-            {# Mostra o professor atribuído com um 'X' e riscado #}
-            <strong>Professor Atribuído:</strong> 
-            <span class="text-danger text-decoration-line-through">
-                <i class="bi bi-x-circle-fill"></i> {# Ícone de 'X' vermelho #}
-                {% if aula.professor %}
-                    <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}" class="text-danger">{{ aula.professor.username|title }}</a>
+        {% with professor_validou=aula.relatorioaula.professor_que_validou %}
+        {# Caso 1.1: O professor que validou ESTAVA na lista de atribuídos #}
+        {% if professor_validou in aula.professores.all %}
+            <strong>Professor(es):</strong> 
+            {% for prof in aula.professores.all %}
+                {# Destaca o professor que efetivamente validou a aula #}
+                {% if prof == professor_validou %}
+                    <span class="text-success fw-bold">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <a href="{% url 'scheduler:professor_detalhe' prof.pk %}">{{ prof.username|title }}</a>
+                    </span>
                 {% else %}
-                    Ninguém
-                {% endif %}
-            </span>
+                    <a href="{% url 'scheduler:professor_detalhe' prof.pk %}">{{ prof.username|title }}</a>
+                {% endif %}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        
+        {# Caso 1.2: Houve uma SUBSTITUIÇÃO #}
+        {% else %}
+            <strong>Professor(es) Atribuído(s):</strong> 
+            {% for prof in aula.professores.all %}
+                <span class="text-danger text-decoration-line-through">
+                    <i class="bi bi-x-circle-fill"></i>
+                    <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="text-danger">{{ prof.username|title }}</a>
+                </span>{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                <span class="text-danger text-decoration-line-through">Ninguém</span>
+            {% endfor %}
             <br>
-            {# Mostra o professor que realizou a aula com um 'check' #}
             <strong>Professor Substituto:</strong> 
             <span class="text-success fw-bold">
-                <i class="bi bi-check-lg"></i> {# Ícone de 'check' simples #}
-                <a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}">{{ aula.relatorioaula.professor_que_validou.username|title }}</a>
+                <i class="bi bi-check-lg"></i>
+                <a href="{% url 'scheduler:professor_detalhe' professor_validou.pk %}">{{ professor_validou.username|title }}</a>
             </span>
         {% endif %}
+        {% endwith %}
 
-    {# Caso 2: A aula AINDA NÃO FOI REALIZADA (Agendada, Cancelada, etc.) #}
+    {# Caso 2: A aula AINDA NÃO FOI REALIZADA #}
     {% else %}
-        <strong>Professor Atribuído:</strong> 
-        {% if aula.professor %}
-            <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}">{{ aula.professor.username|title }}</a>
-        {% else %}
+        <strong>Professor(es) Atribuído(s):</strong> 
+        {% for prof in aula.professores.all %}
+            <a href="{% url 'scheduler:professor_detalhe' prof.pk %}">{{ prof.username|title }}</a>{% if not forloop.last %}, {% endif %}
+        {% empty %}
             Não Atribuído
-        {% endif %}
+        {% endfor %}
     {% endif %}
-    {# --- FIM DA NOVA LÓGICA VISUAL --- #}
 </p>
 
 {# --- INÍCIO DO MODO VISUALIZAÇÃO (COM MENSAGENS PADRÃO) --- #}

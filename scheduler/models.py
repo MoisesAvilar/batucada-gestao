@@ -46,15 +46,24 @@ class Aula(models.Model):
         ("Cancelada", "Cancelada"),
         ("Aluno Ausente", "Aluno Ausente"),
     )
-    aluno = models.ForeignKey("Aluno", on_delete=models.CASCADE, verbose_name="Aluno")
-    professor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
+
+    # --- CORRIGIDO ---
+    alunos = models.ManyToManyField(
+        "Aluno",
         blank=True,
-        limit_choices_to={"tipo": "professor"},
-        verbose_name="Professor Atribuído",
+        verbose_name="Alunos",
+        related_name="aulas_aluno"
     )
+
+    # --- CORRIGIDO ---
+    professores = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        limit_choices_to={"tipo__in": ["admin", "professor"]},
+        verbose_name="Professores Atribuídos",
+        related_name="aulas_lecionadas"
+    )
+
     modalidade = models.ForeignKey(
         Modalidade, on_delete=models.PROTECT, verbose_name="Modalidade"
     )
@@ -62,9 +71,15 @@ class Aula(models.Model):
     status = models.CharField(
         max_length=20, choices=STATUS_AULA_CHOICES, default="Agendada"
     )
-    
+
     def __str__(self):
-        return f"{self.modalidade} com {self.aluno.nome_completo} em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+        # This method is now consistent with the field name 'alunos'
+        nomes_alunos = ", ".join([aluno.nome_completo.title() for aluno in self.alunos.all()])
+        if not nomes_alunos:
+            if hasattr(self, 'modalidade') and self.modalidade.nome == "Atividade Complementar":
+                return f"Atividade Complementar em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+            return f"{getattr(self, 'modalidade', 'Aula')} (sem alunos) em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+        return f"{self.modalidade.nome} com {nomes_alunos} em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
 
 
 class RelatorioAula(models.Model):
@@ -92,7 +107,10 @@ class RelatorioAula(models.Model):
     data_atualizacao = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Relatório da aula de {self.aula.aluno.nome_completo} em {self.aula.data_hora.strftime('%d/%m/%Y')}"
+        # A lógica para obter o nome do aluno foi ajustada
+        primeiro_aluno = self.aula.alunos.first()
+        nome_aluno_str = primeiro_aluno.nome_completo if primeiro_aluno else "N/A"
+        return f"Relatório da aula de {nome_aluno_str} em {self.aula.data_hora.strftime('%d/%m/%Y')}"
 
 
 # --- NOVOS MODELOS PARA OS ITENS DINÂMICOS ---

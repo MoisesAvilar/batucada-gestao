@@ -64,11 +64,13 @@
         <div class="card-header"><h5>Minha Agenda</h5></div>
         <div class="card-body"><div id='fullcalendar'></div></div>
     </div>
-
-    <h4 class="mt-5">Minhas Próximas Aulas (Próximos 7 dias)</h4>
-    <div class="card shadow-sm">
+    
+    {# --- BLOCO CORRIGIDO/ADICIONADO --- #}
+    {# Adicionamos a lista de aulas de hoje também para o professor #}
+    <h4 class="mt-5">Minhas Aulas de Hoje ({{ today|date:"d/m/Y" }})</h4>
+    <div class="card shadow-sm mb-4">
       <div class="card-body">
-        {% include 'scheduler/partials/aula_table.html' with aulas=proximas_aulas_semana %}
+        {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
       </div>
     </div>
 {% endif %}

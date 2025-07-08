@@ -1,6 +1,6 @@
-{# Este template controla quais botões de ação são exibidos para cada aula na tabela. #}
+{% comment %} scheduler/templates/scheduler/partials/aula_actions.html (CORRIGIDO) {% endcomment %}
 
-{% comment %} Lógica para o usuário ADMIN {% endcomment %}
+{# Lógica para o usuário ADMIN #}
 {% if user.tipo == 'admin' %}
     <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
         <i class="bi bi-pencil-square"></i>
@@ -12,11 +12,12 @@
         <i class="bi bi-trash"></i>
     </a>
 
-{% comment %} Lógica para o usuário PROFESSOR {% endcomment %}
+{# Lógica para o usuário PROFESSOR #}
 {% else %} 
     {% if aula.status == 'Agendada' %}
-        {# Se a aula está agendada para o professor logado, ele pode validar. #}
-        {% if aula.professor == request.user %}
+        {# --- CORREÇÃO AQUI --- #}
+        {# Verifica se o professor logado está NA LISTA de professores da aula #}
+        {% if request.user in aula.professores.all %}
             <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
                 <i class="bi bi-check-circle"></i> Validar Aula
             </a>

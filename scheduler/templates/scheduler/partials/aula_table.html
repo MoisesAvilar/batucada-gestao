@@ -1,137 +1,80 @@
+{% comment %} scheduler/templates/scheduler/partials/aula_table.html {% endcomment %}
 <div class="table-responsive">
   <table class="table table-hover align-middle">
-    
-    {# --- INÍCIO DA LÓGICA DO CABEÇALHO ADAPTÁVEL --- #}
-    {% if show_sorting_headers %}
-      {# VERSÃO COMPLETA: com links de ordenação para a página aula_listar #}
-      <thead>
-        <tr>
-          {% with base_query_params="&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
-          <th scope="col"><a href="?order_by=aluno&direction={% if order_by == 'aluno' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Aluno {% if order_by == 'aluno' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col"><a href="?order_by=modalidade&direction={% if order_by == 'modalidade' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Modalidade {% if order_by == 'modalidade' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col"><a href="?order_by=professor_atribuido&direction={% if order_by == 'professor_atribuido' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Professor Atribuído {% if order_by == 'professor_atribuido' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col"><a href="?order_by=professor_realizou&direction={% if order_by == 'professor_realizou' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Professor Realizou {% if order_by == 'professor_realizou' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col"><a href="?order_by=data_hora&direction={% if order_by == 'data_hora' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Data e Hora {% if order_by == 'data_hora' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col"><a href="?order_by=status&direction={% if order_by == 'status' and direction == 'asc' %}desc{% else %}asc{% endif %}{{ base_query_params }}" class="text-decoration-none text-dark">Status {% if order_by == 'status' %}<i class="bi bi-caret-{% if direction == 'asc' %}up{% else %}down{% endif %}-fill"></i>{% endif %}</a></th>
-          <th scope="col" class="text-end">Ações</th>
-          {% endwith %}
-        </tr>
-      </thead>
-    {% else %}
-      {# VERSÃO SIMPLES: sem links, para as páginas de detalhe #}
-      <thead>
-        <tr>
-          <th scope="col">Aluno</th>
-          <th scope="col">Modalidade</th>
-          <th scope="col">Professor Atribuído</th>
-          <th scope="col">Professor Realizou</th>
-          <th scope="col">Data e Hora</th>
-          <th scope="col">Status</th>
-          <th scope="col" class="text-end">Ações</th>
-        </tr>
-      </thead>
-    {% endif %}
-    {# --- FIM DA LÓGICA DO CABEÇALHO ADAPTÁVEL --- #}
-
-<tbody>
-  {# Abrimos o loop for aqui #}
-  {% for aula in aulas %}
-  <tr>
-    {# Coluna Aluno e Modalidade #}
-    <td><a href="{% url 'scheduler:aluno_detalhe' aula.aluno.pk %}" class="fw-bold">{{ aula.aluno.nome_completo|title }}</a></td>
-    <td>{{ aula.modalidade.nome|title }}</td>
-
-    {# --- COLUNA "PROFESSOR ATRIBUÍDO" CORRIGIDA --- #}
-    <td>
-          {% if aula.professor %}
-            {# Se o professor atribuído for o próprio usuário logado, mostra "Eu" #}
-            {% if aula.professor == request.user %}
-              <span class="fw-bold">Eu</span>
-            {% else %}
-              {# Se o usuário for admin, mostra o link. Senão, só o nome. #}
-              {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:professor_detalhe' aula.professor.pk %}" class="fw-bold">{{ aula.professor.username|title }}</a>
-              {% else %}
-                {{ aula.professor.username|title }}
-              {% endif %}
-            {% endif %}
-          {% else %}
-            Não Atribuído
-          {% endif %}
+    <thead>
+      <tr>
+        <th scope="col">Aluno(s)</th>
+        <th scope="col">Modalidade</th>
+        <th scope="col">Prof. Atribuído(s)</th>
+        <th scope="col">Prof. Realizou</th>
+        <th scope="col">Data e Hora</th>
+        <th scope="col" class="text-center">Status</th>
+        <th scope="col" class="text-end">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for aula in aulas %}
+      <tr>
+        {# Coluna Aluno(s) - CORRIGIDA #}
+        <td>
+          {% for aluno in aula.alunos.all %}
+            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="fw-bold">{{ aluno.nome_completo|title }}</a>{% if not forloop.last %}<br>{% endif %}
+          {% empty %}
+            <span class="text-muted">--</span>
+          {% endfor %}
         </td>
 
-    {# --- COLUNA "PROFESSOR REALIZOU" CORRIGIDA --- #}
-    <td>
-          {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
-            {# Se quem realizou for o próprio usuário logado, mostra "Eu" #}
-            {% if aula.relatorioaula.professor_que_validou == request.user %}
+        <td>{{ aula.modalidade.nome|title }}</td>
+
+        {# Coluna Professor(es) Atribuído(s) - CORRIGIDA #}
+        <td>
+          {% for professor in aula.professores.all %}
+            {% if professor == request.user %}
               <span class="fw-bold">Eu</span>
             {% else %}
-              {# Se o usuário for admin, mostra o link. Senão, só o nome. #}
-              {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}">{{ aula.relatorioaula.professor_que_validou.username|title }}</a>
-              {% else %}
-                {{ aula.relatorioaula.professor_que_validou.username|title }}
-              {% endif %}
-            {% endif %}
+              <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>
+            {% endif %}{% if not forloop.last %}<br>{% endif %}
+          {% empty %}
+            <span class="text-muted small">Não Atribuído</span>
+          {% endfor %}
+        </td>
+
+        {# Coluna Professor Realizou - Lógica original está OK #}
+        <td>
+          {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
+            <a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}">{{ aula.relatorioaula.professor_que_validou.username|title }}</a>
           {% else %}
             <span class="text-muted small">Aguardando</span>
           {% endif %}
         </td>
-    
-    {# Coluna Data/Hora #}
-    <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
+        
+        <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
 
-    {# Coluna Status (lógica de substituição) #}
-    <td class="text-center">
-      {% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">Agendada</span>
-      {% elif aula.status == 'Realizada' %}
-          {% if aula.professor and aula.relatorioaula.professor_que_validou and aula.professor != aula.relatorioaula.professor_que_validou %}
-            <span class="badge bg-light border text-dark" title="Realizada por {{ aula.relatorioaula.professor_que_validou.username|title }} como substituto">Substituído</span>
-          {% else %}
-            <span class="badge bg-success">Realizada</span>
+        {# Coluna Status - CORRIGIDA #}
+        <td class="text-center">
+          {% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">Agendada</span>
+          {% elif aula.status == 'Realizada' %}
+              {% if aula.relatorioaula.professor_que_validou and aula.relatorioaula.professor_que_validou not in aula.professores.all %}
+                <span class="badge bg-light border text-dark" title="Realizada por {{ aula.relatorioaula.professor_que_validou.username|title }} como substituto">Substituído</span>
+              {% else %}
+                <span class="badge bg-success">Realizada</span>
+              {% endif %}
+          {% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">Cancelada</span>
+          {% elif aula.status == 'Aluno Ausente' %}<span class="badge bg-warning text-dark">Aluno Ausente</span>
+          {% else %}<span class="badge bg-secondary">{{ aula.status }}</span>
           {% endif %}
-      {% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">Cancelada</span>
-      {% elif aula.status == 'Aluno Ausente' %}<span class="badge bg-warning text-dark">Aluno Ausente</span>
-      {% else %}<span class="badge bg-secondary">{{ aula.status }}</span>
-      {% endif %}
-    </td>
+        </td>
 
-    {# Coluna de Ações #}
-    <td class="text-end">
-        {% include 'scheduler/partials/aula_actions.html' %}
-    </td>
-  </tr>
-  {# A tag 'empty' é usada quando o loop 'for' não encontra itens #}
-  {% empty %}
-  <tr>
-    <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada.</td>
-  </tr>
-  {# Fechamos o loop for aqui #}
-  {% endfor %}
-</tbody>
+        {# Coluna de Ações #}
+        <td class="text-end">
+            {% include 'scheduler/partials/aula_actions.html' %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">Nenhuma aula encontrada.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
-
-  {# A paginação também precisa ser adaptável #}
-  {% if aulas.has_other_pages %}
-    <nav aria-label="Navegação de Páginas das Aulas">
-      {# Se a ordenação estiver ativa, mantém os parâmetros #}
-      {% if show_sorting_headers %}
-        {% with base_query_params="&order_by="|add:order_by|add:"&direction="|add:direction|add:"&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
-          <ul class="pagination justify-content-center">
-            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}{{ base_query_params }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
-            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}{{ base_query_params }}">{{ i }}</a></li>{% endif %}{% endfor %}
-            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}{{ base_query_params }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
-          </ul>
-        {% endwith %}
-      {# Senão, usa uma paginação simples #}
-      {% else %}
-        <ul class="pagination justify-content-center">
-            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
-            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>{% endif %}{% endfor %}
-            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
-        </ul>
-      {% endif %}
-    </nav>
-  {% endif %}
 </div>
