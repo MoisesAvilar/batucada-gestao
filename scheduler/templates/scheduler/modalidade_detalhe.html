@@ -1,54 +1,55 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ titulo|title }}</h1>
-  {% if user.tipo == 'admin' %}
-  <div>
-      <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-primary me-2">
-          <i class="bi bi-pencil-square"></i> Editar
-      </a>
-      <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-danger">
-          <i class="bi bi-trash"></i> Excluir
-      </a>
-  </div>
-  {% endif %}
+{# --- CABEÇALHO APRIMORADO --- #}
+<div class="row align-items-center mb-3 g-3">
+    <div class="col-md">
+        <h1 class="mb-0 text-center text-md-start">{{ titulo|title }}</h1>
+        <p class="text-muted mb-0 text-center text-md-start">Estatísticas de uso e professores associados.</p>
+    </div>
+    {% if user.tipo == 'admin' %}
+    <div class="col-md-auto">
+        <div class="d-flex gap-2 justify-content-center">
+            <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
+            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-danger"><i class="bi bi-trash me-1"></i> Excluir</a>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary shadow">
-            <div class="card-body text-center">
-                <h5 class="card-title">Total de Aulas</h5>
-                <h2 class="display-6">{{ total_aulas }}</h2>
-            </div>
+
+{# --- SEÇÃO DE CARDS ATUALIZADA COM FUNDO COLORIDO --- #}
+<div class="row">
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-bg-secondary shadow h-100">
+            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
+                <div class="small fw-bold text-uppercase mb-1">Total de Aulas</div><div class="h4 mb-0 fw-bold">{{ total_aulas }}</div>
+            </div><div class="col-auto"><i class="bi bi-stack fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success shadow">
-            <div class="card-body text-center">
-                <h5 class="card-title">Aulas Realizadas</h5>
-                <h2 class="display-6">{{ total_realizadas }}</h2>
-            </div>
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-bg-success shadow h-100">
+            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
+                <div class="small fw-bold text-uppercase mb-1">Aulas Realizadas</div><div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
+            </div><div class="col-auto"><i class="bi bi-calendar2-check fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info shadow">
-            <div class="card-body text-center">
-                <h5 class="card-title">Alunos Ativos</h5>
-                <h2 class="display-6">{{ alunos_ativos_count }}</h2>
-            </div>
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-bg-info shadow h-100">
+            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
+                <div class="small fw-bold text-uppercase mb-1">Alunos Ativos</div><div class="h4 mb-0 fw-bold">{{ alunos_ativos_count }}</div>
+            </div><div class="col-auto"><i class="bi bi-people-fill fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-secondary shadow">
-            <div class="card-body text-center">
-                <h5 class="card-title">Professores</h5>
-                <h2 class="display-6">{{ professores_count }}</h2>
-            </div>
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card text-bg-primary shadow h-100">
+            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
+                <div class="small fw-bold text-uppercase mb-1">Professores</div><div class="h4 mb-0 fw-bold">{{ professores_count }}</div>
+            </div><div class="col-auto"><i class="bi bi-person-video3 fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
 </div>
+
 <div class="row mb-4">
     <div class="col-md-4">
         <div class="card shadow-sm h-100">

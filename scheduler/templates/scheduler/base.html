@@ -95,14 +95,14 @@
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Minhas Aulas</a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}">Alunos</a>
+              </li>
               {% else %}
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Aulas</a>
               </li>
               {% endif %}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}">Alunos</a>
-              </li>
 
               {# --- Bloco de Links Específicos do ADMIN --- #}
               {% if user.tipo == 'admin' %}

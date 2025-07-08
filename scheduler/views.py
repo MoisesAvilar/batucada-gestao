@@ -97,6 +97,7 @@ def dashboard(request):
 
         contexto = {
             "titulo": "Meu Dashboard",
+            "today": today,
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
             "aulas_pendentes_count": aulas_pendentes_count,
@@ -364,9 +365,9 @@ def detalhe_aluno(request, pk):
     # As agregações agora usam 'professores' (plural).
     top_professores = (
         aulas_do_aluno.filter(professores__isnull=False)
-        .values("professores__username")
-        .annotate(contagem=Count("id")) # Contamos o 'id' da aula para cada professor
-        .order_by("-contagem")[:3]
+        .values("professores__pk", "professores__username")  # Agrupa por ID e nome do professor
+        .annotate(contagem=Count("professores__pk"))         # Conta quantas vezes cada professor aparece
+        .order_by("-contagem")[:3]                           # Ordena pela contagem
     )
 
     top_modalidades = (
@@ -802,10 +803,10 @@ def detalhe_professor(request, pk):
     taxa_presenca = (total_realizadas / aulas_contabilizaveis_presenca * 100) if aulas_contabilizaveis_presenca > 0 else 0
 
     top_alunos = (
-        aulas_relacionadas.filter(alunos__isnull=False, professores=professor)
-        .values("alunos__nome_completo", "alunos__pk")
-        .annotate(contagem=Count("alunos"))
-        .order_by("-contagem")[:3]
+        aulas_relacionadas.filter(alunos__isnull=False)
+        .values("alunos__pk", "alunos__nome_completo")  # Agrupa por ID e nome do aluno
+        .annotate(contagem=Count("alunos__pk"))         # Conta quantas vezes cada aluno aparece
+        .order_by("-contagem")[:3]                      # Ordena pela contagem
     )
 
     top_modalidades = (

@@ -1,58 +1,112 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ titulo }}</h1>
-  {% if user.tipo == 'admin' %}
-  <span class="badge bg-primary fs-6">Visão do Administrador</span>
-  {% else %}
-  <span class="badge bg-success fs-6">Visão do Professor</span>
-  {% endif %}
+{# --- CABEÇALHO --- #}
+<div class="text-center mb-4">
+    <h1 class="mb-1">{{ titulo }}</h1>
+    {% if user.tipo == 'admin' %}
+        <p class="text-muted mb-0">Visão geral do sistema e atalhos rápidos.</p>
+    {% else %}
+        <p class="text-muted mb-0">Resumo das suas atividades e agenda.</p>
+    {% endif %}
 </div>
-
+{% if user.tipo == 'admin' %}
+<div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
+    <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
+    <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
+</div>
+{% endif %}
 {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
 
 {# --- VISÃO DO ADMINISTRADOR --- #}
 {% if user.tipo == 'admin' %}
-    <div class="row mb-4">
-        <div class="col-md-4"><div class="card text-center text-bg-info"><div class="card-body"><h5 class="card-title">Aulas Hoje</h5><p class="card-text fs-4 fw-bold">{{ aulas_hoje_count }}</p></div></div></div>
-        <div class="col-md-4"><div class="card text-center text-bg-primary"><div class="card-body"><h5 class="card-title">Aulas na Semana</h5><p class="card-text fs-4 fw-bold">{{ aulas_semana_count }}</p></div></div></div>
-        <div class="col-md-4"><div class="card text-center text-bg-secondary"><div class="card-body"><h5 class="card-title">Total de Aulas Agendadas</h5><p class="card-text fs-4 fw-bold">{{ aulas_agendadas_total }}</p></div></div></div>
+    {# Cards de Resumo #}
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-info shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
     </div>
-
+    
+    {# Calendário do Admin #}
     <div class="card shadow-sm mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5>Visão Geral da Agenda</h5>
-            <div class="ms-auto">
-                <select id="professor_calendario_filtro" class="form-select form-select-sm">
-                    <option value="">Todos os Professores</option>
-                    {% for prof in professores_list %}<option value="{{ prof.id }}">{{ prof.username|title }}</option>{% endfor %}
-                </select>
-            </div>
+            <div class="ms-auto"><select id="professor_calendario_filtro" class="form-select form-select-sm"><option value="">Todos os Professores</option>{% for prof in professores_list %}<option value="{{ prof.id }}">{{ prof.username|title }}</option>{% endfor %}</select></div>
         </div>
         <div class="card-body"><div id='fullcalendar'></div></div>
     </div>
     
-    <h4 class="mt-5">Aulas de Hoje ({{ today|date:"d/m/Y" }})</h4>
-    <div class="card shadow-sm">
-      <div class="card-body">
-        {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
-      </div>
+    {# Seção de Aulas de Hoje para o Admin #}
+    {# --- SEÇÃO "AULAS DE HOJE" CORRIGIDA PARA ADMIN --- #}
+<div class="card shadow-sm mt-4">
+    <div class="card-header text-center py-3">
+        <h5 class="mb-0">
+            Aulas de Hoje no Sistema
+            <span class="badge bg-primary rounded-pill align-middle ms-1">{{ aulas_hoje_count }}</span>
+        </h5>
+        <small class="text-muted">
+            {{ today|date:"l, d \d\e F"|capfirst }}
+        </small>
     </div>
+    <div class="card-body p-0">
+        {% if aulas_do_dia %}
+            {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
+        {% else %}
+            <div class="text-center text-muted p-4">Nenhuma aula agendada para hoje no sistema.</div>
+        {% endif %}
+    </div>
+</div>
 
 {# --- VISÃO DO PROFESSOR --- #}
 {% else %}
-    <div class="row mb-4">
-        <div class="col-md-4"><div class="card text-center text-bg-info"><div class="card-body"><h5 class="card-title">Minhas Aulas Hoje</h5><p class="card-text fs-4 fw-bold">{{ aulas_hoje_count }}</p></div></div></div>
-        <div class="col-md-4"><div class="card text-center text-bg-primary"><div class="card-body"><h5 class="card-title">Minhas Aulas na Semana</h5><p class="card-text fs-4 fw-bold">{{ aulas_semana_count }}</p></div></div></div>
-        <div class="col-md-4"><div class="card text-center text-bg-danger"><div class="card-body"><h5 class="card-title">Aulas Pendentes de Validação</h5><p class="card-text fs-4 fw-bold">{{ aulas_pendentes_count }}</p></div></div></div>
+    {# Cards de Resumo do Professor #}
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card text-bg-info shadow h-100">
+                <div class="card-body">
+                    <div class="row g-0 align-items-center">
+                        <div class="col">
+                            {# --- CORRIGIDO AQUI --- #}
+                            <div class="small fw-bold text-uppercase mb-1">Minhas Aulas Hoje</div>
+                            <div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div>
+                        </div>
+                        <div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card text-bg-primary shadow h-100">
+                <div class="card-body">
+                    <div class="row g-0 align-items-center">
+                        <div class="col">
+                            <div class="small fw-bold text-uppercase mb-1">Minhas Aulas na Semana</div>
+                            <div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div>
+                        </div>
+                        <div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card text-bg-danger shadow h-100">
+                <div class="card-body">
+                    <div class="row g-0 align-items-center">
+                        <div class="col">
+                            <div class="small fw-bold text-uppercase mb-1">Pendentes de Validação</div>
+                            <div class="h3 mb-0 fw-bold">{{ aulas_pendentes_count }}</div>
+                        </div>
+                        <div class="col-auto"><i class="bi bi-exclamation-triangle-fill fs-1 opacity-75"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    {# Aulas Pendentes de Validação #}
     {% if aulas_pendentes_validacao %}
     <div class="card shadow-sm mb-4 border-danger">
-        <div class="card-header bg-danger text-white">
-            <h5><i class="bi bi-exclamation-triangle-fill"></i> Ação Necessária: Aulas Pendentes de Validação</h5>
-        </div>
+        <div class="card-header bg-danger text-white"><h5><i class="bi bi-exclamation-triangle-fill"></i> Ação Necessária: Aulas Pendentes de Validação</h5></div>
         <div class="card-body">
             <p class="text-muted small">As aulas abaixo já ocorreram mas ainda não tiveram o relatório preenchido.</p>
             {% include 'scheduler/partials/aula_table.html' with aulas=aulas_pendentes_validacao %}
@@ -60,18 +114,30 @@
     </div>
     {% endif %}
 
+    {# Calendário do Professor #}
     <div class="card shadow-sm mb-4">
         <div class="card-header"><h5>Minha Agenda</h5></div>
         <div class="card-body"><div id='fullcalendar'></div></div>
     </div>
     
-    {# --- BLOCO CORRIGIDO/ADICIONADO --- #}
-    {# Adicionamos a lista de aulas de hoje também para o professor #}
-    <h4 class="mt-5">Minhas Aulas de Hoje ({{ today|date:"d/m/Y" }})</h4>
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
-      </div>
+    {# Seção de Aulas de Hoje para o Professor #}
+     <div class="card shadow-sm mb-4">
+        <div class="card-header text-center py-3">
+            <h5 class="mb-0">
+                Minhas Aulas de Hoje
+                <span class="badge bg-primary rounded-pill align-middle ms-1">{{ aulas_hoje_count }}</span>
+            </h5>
+            <small class="text-muted">
+                {{ today|date:"l, d \d\e F"|capfirst }}
+            </small>
+        </div>
+        <div class="card-body p-0">
+            {% if aulas_do_dia %}
+                {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
+            {% else %}
+                <div class="text-center text-muted p-4">Você não tem aulas agendadas para hoje.</div>
+            {% endif %}
+        </div>
     </div>
 {% endif %}
 {% endblock %}
@@ -94,22 +160,39 @@
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('fullcalendar');
         if (calendarEl) {
-            // Lógica de responsividade (igual à anterior)
-            var initialView = window.innerWidth < 768 ? 'listWeek' : 'dayGridMonth';
+            // 1. Define se a tela é mobile
+            const isMobile = window.innerWidth < 768;
             
-            // Configuração do Calendário
+            // 2. Define as configurações do cabeçalho com base no tamanho da tela
+            const mobileHeaderToolbar = {
+                left: 'title',                                  // Título da data à esquerda
+                center: '',                                     // Centro vazio
+                right: 'listWeek,dayGridMonth prev,next'        // Botões de visão e navegação agrupados à direita
+            };
+            const desktopHeaderToolbar = {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listWeek'
+            };
+
+            // Configuração do Calendário com a nova lógica
             var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: initialView,
-                locale: 'pt-br',
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
-                height: 'auto',
-                buttonText: {
-                    today:    'Hoje',
-                    month:    'Mês',
-                    week:     'Semana',
-                    day:      'Dia',
-                    listWeek: 'Lista' // O nome da view de lista é 'listWeek'
+                initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+                headerToolbar: isMobile ? mobileHeaderToolbar : desktopHeaderToolbar,
+                 views: {
+                    dayGridMonth: { // Visão de Mês
+                        titleFormat: { year: 'numeric', month: 'long' } // Ex: "Julho de 2025"
+                    },
+                    timeGridWeek: { // Visão de Semana
+                        titleFormat: { day: 'numeric', month: 'short' } // Ex: "6 - 12 de jul"
+                    },
+                    listWeek: { // Visão de Lista
+                        titleFormat: { day: 'numeric', month: 'short' } // Ex: "6 - 12 de jul"
+                    }
                 },
+                locale: 'pt-br',
+                height: 'auto',
+                buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', listWeek: 'Lista' },
                 noEventsContent: "📭 Nenhuma aula encontrada para este período.",
                 allDayText: 'Dia Inteiro',
                 eventMouseEnter: function(info) {

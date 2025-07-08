@@ -1,63 +1,58 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO E FILTROS (Mantidos, pois são a funcionalidade da página) --- #}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ titulo }}</h1>
-  <div>
+
+{# --- CABEÇALHO E PAINEL DE CONTROLE CORRIGIDOS --- #}
+<div class="row align-items-center mb-3 g-3">
+    {# Coluna do Título #}
+    <div class="col-md">
+        <h1 class="mb-0 text-center text-md-start">{{ titulo }}</h1>
+        <p class="text-muted mb-0 text-center text-md-start">Filtre e visualize o histórico completo de aulas.</p>
+    </div>
+
+    {# Coluna dos Botões (apenas para Admin) #}
     {% if user.tipo == 'admin' %}
-      <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary me-2"><i class="bi bi-plus-circle"></i> Agendar Aula</a>
-      <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success"><i class="bi bi-file-earmark-arrow-down"></i> Exportar</a>
+    <div class="col-md-auto">
+        <div class="d-flex gap-2 justify-content-center justify-content-md-end">
+            <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Exportar
+            </a>
+            <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Agendar Aula
+            </a>
+        </div>
+    </div>
     {% endif %}
-  </div>
 </div>
 
+{# --- FORMULÁRIO DE FILTRO (com leve ajuste visual) --- #}
 <div class="card p-3 shadow-sm mb-4">
     <form method="GET" action="{{ request.path }}" class="row align-items-end g-3">
         <div class="col-md-5">
-            <label for="id_data_inicial" class="form-label">Filtrar de:</label>
-            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
+            <label for="id_data_inicial" class="form-label small fw-bold">Filtrar de:</label>
+            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}">
         </div>
         <div class="col-md-5">
-            <label for="id_data_final" class="form-label">Até:</label>
-            <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
+            <label for="id_data_final" class="form-label small fw-bold">Até:</label>
+            <input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}">
         </div>
         <div class="col-md-2 d-flex">
-            <button class="btn btn-outline-secondary w-100 me-2" type="submit" title="Aplicar Filtro">
-                <i class="bi bi-search"></i>
-            </button>
-            {# Mostra o botão de limpar apenas se um filtro estiver ativo #}
+            <button class="btn btn-secondary w-100 me-2" type="submit" title="Aplicar Filtro"><i class="bi bi-search"></i></button>
             {% if data_inicial or data_final %}
-                <a href="{{ request.path }}" class="btn btn-outline-danger w-100" title="Limpar Filtro">
-                    <i class="bi bi-x-circle"></i>
-                </a>
+                <a href="{{ request.path }}" class="btn btn-outline-danger w-100" title="Limpar Filtro"><i class="bi bi-x-circle"></i></a>
             {% endif %}
         </div>
     </form>
 </div>
 
-{# --- KPIs DE RESUMO (Mantidos) --- #}
-<div class="row mb-4">
-    {% if user.tipo == 'admin' %}
-        {# Cards do Admin... #}
-    {% else %}
-        {# Cards do Professor... #}
-    {% endif %}
-</div>
-
-
-{# --- FEED DE AULAS CORRIGIDO --- #}
+{# --- FEED DE AULAS (sem alterações na lógica) --- #}
 <div class="aulas-feed">
-
     {% if not aulas %}
         <div class="text-center text-muted p-5"><h4>Nenhuma aula encontrada para os filtros aplicados.</h4></div>
     {% endif %}
-
     {% regroup aulas by data_hora.date as aulas_por_dia %}
-
     {% for grupo in aulas_por_dia %}
     <h4 class="mb-3 mt-4 border-bottom pb-2">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
-    
     {% for aula in grupo.list %}
     {% with status_slug=aula.status|slugify %}
     <div class="card shadow-sm mb-3 border-start border-5 {% if status_slug == 'realizada' %}border-success{% elif status_slug == 'cancelada' %}border-danger{% elif status_slug == 'aluno-ausente' %}border-warning{% elif status_slug == 'agendada' %}border-info{% else %}border-secondary{% endif %}">
@@ -67,41 +62,18 @@
                     <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
                     <span class="badge {% if status_slug == 'realizada' %}bg-success{% elif status_slug == 'cancelada' %}bg-danger{% elif status_slug == 'aluno-ausente' %}bg-warning text-dark{% elif status_slug == 'agendada' %}bg-info text-dark{% else %}bg-secondary{% endif %}">{{ aula.status }}</span>
                 </div>
-
                 <div class="col-md-5">
-                    {# --- CORRIGIDO: Loop para Alunos --- #}
                     <h5 class="card-title mb-1">
-                        {% for aluno in aula.alunos.all %}
-                            {{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}
-                        {% empty %}
-                            {{ aula.modalidade.nome|title }}
-                        {% endfor %}
+                        {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}{{ aula.modalidade.nome|title }}{% endfor %}
                     </h5>
                     <p class="card-text text-muted">
-                        {% if aula.alunos.count > 1 %}
-                            Aula em Grupo
-                        {% else %}
-                            {{ aula.modalidade.nome|title }}
-                        {% endif %}
+                        {% if aula.alunos.count > 1 %}Aula em Grupo{% else %}{{ aula.modalidade.nome|title }}{% endif %}
                     </p>
                 </div>
-
                 <div class="col-md-3">
-                    {# --- CORRIGIDO: Loop para Professores --- #}
-                    <small class="d-block text-muted">Atribuído a: 
-                        <strong>
-                        {% for prof in aula.professores.all %}
-                            {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
-                        {% empty %}
-                            N/A
-                        {% endfor %}
-                        </strong>
-                    </small>
-                    <small class="d-block text-muted">Realizado por: 
-                        <strong>{% if aula.relatorioaula.professor_que_validou %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% else %}Aguardando{% endif %}</strong>
-                    </small>
+                    <small class="d-block text-muted">Atribuído a: <strong>{% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% empty %}N/A{% endfor %}</strong></small>
+                    <small class="d-block text-muted">Realizado por: <strong>{% if aula.relatorioaula.professor_que_validou %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% else %}Aguardando{% endif %}</strong></small>
                 </div>
-
                 <div class="col-md-2 text-end">
                     <div class="btn-group">
                         <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Ações</button>
