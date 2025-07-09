@@ -395,60 +395,65 @@ def detalhe_aluno(request, pk):
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
 
+
 @login_required
 def listar_aulas(request):
-    # 1. Obtenção dos filtros da URL (sem alterações)
-    order_by = request.GET.get("order_by", "data_hora")
-    direction = request.GET.get("direction", "asc")
+    # 1. Obtenção de todos os filtros da URL
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
-    # Removi filtros que não estavam sendo usados no template para simplificar
+    professor_filtro_id = request.GET.get("professor_filtro", "")
+    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
+    status_filtro = request.GET.get("status_filtro", "")
     
     # 2. Definição do queryset base
     if request.user.tipo == "admin":
         aulas_queryset = Aula.objects.all()
         contexto_titulo = "Histórico Geral de Aulas"
     else:  # Professor
-        # --- CORRIGIDO ---
-        # Usando 'professores' (plural) para filtrar as aulas do professor logado
         aulas_queryset = Aula.objects.filter(
             Q(professores=request.user) | Q(relatorioaula__professor_que_validou=request.user)
         ).distinct()
         contexto_titulo = "Meu Histórico de Aulas"
 
-    # 3. Aplicação dos filtros de data
+    # 3. Aplicação de todos os filtros
     if data_inicial_str:
-        try:
-            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
-        except ValueError:
-            messages.error(request, "Formato de Data Inicial inválido. Use AAAA-MM-DD.")
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
+        except ValueError: pass
     if data_final_str:
-        try:
-            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
-        except ValueError:
-            messages.error(request, "Formato de Data Final inválido. Use AAAA-MM-DD.")
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__lte=datetime.strptime(data_final_str, "%Y-%m-%d").date())
+        except ValueError: pass
+    if professor_filtro_id:
+        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id))
+    if modalidade_filtro_id:
+        aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
+    if status_filtro:
+        if status_filtro == 'Substituído':
+            aulas_queryset = aulas_queryset.filter(
+                status='Realizada', professores__isnull=False, relatorioaula__professor_que_validou__isnull=False
+            ).exclude(professores=F('relatorioaula__professor_que_validou'))
+        else:
+            aulas_queryset = aulas_queryset.filter(status=status_filtro)
             
-    # 4. Agrupamento por dia (regroup precisa de ordenação por data)
-    aulas_queryset = aulas_queryset.order_by("data_hora")
+    aulas_ordenadas = aulas_queryset.order_by("-data_hora").prefetch_related('alunos', 'professores', 'relatorioaula__professor_que_validou')
+    
+    # Paginação
+    paginator = Paginator(aulas_ordenadas, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
-    # 5. Otimização da consulta com prefetch_related
-    # Isso busca todos os dados relacionados de uma vez, melhorando a performance
-    aulas = aulas_queryset.prefetch_related(
-        'alunos', 'professores', 'relatorioaula__professor_que_validou'
-    )
-
-    # 6. Montagem final do contexto
+    # --- CORREÇÃO AQUI ---
+    # Adicionamos a lista de professores e outras listas necessárias para os filtros no contexto
     contexto = {
-        "aulas": aulas,
+        "aulas": page_obj,
         "titulo": contexto_titulo,
-        "order_by": order_by,
-        "direction": direction,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
+        "professor_filtro": professor_filtro_id,
+        "modalidade_filtro": modalidade_filtro_id,
+        "status_filtro": status_filtro,
+        "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
+        "modalidades_list": Modalidade.objects.all().order_by("nome"),
+        "status_choices": Aula.STATUS_AULA_CHOICES,
     }
-
     return render(request, "scheduler/aula_listar.html", contexto)
 
 
@@ -704,7 +709,7 @@ def listar_professores(request):
 
 @user_passes_test(is_admin)
 def editar_professor(request, pk):
-    professor = get_object_or_404(CustomUser, pk=pk, tipo="professor")
+    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=["admin", "professor"])
     if request.method == "POST":
         form = ProfessorForm(request.POST, instance=professor)
         form.fields.pop("password", None)

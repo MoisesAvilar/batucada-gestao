@@ -14,6 +14,17 @@ from .models import (
 )
 
 
+class TitlecaseModelChoiceField(forms.ModelChoiceField):
+    """
+    Um ModelChoiceField customizado que exibe as opções em letras maiúsculas.
+    """
+    def label_from_instance(self, obj):
+        # Sobrescrevemos este método para formatar o texto de cada opção.
+        # Ele pega a representação em string padrão do objeto (ex: aluno.nome_completo)
+        # e a converte para maiúsculas.
+        return str(obj).title()
+
+
 class AulaForm(forms.ModelForm):
     """
     Formulário principal, contendo apenas os campos que não se repetem.
@@ -23,6 +34,12 @@ class AulaForm(forms.ModelForm):
         required=False,
         label="Agendar recorrentemente (todas as semanas do mês)",
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
+    modalidade = TitlecaseModelChoiceField(
+        queryset=Modalidade.objects.all().order_by('nome'),
+        label="Modalidade",
+        widget=forms.Select(attrs={"class": "form-select"})
     )
 
     class Meta:
@@ -44,7 +61,7 @@ class AlunoChoiceForm(forms.Form):
     Um formulário simples que contém apenas um campo <select> para um Aluno.
     Este será o "molde" para cada linha no nosso formset de alunos.
     """
-    aluno = forms.ModelChoiceField(
+    aluno = TitlecaseModelChoiceField(
         queryset=Aluno.objects.all().order_by('nome_completo'),
         label="Aluno",
         widget=forms.Select(attrs={'class': 'form-select'})
@@ -56,7 +73,7 @@ class ProfessorChoiceForm(forms.Form):
     Um formulário simples que contém apenas um campo <select> para um Professor.
     Este será o "molde" para cada linha no nosso formset de professores.
     """
-    professor = forms.ModelChoiceField(
+    professor = TitlecaseModelChoiceField(
         queryset=CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by('username'),
         label="Professor",
         widget=forms.Select(attrs={'class': 'form-select'})

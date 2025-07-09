@@ -9,40 +9,51 @@
 
 {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
 
+{# --- BOTÃO PARA MOSTRAR/OCULTAR FILTROS --- #}
+<div class="d-grid d-md-flex justify-content-md-end mb-3">
+    <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+        <i class="bi bi-filter-right"></i> Mostrar/Ocultar Filtros
+    </button>
+</div>
+
 {# --- PAINEL DE FILTROS --- #}
-<div class="card p-3 shadow-sm mb-4">
-    <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}">
-        <div class="row align-items-end g-3">
-            <div class="col-lg-3 col-md-6"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}"></div>
-            <div class="col-lg-3 col-md-6"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}"></div>
-            <div class="col-lg-2 col-md-6"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
-            <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Modalidade</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
-            <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
-        </div>
-        
-        {# --- BOTÕES CORRIGIDOS --- #}
-        <div class="row mt-3">
-            <div class="col-12">
-                <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
-                    {# Este botão só aparece se um filtro estiver ativo #}
-                    {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
-                        <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger">
-                            <i class="bi bi-x-circle me-1"></i> Limpar Filtros
-                        </a>
-                    {% endif %}
-                    <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-success">
-                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar CSV
-                    </a>
-                    <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-outline-info" title="Ver a lista detalhada destas aulas">
-                        <i class="bi bi-list-ul me-1"></i> Ver Lista Detalhada
-                    </a>
-                    <button class="btn btn-primary" type="submit">
-                        <i class="bi bi-filter me-1"></i> Aplicar Filtros
-                    </button>
+{# --- PAINEL DE FILTROS RECOLHÍVEL --- #}
+<div class="collapse" id="filterCollapse">
+    <div class="card p-3 shadow-sm mb-4">
+        {# --- CORREÇÃO 1: Adicionado id="filter-form" --- #}
+        <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}" id="filter-form">
+            <div class="row g-3">
+                {# Botões Rápidos #}
+                <div class="col-12">
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-today">Hoje</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-week">Esta Semana</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-month">Este Mês</button>
+                    </div>
+                </div>
+                {# Filtros Manuais #}
+                <div class="col-lg-3 col-md-6"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}"></div>
+                <div class="col-lg-3 col-md-6"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}"></div>
+                <div class="col-lg-2 col-md-6"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
+                <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Modalidade</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
+                <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
+            </div>
+            
+            {# --- CORREÇÃO 2: Botões com espaçamento e layout aprimorados --- #}
+            <div class="row border-top mt-3 pt-3">
+                <div class="col-12">
+                    <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
+                        {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
+                            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
+                            <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-outline-info" title="Ver a lista detalhada destas aulas"><i class="bi bi-list-ul me-1"></i> Ver Lista</a>
+                        {% endif %}
+                        <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class="bi bi-file-earmark-excel me-1"></i> Exportar</a>
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-filter me-1"></i> Aplicar Filtros</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 {# --- SEÇÃO DE CARDS DE RESUMO (KPIs) MODERNIZADA --- #}
@@ -120,78 +131,120 @@
     <div class="col-lg-6 mb-4">
         <div class="card shadow-sm">
             <div class="card-header"><h5>Aulas por Professor</h5></div>
-            <div class="card-body">
-                {% if aulas_por_professor %}
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th scope="col">Professor</th>
-                                <th scope="col" class="text-center">Aulas Atribuídas</th>
-                                <th scope="col" class="text-center">Aulas Realizadas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for professor in aulas_por_professor %}
-                            <tr>
-                                {# --- ÍCONE ADICIONADO AQUI --- #}
-                                <td>
-                                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">
-                                        <i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}
-                                    </a>
-                                </td>
-                                <td class="text-center"><span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span></td>
-                                <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <div class="text-center text-muted">
-                        <i class="bi bi-people fs-2"></i>
-                        <p class="text-muted">Nenhum dado de aulas por professor para os filtros aplicados.</p>
+            
+            {# --- VISÃO DE DESKTOP (TABELA) --- #}
+            <div class="d-none d-lg-block table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Professor</th>
+                            <th scope="col" class="text-center">Aulas Atribuídas</th>
+                            <th scope="col" class="text-center">Aulas Realizadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for professor in aulas_por_professor %}
+                        <tr>
+                            <td class="align-top">
+                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">
+                                    <i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}
+                                </a>
+                            </td>
+                            <td class="text-center"><span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span></td>
+                            <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-people fs-2"></i><p class="mt-2 mb-0">Nenhum dado de professor para exibir com os filtros atuais.</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# --- VISÃO DE MOBILE (LISTA DE CARDS APRIMORADA) --- #}
+            <div class="d-lg-none p-2">
+                {% for professor in aulas_por_professor %}
+                    <div class="card shadow-sm mb-2">
+                        <div class="card-body">
+                            <div class="row align-items-center g-2">
+                                <div class="col">
+                                    <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}</h6>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="row text-center">
+                                <div class="col"><small class="text-muted d-block">Atribuídas</small><span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span></div>
+                                <div class="col"><small class="text-muted d-block">Realizadas</small><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></div>
+                            </div>
+                        </div>
                     </div>
-                {% endif %}
+                {% empty %}
+                    <div class="text-center text-muted p-4"><i class="bi bi-people fs-2"></i><p class="mt-2 mb-0">Nenhum dado de professor para exibir.</p></div>
+                {% endfor %}
             </div>
         </div>
     </div>
     <div class="col-lg-6 mb-4">
         <div class="card shadow-sm">
             <div class="card-header"><h5>Aulas por Modalidade</h5></div>
-            <div class="card-body">
-                {% if aulas_por_modalidade %}
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th scope="col">Modalidade</th>
-                                <th scope="col" class="text-center">Total de Aulas</th>
-                                <th scope="col" class="text-center">Aulas Realizadas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in aulas_por_modalidade %}
-                            <tr>
-                                {# --- ÍCONE ADICIONADO AQUI --- #}
-                                <td>
-                                    {% if item.modalidade__id %}
-                                        <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-dark text-decoration-none">
-                                            <i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}
-                                        </a>
-                                    {% else %}
-                                        <span class="text-muted">Sem Modalidade</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center"><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></td>
-                                <td class="text-center"><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <div class="text-center text-muted">
-                        <i class="bi bi-music-note-list fs-2"></i>
-                        <p class="text-muted">Nenhum dado de aulas por modalidade para os filtros aplicados.</p>
+            
+            {# --- VISÃO DE DESKTOP (TABELA) --- #}
+            <div class="d-none d-lg-block table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Modalidade</th>
+                            <th scope="col" class="text-center">Total de Aulas</th>
+                            <th scope="col" class="text-center">Aulas Realizadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in aulas_por_modalidade %}
+                        <tr>
+                            <td class="align-top">
+                                {% if item.modalidade__id %}
+                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-dark text-decoration-none">
+                                        <i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Sem Modalidade</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center"><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></td>
+                            <td class="text-center"><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de modalidade para exibir.</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# --- VISÃO DE MOBILE (LISTA DE CARDS APRIMORADA) --- #}
+            <div class="d-lg-none p-2">
+                 {% for item in aulas_por_modalidade %}
+                    <div class="card shadow-sm mb-2">
+                        <div class="card-body">
+                            <div class="row align-items-center g-2">
+                                <div class="col">
+                                    <h6 class="mb-0"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}</h6>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="row text-center">
+                                <div class="col"><small class="text-muted d-block">Total de Aulas</small><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></div>
+                                <div class="col"><small class="text-muted d-block">Realizadas</small><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></div>
+                            </div>
+                        </div>
                     </div>
-                {% endif %}
+                {% empty %}
+                    <div class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de modalidade para exibir.</p></div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -261,6 +314,61 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             }
+        });
+    }
+
+    // Encontra os elementos do formulário
+    const form = document.getElementById('filter-form');
+    const dateStartInput = document.getElementById('id_data_inicial');
+    const dateEndInput = document.getElementById('id_data_final');
+    
+    // Encontra os botões de filtro rápido
+    const btnToday = document.getElementById('filter-today');
+    const btnWeek = document.getElementById('filter-week');
+    const btnMonth = document.getElementById('filter-month');
+
+    // Função para formatar a data para YYYY-MM-DD
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // Ação para o botão "Hoje"
+    if (btnToday) {
+        btnToday.addEventListener('click', function() {
+            const today = formatDate(new Date());
+            dateStartInput.value = today;
+            dateEndInput.value = today;
+            if (form) form.submit();
+        });
+    }
+
+    // Ação para o botão "Esta Semana"
+    if (btnWeek) {
+        btnWeek.addEventListener('click', function() {
+            const today = new Date();
+            // Considera o Domingo (0) como início da semana
+            const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); 
+            const lastDayOfWeek = new Date(firstDayOfWeek);
+            lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
+
+            dateStartInput.value = formatDate(firstDayOfWeek);
+            dateEndInput.value = formatDate(lastDayOfWeek);
+            if (form) form.submit();
+        });
+    }
+
+    // Ação para o botão "Este Mês"
+    if (btnMonth) {
+        btnMonth.addEventListener('click', function() {
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = today.getMonth();
+            const firstDayOfMonth = new Date(y, m, 1);
+            const lastDayOfMonth = new Date(y, m + 1, 0); // O dia 0 do próximo mês é o último dia do mês atual
+
+            dateStartInput.value = formatDate(firstDayOfMonth);
+            dateEndInput.value = formatDate(lastDayOfMonth);
+            if (form) form.submit();
         });
     }
 });
