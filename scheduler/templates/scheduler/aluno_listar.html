@@ -1,112 +1,105 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO APRIMORADO --- #}
+{# --- CABEÇALHO E BARRA DE BUSCA --- #}
 <div class="row align-items-center mb-3 g-3">
     <div class="col-md">
-        <h1 class="mb-0 text-center text-md-start">{{ titulo }}</h1>
-        <p class="text-muted mb-0 text-center text-md-start">Gerencie, adicione ou busque por alunos.</p>
+        <h1 class="mb-0 text-center text-md-start">{{ titulo|title }}</h1>
+        <p class="text-muted mb-0 text-center text-md-start">Gerencie os alunos da escola.</p>
     </div>
     {% if user.tipo == 'admin' %}
     <div class="col-md-auto">
-        <div class="d-flex justify-content-center">
-            <a href="{% url 'scheduler:aluno_criar' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i> Adicionar Novo Aluno
-            </a>
+        <div class="d-grid">
+            <a href="{% url 'scheduler:aluno_criar' %}" class="btn btn-primary"><i class="bi bi-person-plus-fill me-1"></i> Adicionar Novo Aluno</a>
         </div>
     </div>
     {% endif %}
 </div>
-
-{# --- PAINEL DE BUSCA --- #}
-<div class="card p-3 shadow-sm mb-4">
-    <form method="GET" action="{% url 'scheduler:aluno_listar' %}" class="d-flex align-items-end">
-        <div class="flex-grow-1 me-2">
-            <label for="id_q" class="form-label">Buscar Aluno</label>
-            <input type="text" id="id_q" name="q" class="form-control" placeholder="Nome, email ou telefone..." value="{{ search_query }}">
-        </div>
-        <div>
-            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-            {% if search_query %}
-                <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-circle"></i></a>
-            {% endif %}
-        </div>
-    </form>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" action="{% url 'scheduler:aluno_listar' %}">
+            <div class="input-group">
+                <input type="text" class="form-control" name="q" placeholder="Buscar por nome, email ou telefone..." value="{{ search_query }}">
+                <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+            </div>
+        </form>
+    </div>
 </div>
 
+{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
+
 <div class="card shadow-sm">
-  <div class="card-body">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-          <thead>
-            <tr>
-              <th scope="col">Nome Completo</th>
-              <th scope="col">Total de Aulas</th>
-              <th scope="col">
-                {% if user.tipo == 'professor' %}
-                  Próxima Aula com Este Aluno
-                {% else %}
-                  Próxima Aula Agendada
-                {% endif %}
-              </th>
-              <th scope="col">Contato (Email / Telefone)</th>
-              <th scope="col" class="text-end">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for aluno in alunos %}
-            <tr>
-              <td class="fw-bold">
-                {# NOME AGORA É UM LINK PARA O PERFIL #}
-                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}">
-                    {{ aluno.nome_completo|title }}
-                </a>
-              </td>
-              <td>
-                {# NOVO: Exibe o total de aulas #}
-                <span class="badge bg-secondary">{{ aluno.total_aulas }}</span>
-              </td>
-              <td>
-                {# NOVO: Exibe a data da próxima aula, se houver #}
-                {% if aluno.proxima_aula %}
-                    {{ aluno.proxima_aula|date:"d/m/Y, H:i" }}
-                {% else %}
-                    <span class="text-muted small">Nenhuma agendada</span>
-                {% endif %}
-              </td>
-              <td>
-                <small class="d-block">{{ aluno.email|default:"Sem email" }}</small>
-                <small class="d-block text-muted">{{ aluno.telefone|default:"Sem telefone" }}</small>
-              </td>
-              <td class="text-end">
-                {# AÇÕES: Adicionado botão para ver perfil #}
-                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-info" title="Ver Perfil">
-                  <i class="bi bi-eye"></i>
-                </a>
-                {% if user.tipo == 'admin' %}
-                  <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                    <i class="bi bi-pencil-square"></i>
-                  </a>
-                  <a href="{% url 'scheduler:aluno_excluir' aluno.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
-                    <i class="bi bi-trash"></i>
-                  </a>
-                {% endif%}
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="5" class="text-center text-muted py-4">
-                {% if search_query %}
-                    Nenhum aluno encontrado para a busca "{{ search_query }}".
-                {% else %}
-                    Nenhum aluno cadastrado.
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <div class="card-header">
+        <h5 class="mb-0">Lista de Alunos</h5>
     </div>
-  </div>
+    
+    {% if not alunos %}
+        <div class="card-body text-center text-muted p-5">
+            <i class="bi bi-people fs-1"></i>
+            <p class="mt-2 mb-0">Nenhum aluno encontrado.</p>
+        </div>
+    {% else %}
+        {# --- 1. VISÃO DE DESKTOP (TABELA) --- #}
+        <div class="d-none d-lg-block table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Nome Completo</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Telefone</th>
+                        <th scope="col">Data de Matrícula</th>
+                        <th scope="col" class="text-center">Total de Aulas</th>
+                        <th scope="col">Próxima Aula</th>
+                        <th scope="col" class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno in alunos %}
+                    <tr>
+                        <td><a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="fw-bold">{{ aluno.nome_completo|title }}</a></td>
+                        <td>{{ aluno.email|default:"--" }}</td>
+                        <td>{{ aluno.telefone|default:"--" }}</td>
+                        <td>{{ aluno.data_criacao|date:"d/m/Y" }}</td>
+                        <td class="text-center"><span class="badge bg-secondary">{{ aluno.total_aulas }}</span></td>
+                        <td>{{ aluno.proxima_aula|date:"d/m/Y, H:i"|default:"Nenhuma" }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-primary">Detalhes</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# --- 2. VISÃO DE MOBILE (LISTA DE CARDS) --- #}
+        <div class="d-lg-none p-2">
+            {% for aluno in alunos %}
+                <div class="card shadow-sm mb-2 card-hover">
+                    <div class="card-body">
+                        <div class="row align-items-center g-2">
+                            <div class="col">
+                                <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ aluno.nome_completo|title }}</h6>
+                                <small class="text-muted">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</small>
+                            </div>
+                            <div class="col-auto">
+                                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
+                            </div>
+                        </div>
+                        <hr class="my-2">
+                        <div class="row text-center small">
+                            <div class="col">
+                                <div class="text-muted">Total de Aulas</div>
+                                <strong>{{ aluno.total_aulas }}</strong>
+                            </div>
+                            <div class="col">
+                                <div class="text-muted">Próxima Aula</div>
+                                <strong>{{ aluno.proxima_aula|date:"d/m, H:i"|default:"Nenhuma" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

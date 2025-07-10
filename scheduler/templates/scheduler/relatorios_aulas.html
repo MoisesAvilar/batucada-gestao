@@ -35,7 +35,7 @@
                 <div class="col-lg-3 col-md-6"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}"></div>
                 <div class="col-lg-3 col-md-6"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}"></div>
                 <div class="col-lg-2 col-md-6"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
-                <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Modalidade</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
+                <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
                 <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
             </div>
             
@@ -44,8 +44,8 @@
                 <div class="col-12">
                     <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
                         {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
-                            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
-                            <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-outline-info" title="Ver a lista detalhada destas aulas"><i class="bi bi-list-ul me-1"></i> Ver Lista</a>
+                            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
+                            <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-info" title="Ver a lista detalhada destas aulas"><i class="bi bi-list-ul me-1"></i> Ver Lista</a>
                         {% endif %}
                         <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class="bi bi-file-earmark-excel me-1"></i> Exportar</a>
                         <button class="btn btn-primary" type="submit"><i class="bi bi-filter me-1"></i> Aplicar Filtros</button>
@@ -188,14 +188,14 @@
     </div>
     <div class="col-lg-6 mb-4">
         <div class="card shadow-sm">
-            <div class="card-header"><h5>Aulas por Modalidade</h5></div>
+            <div class="card-header"><h5>Aulas por Categoria</h5></div>
             
             {# --- VISÃO DE DESKTOP (TABELA) --- #}
             <div class="d-none d-lg-block table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th scope="col">Modalidade</th>
+                            <th scope="col">Categoria</th>
                             <th scope="col" class="text-center">Total de Aulas</th>
                             <th scope="col" class="text-center">Aulas Realizadas</th>
                         </tr>
@@ -209,14 +209,14 @@
                                         <i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}
                                     </a>
                                 {% else %}
-                                    <span class="text-muted">Sem Modalidade</span>
+                                    <span class="text-muted">Sem Categoria</span>
                                 {% endif %}
                             </td>
                             <td class="text-center"><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></td>
                             <td class="text-center"><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de modalidade para exibir.</p></td></tr>
+                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p></td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -243,7 +243,7 @@
                         </div>
                     </div>
                 {% empty %}
-                    <div class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de modalidade para exibir.</p></div>
+                    <div class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p></div>
                 {% endfor %}
             </div>
         </div>

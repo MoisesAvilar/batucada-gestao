@@ -14,7 +14,7 @@
     {% if user.tipo == 'admin' %}
     <div class="col-md-auto">
         <div class="d-flex gap-2 justify-content-center justify-content-md-end">
-            <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success">
+            <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success">
                 <i class="bi bi-file-earmark-arrow-down me-1"></i> Exportar
             </a>
             <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary">
@@ -55,7 +55,7 @@
                 <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
             </div>
             <div class="row mt-3"><div class="col text-end">
-                <a href="{{ request.path }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
+                <a href="{{ request.path }}" class="btn btn-danger btn-sm"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
                 <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-filter me-1"></i> Aplicar Filtros</button>
             </div></div>
         </form>

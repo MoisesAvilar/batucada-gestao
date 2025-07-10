@@ -1,111 +1,132 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1>{{ titulo|title }}</h1>
-</div>
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        {# --- CABEÇALHO APRIMORADO --- #}
+        <div class="text-center mb-4">
+            <h1 class="mb-1">{{ titulo|title }}</h1>
+            <p class="text-muted mb-0">Preencha os detalhes da aula, adicione alunos e professores.</p>
+        </div>
 
-{% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post" action="{{ form_action }}">
+                    {% csrf_token %}
+                  
+                    <div class="row">
+                      <div class="col-md-4 mb-3"><label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold">Categoria</label>{{ form.modalidade }}</div>
+                      <div class="col-md-4 mb-3"><label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold">Data e Horário</label>{{ form.data_hora }}</div>
+                      <div class="col-md-4 mb-3"><label for="{{ form.status.id_for_label }}" class="form-label fw-bold">Status</label>{{ form.status }}</div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        {{ form.recorrente_mensal }}
+                        <label class="form-check-label" for="{{ form.recorrente_mensal.id_for_label }}">{{ form.recorrente_mensal.label }}</label>
+                    </div>
+                    <hr>
+                  
+                    <div id="alunos-formset-container" class="formset-container mb-3" style="display: none;">
+                      <h5 class="mb-3">Alunos</h5>
+                      {{ aluno_formset.management_form }}
+                      <div id="aluno-forms">
+                        {% for form in aluno_formset %}
+                          <div class="row align-items-center mb-2 formset-row">
+                            <div class="col-md-10 col-8">{{ form.aluno }}</div>
+                            <div class="col-md-2 col-4 text-end">
+                              {% if form.initial %}
+                                <div class="form-check form-check-inline">
+                                  {{ form.DELETE }}
+                                  <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
+                                </div>
+                              {% endif %}
+                            </div>
+                            {{ form.id }}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      <button type="button" id="add-aluno-form" class="btn btn-sm btn-outline-success mt-2"><i class="bi bi-plus-circle"></i> Adicionar Aluno</button>
+                    </div>
+                  
+                    <div id="professores-formset-container" class="formset-container mb-3" style="display: none;">
+                      <h5 class="mb-3">Professores</h5>
+                      {{ professor_formset.management_form }}
+                      <div id="professor-forms">
+                        {% for form in professor_formset %}
+                          <div class="row align-items-center mb-2 formset-row">
+                            <div class="col-md-10 col-8">{{ form.professor }}</div>
+                            <div class="col-md-2 col-4 text-end">
+                              {% if form.initial %}
+                                <div class="form-check form-check-inline">
+                                  {{ form.DELETE }}
+                                  <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
+                                </div>
+                              {% endif %}
+                            </div>
+                            {{ form.id }}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      <button type="button" id="add-professor-form" class="btn btn-sm btn-outline-success mt-2"><i class="bi bi-plus-circle"></i> Adicionar Professor</button>
+                    </div>
+                    
+                    <div class="mt-4 border-top pt-3 text-end">
+                      <a href="{% url 'scheduler:dashboard' %}" class="btn btn-secondary">Cancelar</a>
+                      <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                  </form>
+            </div>
+        </div>
     </div>
-    {% endfor %}
-{% endif %}
-
-<div class="card shadow-sm">
-  <div class="card-body">
-    <form method="post">
-      {% csrf_token %}
-
-      {# Formulário Principal #}
-      <div class="row">
-        <div class="col-md-4 mb-3">{{ form.modalidade.label_tag }} {{ form.modalidade }}</div>
-        <div class="col-md-4 mb-3">{{ form.data_hora.label_tag }} {{ form.data_hora }}</div>
-        <div class="col-md-4 mb-3">{{ form.status.label_tag }} {{ form.status }}</div>
-      </div>
-      <div id="conflito-feedback" class="mt-2 mb-3"></div>
-
-      {# --- SEÇÃO DE ALUNOS (FORMSET) --- #}
-      <div id="alunos-formset-container" class="formset-container mb-3" style="display: none;">
-        <h5>Alunos</h5>
-        {{ aluno_formset.management_form }}
-        <div id="aluno-forms">
-          {% for form in aluno_formset %}
-            <div class="row align-items-center mb-2 formset-row">
-              <div class="col-10">{{ form.aluno }}</div>
-              <div class="col-2">
-                {% if form.can_delete.value %}<label class="form-check-label small">Remover {{ form.DELETE }}</label>{% endif %}
-              </div>
-              {{ form.id }}
-            </div>
-          {% endfor %}
-        </div>
-        <button type="button" id="add-aluno-form" class="btn btn-sm btn-outline-success">
-          <i class="bi bi-plus-circle"></i> Adicionar Aluno
-        </button>
-      </div>
-
-      {# --- SEÇÃO DE PROFESSORES (FORMSET) --- #}
-      <div id="professores-formset-container" class="formset-container mb-3" style="display: none;">
-        <h5>Professores</h5>
-        {{ professor_formset.management_form }}
-        <div id="professor-forms">
-          {% for form in professor_formset %}
-            <div class="row align-items-center mb-2 formset-row">
-              <div class="col-10">{{ form.professor }}</div>
-              <div class="col-2">
-                {% if form.can_delete.value %}<label class="form-check-label small">Remover {{ form.DELETE }}</label>{% endif %}
-              </div>
-               {{ form.id }}
-            </div>
-          {% endfor %}
-        </div>
-        <button type="button" id="add-professor-form" class="btn btn-sm btn-outline-success">
-          <i class="bi bi-plus-circle"></i> Adicionar Professor
-        </button>
-      </div>
-      
-      {# Checkbox de recorrência #}
-      {% if form.recorrente_mensal %}
-      <div class="mb-3 form-check">
-        {{ form.recorrente_mensal }}
-        <label class="form-check-label" for="{{ form.recorrente_mensal.id_for_label }}">
-          {{ form.recorrente_mensal.label }}
-        </label>
-      </div>
-      {% endif %}
-
-      <button type="submit" class="btn btn-primary mt-3">Salvar</button>
-      <a href="{% url 'scheduler:dashboard' %}" class="btn btn-secondary mt-3">Cancelar</a>
-    </form>
-
-    {# Templates vazios para o JavaScript clonar #}
-    <template id="aluno-empty-form-template">
-      <div class="row align-items-center mb-2 formset-row">
-          <div class="col-10">{{ aluno_formset.empty_form.aluno }}</div>
-          <div class="col-2"></div>
-          {{ aluno_formset.empty_form.id }}
-      </div>
-    </template>
-    <template id="professor-empty-form-template">
-        <div class="row align-items-center mb-2 formset-row">
-            <div class="col-10">{{ professor_formset.empty_form.professor }}</div>
-            <div class="col-2"></div>
-            {{ professor_formset.empty_form.id }}
-        </div>
-    </template>
-  </div>
 </div>
+
+{# Templates vazios para o JavaScript clonar #}
+<template id="aluno-empty-form-template"><div class="row align-items-center mb-2 formset-row"><div class="col-md-10 col-12">{{ aluno_formset.empty_form.aluno }}</div><div class="col-md-2"></div>{{ aluno_formset.empty_form.id }}</div></template>
+<template id="professor-empty-form-template"><div class="row align-items-center mb-2 formset-row"><div class="col-md-10 col-12">{{ professor_formset.empty_form.professor }}</div><div class="col-md-2"></div>{{ professor_formset.empty_form.id }}</div></template>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- LÓGICA PARA ADICIONAR FORMS DINAMICAMENTE ---
+    function setContainerEnabled(container, isEnabled) {
+        if (!container) return;
+        container.style.display = isEnabled ? 'block' : 'none';
+        container.querySelectorAll('select, input[type="checkbox"]').forEach(input => {
+            input.disabled = !isEnabled;
+        });
+    }
+
+    function toggleFormsets() {
+        const modalidadeSelect = document.getElementById('id_modalidade');
+        if (!modalidadeSelect) return;
+        
+        const alunosContainer = document.getElementById('alunos-formset-container');
+        const professoresContainer = document.getElementById('professores-formset-container');
+        const selectedOptionText = modalidadeSelect.options[modalidadeSelect.selectedIndex].text.toLowerCase();
+        
+        if (selectedOptionText.includes('batera no fácil')) {
+            setContainerEnabled(alunosContainer, true);
+            setContainerEnabled(professoresContainer, true);
+        } else if (selectedOptionText.includes('atividade complementar')) {
+            setContainerEnabled(alunosContainer, false);
+            setContainerEnabled(professoresContainer, true);
+        } else {
+            setContainerEnabled(alunosContainer, true);
+            setContainerEnabled(professoresContainer, true);
+        }
+    }
+
     function setupFormset(buttonId, containerId, templateId, prefix) {
         const addButton = document.getElementById(buttonId);
+        if (!addButton) return;
         const formContainer = document.getElementById(containerId);
         const template = document.getElementById(templateId);
         const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
@@ -113,60 +134,19 @@ document.addEventListener('DOMContentLoaded', function() {
         addButton.addEventListener('click', function() {
             const currentFormCount = parseInt(totalFormsInput.value);
             const newFormHtml = template.innerHTML.replace(/__prefix__/g, currentFormCount);
-            
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newFormHtml;
-            formContainer.append(tempDiv.firstElementChild);
-
+            formContainer.insertAdjacentHTML('beforeend', newFormHtml);
             totalFormsInput.value = currentFormCount + 1;
         });
     }
 
     setupFormset('add-aluno-form', 'aluno-forms', 'aluno-empty-form-template', 'alunos');
     setupFormset('add-professor-form', 'professor-forms', 'professor-empty-form-template', 'professores');
-
-    // --- LÓGICA PARA MOSTRAR/ESCONDER FORMSETS ---
-    const modalidadeSelect = document.getElementById('{{ form.modalidade.id_for_label }}');
-    const alunosContainer = document.getElementById('alunos-formset-container');
-    const professoresContainer = document.getElementById('professores-formset-container');
-
-    function toggleFormsets() {
-      // Função auxiliar para habilitar/desabilitar um container de formulário
-      function setContainerEnabled(container, isEnabled) {
-          if (!container) return;
-          container.style.display = isEnabled ? 'block' : 'none';
-          container.querySelectorAll('select, input[type="checkbox"]').forEach(input => {
-              input.disabled = !isEnabled;
-          });
-      }
-
-      // O seletor de modalidade precisa ser encontrado no contexto certo (página ou modal)
-      const modal = document.querySelector('#agendamentoModal');
-      const formId = modal && modal.classList.contains('show') ? '#agendamentoModal' : 'form';
-      const modalidadeSelect = document.querySelector(`${formId} #id_modalidade`);
-      
-      if (!modalidadeSelect) return;
-
-      // Encontra os containers de formset
-      const alunosContainer = document.querySelector('#alunos-formset-container');
-      const professoresContainer = document.querySelector('#professores-formset-container');
-
-      const selectedOptionText = modalidadeSelect.options[modalidadeSelect.selectedIndex].text.toLowerCase();
-      
-      // Habilita ou desabilita os containers com base na seleção
-      if (selectedOptionText.includes('batera no fácil')) {
-          setContainerEnabled(alunosContainer, true);
-          setContainerEnabled(professoresContainer, true);
-      } else if (selectedOptionText.includes('atividade complementar')) {
-          setContainerEnabled(alunosContainer, false); // Desabilita alunos
-          setContainerEnabled(professoresContainer, true);
-      } else { // Aula normal
-          setContainerEnabled(alunosContainer, true);
-          setContainerEnabled(professoresContainer, true);
-      }
-  }
-    modalidadeSelect.addEventListener('change', toggleFormsets);
-    toggleFormsets(); // Executa ao carregar a página
+    
+    const modalidadeSelectEl = document.getElementById('id_modalidade');
+    if (modalidadeSelectEl) {
+        modalidadeSelectEl.addEventListener('change', toggleFormsets);
+        toggleFormsets();
+    }
 });
 </script>
 {% endblock %}

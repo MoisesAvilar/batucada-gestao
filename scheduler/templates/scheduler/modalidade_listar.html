@@ -3,95 +3,64 @@
 {% block content %}
 {# --- CABEÇALHO APRIMORADO --- #}
 <div class="row align-items-center mb-3 g-3">
-    <div class="col-md">
-        <h1 class="mb-0 text-center text-md-start">{{ titulo }}</h1>
-        <p class="text-muted mb-0 text-center text-md-start">Gerencie os tipos de aulas oferecidas.</p>
-    </div>
-    <div class="col-md-auto">
-        <div class="d-flex justify-content-center">
-            <a href="{% url 'scheduler:modalidade_criar' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle me-1"></i> Adicionar Nova Modalidade
-            </a>
-        </div>
-    </div>
+    <div class="col-md"><h1 class="mb-0 text-center text-md-start">{{ titulo }}</h1><p class="text-muted mb-0 text-center text-md-start">Gerencie os tipos de aulas oferecidas.</p></div>
+    <div class="col-md-auto"><div class="d-flex justify-content-center"><a href="{% url 'scheduler:modalidade_criar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Adicionar Nova Categoria</a></div></div>
 </div>
 
 {# --- PAINEL DE BUSCA --- #}
-<div class="card p-3 shadow-sm mb-4">
-    <form method="GET" action="{% url 'scheduler:modalidade_listar' %}" class="d-flex align-items-end">
-        <div class="flex-grow-1 me-2">
-            <label for="id_q" class="form-label">Buscar Modalidade</label>
-            <input type="text" id="id_q" name="q" class="form-control" placeholder="Nome da modalidade..." value="{{ search_query }}">
-        </div>
-        <div>
-            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-            {% if search_query %}
-                <a href="{% url 'scheduler:modalidade_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-circle"></i></a>
-            {% endif %}
-        </div>
-    </form>
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{% url 'scheduler:modalidade_listar' %}">
+            <div class="input-group">
+                <input type="text" class="form-control" name="q" placeholder="Nome da categoria..." value="{{ search_query }}">
+                <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card shadow-sm">
-  <div class="card-body">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-          <thead>
-            <tr>
-              <th scope="col">Nome da Modalidade</th>
-              <th scope="col" class="text-center">Total de Aulas</th>
-              <th scope="col" class="text-center">Alunos Ativos</th>
-              <th scope="col">Próxima Aula Agendada</th>
-              <th scope="col" class="text-end">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div class="card-header"><h5 class="mb-0">Lista de Categorias</h5></div>
+    {% if not modalidades %}
+        <div class="card-body text-center text-muted p-5"><i class="bi bi-music-note-list fs-1"></i><p class="mt-2 mb-0">Nenhuma categoria encontrada.</p></div>
+    {% else %}
+        {# --- VISÃO DE DESKTOP (TABELA) --- #}
+        <div class="d-none d-lg-block table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th scope="col">Nome da Categoria</th><th scope="col" class="text-center">Total de Aulas</th><th scope="col" class="text-center">Alunos Ativos</th><th scope="col">Próxima Aula Agendada</th><th scope="col" class="text-end">Ações</th></tr></thead>
+                <tbody>
+                    {% for modalidade in modalidades %}
+                    <tr>
+                        <td class="fw-bold align-top"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="text-dark text-decoration-none"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</a></td>
+                        <td class="text-center"><span class="badge bg-secondary fs-6">{{ modalidade.total_aulas }}</span></td>
+                        <td class="text-center"><span class="badge bg-success fs-6">{{ modalidade.alunos_ativos }}</span></td>
+                        <td>{% if modalidade.proxima_aula %}{{ modalidade.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
+                        <td class="text-end"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Detalhes</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
+        <div class="d-lg-none p-2">
             {% for modalidade in modalidades %}
-            <tr>
-              <td class="fw-bold">
-                <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}">
-                    {{ modalidade.nome|title }}
-                </a>
-              </td>
-              <td class="text-center">
-                <span class="badge bg-secondary fs-6">{{ modalidade.total_aulas }}</span>
-              </td>
-              <td class="text-center">
-                <span class="badge bg-success fs-6">{{ modalidade.alunos_ativos }}</span>
-              </td>
-              <td>
-                {% if modalidade.proxima_aula %}
-                    {{ modalidade.proxima_aula|date:"d/m/Y, H:i" }}
-                {% else %}
-                    <span class="text-muted small">Nenhuma agendada</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info" title="Ver Dashboard">
-                  <i class="bi bi-bar-chart-line"></i>
-                </a>
-                <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                  <i class="bi bi-pencil-square"></i>
-                </a>
-                <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
-                  <i class="bi bi-trash"></i>
-                </a>
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="5" class="text-center text-muted py-4">
-                {% if search_query %}
-                    Nenhuma modalidade encontrada para a busca "{{ search_query }}".
-                {% else %}
-                    Nenhuma modalidade cadastrada.
-                {% endif %}
-              </td>
-            </tr>
+                <div class="card shadow-sm mb-2 card-hover">
+                    <div class="card-body">
+                        <div class="row align-items-center g-2">
+                            <div class="col"><h6 class="mb-0"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</h6></div>
+                            <div class="col-auto"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a></div>
+                        </div>
+                        <hr class="my-2">
+                        <div class="row text-center small">
+                            <div class="col"><div class="text-muted">Total de Aulas</div><strong>{{ modalidade.total_aulas }}</strong></div>
+                            <div class="col"><div class="text-muted">Alunos Ativos</div><strong>{{ modalidade.alunos_ativos }}</strong></div>
+                            <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ modalidade.proxima_aula|date:"d/m, H:i"|default:"N/A" }}</strong></div>
+                        </div>
+                    </div>
+                </div>
             {% endfor %}
-          </tbody>
-        </table>
-    </div>
-  </div>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

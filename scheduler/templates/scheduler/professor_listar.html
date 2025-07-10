@@ -10,82 +10,56 @@
 {# --- PAINEL DE BUSCA --- #}
 <div class="card p-3 shadow-sm mb-4">
     <form method="GET" action="{% url 'scheduler:professor_listar' %}" class="d-flex align-items-end">
-        <div class="flex-grow-1 me-2">
-            <label for="id_q" class="form-label">Buscar Professor</label>
-            <input type="text" id="id_q" name="q" class="form-control" placeholder="Username, nome, email..." value="{{ search_query }}">
-        </div>
+        <div class="flex-grow-1 me-2"><label for="id_q" class="form-label">Buscar Professor</label><input type="text" id="id_q" name="q" class="form-control" placeholder="Username, nome, email..." value="{{ search_query }}"></div>
         <div>
             <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-            {% if search_query %}
-                <a href="{% url 'scheduler:professor_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-circle"></i></a>
-            {% endif %}
+            {% if search_query %}<a href="{% url 'scheduler:professor_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-circle"></i></a>{% endif %}
         </div>
     </form>
 </div>
 
 <div class="card shadow-sm">
-  <div class="card-body">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-          <thead>
-            <tr>
-              <th scope="col">Professor</th>
-              <th scope="col">Aulas Realizadas</th>
-              <th scope="col">Próxima Aula</th>
-              {# Alterando o título da coluna para mais clareza #}
-              <th scope="col">Alunos Únicos Atendidos</th>
-              <th scope="col" class="text-end">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div class="card-header"><h5 class="mb-0">Lista de Professores</h5></div>
+    {% if not professores %}
+        <div class="card-body text-center text-muted p-5"><i class="bi bi-people fs-1"></i><p class="mt-2 mb-0">Nenhum professor encontrado.</p></div>
+    {% else %}
+        {# --- VISÃO DE DESKTOP (TABELA) --- #}
+        <div class="d-none d-lg-block table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th scope="col">Professor</th><th scope="col" class="text-center">Aulas Realizadas</th><th scope="col">Próxima Aula</th><th scope="col" class="text-center">Alunos Únicos Atendidos</th><th scope="col" class="text-end">Ações</th></tr></thead>
+                <tbody>
+                    {% for professor in professores %}
+                    <tr>
+                        <td class="fw-bold align-top"><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="text-dark text-decoration-none"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}<small class="d-block text-muted fw-normal ps-4">{{ professor.first_name|title }} {{ professor.last_name|title }}</small></a></td>
+                        <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_aulas_realizadas }}</span></td>
+                        <td>{% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
+                        <td class="text-center"><span class="badge bg-secondary fs-6">{{ professor.total_alunos_atendidos }}</span></td>
+                        <td class="text-end"><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-primary" title="Ver Dashboard">Detalhes</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
+        <div class="d-lg-none p-2">
             {% for professor in professores %}
-            <tr>
-              <td class="fw-bold">
-                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">
-                    {{ professor.username|title }}
-                    {% if professor.tipo == 'admin' %}<span class="badge bg-primary">Admin</span>{% endif %}
-                </a>
-                <small class="d-block text-muted">{{ professor.first_name|title }} {{ professor.last_name|title }}</small>
-              </td>
-              <td class="text-center">
-                <span class="badge bg-success fs-6">{{ professor.total_aulas_realizadas }}</span>
-              </td>
-              <td>
-                {% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma agendada</span>{% endif %}
-              </td>
-              <td class="text-center">
-                {# Usando a nova variável corrigida #}
-                <span class="badge bg-secondary">{{ professor.total_alunos_atendidos }}</span>
-              </td>
-              <td class="text-end">
-                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-info" title="Ver Dashboard">
-                  <i class="bi bi-bar-chart-line"></i>
-                </a>
-                <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                  <i class="bi bi-pencil-square"></i>
-                </a>
-                {# Evita que o admin se auto-exclua da lista #}
-                {% if request.user.pk != professor.pk %}
-                <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir">
-                  <i class="bi bi-trash"></i>
-                </a>
-                {% endif %}
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="5" class="text-center text-muted py-4">
-                {% if search_query %}
-                    Nenhum professor encontrado para a busca "{{ search_query }}".
-                {% else %}
-                    Nenhum professor cadastrado.
-                {% endif %}
-              </td>
-            </tr>
+                <div class="card shadow-sm mb-2 card-hover">
+                    <div class="card-body">
+                        <div class="row align-items-center g-2">
+                            <div class="col"><h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary ms-2 small">Admin</span>{% endif %}</h6></div>
+                            <div class="col-auto"><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a></div>
+                        </div>
+                        <hr class="my-2">
+                        <div class="row text-center small">
+                            <div class="col"><div class="text-muted">Realizadas</div><strong>{{ professor.total_aulas_realizadas }}</strong></div>
+                            <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ professor.proxima_aula|date:"d/m, H:i"|default:"N/A" }}</strong></div>
+                            <div class="col"><div class="text-muted">Alunos Únicos</div><strong>{{ professor.total_alunos_atendidos }}</strong></div>
+                        </div>
+                    </div>
+                </div>
             {% endfor %}
-          </tbody>
-        </table>
-    </div>
-  </div>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

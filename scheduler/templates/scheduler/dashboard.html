@@ -12,7 +12,7 @@
 </div>
 {% if user.tipo == 'admin' %}
 <div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
-    <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
+    <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
     <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
 </div>
 {% endif %}
@@ -21,9 +21,10 @@
 {% if user.tipo == 'admin' %}
     {# Cards de Resumo #}
     <div class="row">
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-info shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-info shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="text-decoration-none"><div class="card text-bg-success shadow h-100 card-hover"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col me-2"><div class="text-xs fw-bold text-uppercase mb-1">Novos Alunos (Este Mês)</div><div class="h5 mb-0 fw-bold">{{ novos_alunos_mes }}</div></div><div class="col-auto"><i class="bi bi-person-plus-fill fs-2 text-white-50"></i></div></div></div></div></a></div>
     </div>
     
     {# Calendário do Admin #}
@@ -40,7 +41,7 @@
 <div class="card shadow-sm mt-4">
     <div class="card-header text-center py-3">
         <h5 class="mb-0">
-            Aulas de Hoje no Sistema
+            Aulas de Hoje
             <span class="badge bg-primary rounded-pill align-middle ms-1">{{ aulas_hoje_count }}</span>
         </h5>
         <small class="text-muted">

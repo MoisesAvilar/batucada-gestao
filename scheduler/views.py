@@ -58,9 +58,19 @@ def dashboard(request):
     
     # --- LÓGICA PARA O DASHBOARD DO ADMIN (sem alterações) ---
     if request.user.tipo == 'admin':
+        mes_atual = today.month
+        ano_atual = today.year
+        primeiro_dia_mes = today.replace(day=1)
+        ultimo_dia_mes = today.replace(day=calendar.monthrange(ano_atual, mes_atual)[1])
+
+
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).exclude(status__in=['Cancelada', 'Aluno Ausente']).count()
         aulas_semana_count = Aula.objects.filter(data_hora__date__range=[today, next_week]).count()
         aulas_agendadas_total = Aula.objects.filter(status='Agendada', data_hora__gte=now).count()
+        novos_alunos_mes = Aluno.objects.filter(
+            data_criacao__year=ano_atual,
+            data_criacao__month=mes_atual
+        ).count()
 
         aulas_do_dia = Aula.objects.filter(data_hora__date=today).order_by('data_hora').prefetch_related('alunos', 'professores')
         aulas_da_semana = Aula.objects.filter(data_hora__date__range=[today, next_week]).order_by('data_hora').prefetch_related('alunos', 'professores')
@@ -70,6 +80,9 @@ def dashboard(request):
         contexto = {
             "titulo": "Dashboard do Administrador",
             "today": today,
+            "novos_alunos_mes": novos_alunos_mes,
+            "primeiro_dia_mes": primeiro_dia_mes.strftime('%Y-%m-%d'),
+            "ultimo_dia_mes": ultimo_dia_mes.strftime('%Y-%m-%d'),
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
             "aulas_agendadas_total": aulas_agendadas_total,
@@ -314,13 +327,11 @@ def aulas_para_substituir(request):
 @login_required
 def listar_alunos(request):
     search_query = request.GET.get("q", "")
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
     now = timezone.now()
 
-    # --- CORREÇÃO AQUI ---
-    # Todas as referências a 'aula' foram trocadas por 'aulas_aluno' (o related_name).
-    # 'aula__professor' foi trocado por 'aulas_aluno__professores'.
     if request.user.tipo == 'professor':
-        # Para professores, contamos apenas as aulas com aquele professor.
         alunos_queryset = Aluno.objects.filter(aulas_aluno__professores=request.user).distinct().annotate(
             total_aulas=Count('aulas_aluno', filter=Q(aulas_aluno__professores=request.user)),
             proxima_aula=Min(
@@ -352,12 +363,28 @@ def listar_alunos(request):
             Q(telefone__icontains=search_query)
         ).distinct()
 
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            alunos_queryset = alunos_queryset.filter(data_criacao__gte=data_inicial)
+        except ValueError:
+            pass # Ignora data inválida
+    
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            alunos_queryset = alunos_queryset.filter(data_criacao__lte=data_final)
+        except ValueError:
+            pass # Ignora data inválida
+
     alunos = alunos_queryset.order_by("nome_completo")
 
     contexto = {
         "alunos": alunos,
         "titulo": "Gerenciamento de Alunos",
         "search_query": search_query,
+        "data_inicial": data_inicial_str,
+        "data_final": data_final_str,
     }
     return render(request, "scheduler/aluno_listar.html", contexto)
 
@@ -619,7 +646,7 @@ def listar_modalidades(request):
 
     contexto = {
         "modalidades": modalidades,
-        "titulo": "Gerenciamento de Modalidades",
+        "titulo": "Gerenciamento de Categorias",
         "search_query": search_query,
     }
     return render(request, "scheduler/modalidade_listar.html", contexto)
@@ -633,11 +660,11 @@ def criar_modalidade(request):
         form = ModalidadeForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, "Modalidade criada com sucesso!")
+            messages.success(request, "Categoria criada com sucesso!")
             return redirect("scheduler:modalidade_listar")
     else:
         form = ModalidadeForm()
-    contexto = {"form": form, "titulo": "Adicionar Nova Modalidade"}
+    contexto = {"form": form, "titulo": "Adicionar Nova Categoria"}
     return render(request, "scheduler/modalidade_form.html", contexto)
 
 
@@ -648,11 +675,11 @@ def editar_modalidade(request, pk):
         form = ModalidadeForm(request.POST, instance=modalidade)
         if form.is_valid():
             form.save()
-            messages.success(request, "Modalidade atualizada com sucesso!")
+            messages.success(request, "Categoria atualizada com sucesso!")
             return redirect("scheduler:modalidade_listar")
     else:
         form = ModalidadeForm(instance=modalidade)
-    contexto = {"form": form, "titulo": f"Editar Modalidade: {modalidade.nome}"}
+    contexto = {"form": form, "titulo": f"Editar Categoria: {modalidade.nome.title()}"}
     return render(request, "scheduler/modalidade_form.html", contexto)
 
 
@@ -662,17 +689,17 @@ def excluir_modalidade(request, pk):
     if modalidade.aula_set.exists():
         messages.error(
             request,
-            f'Não é possível excluir a modalidade "{modalidade.nome}" porque há aulas associadas a ela. Remova as aulas primeiro.',
+            f'Não é possível excluir a categoria "{modalidade.nome}" porque há aulas associadas a ela. Remova as aulas primeiro.',
         )
         return redirect("scheduler:modalidade_listar")
 
     if request.method == "POST":
         modalidade.delete()
-        messages.success(request, "Modalidade excluída com sucesso!")
+        messages.success(request, "Categoria excluída com sucesso!")
         return redirect("scheduler:modalidade_listar")
     contexto = {
         "modalidade": modalidade,
-        "titulo": f"Confirmar Exclusão de Modalidade: {modalidade.nome}",
+        "titulo": f"Confirmar Exclusão de Categoria: {modalidade.nome}",
     }
     return render(request, "scheduler/modalidade_confirm_delete.html", contexto)
 
@@ -718,7 +745,7 @@ def detalhe_modalidade(request, pk):
 
     contexto = {
         "modalidade": modalidade,
-        "titulo": f"Dashboard da Modalidade: {modalidade.nome}",
+        "titulo": f"Dashboard da Categoria: {modalidade.nome}",
         "total_aulas": total_aulas,
         "total_realizadas": total_realizadas,
         "alunos_ativos_count": alunos_ativos_count,

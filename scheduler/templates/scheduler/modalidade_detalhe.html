@@ -61,7 +61,7 @@
                             <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>
                         </li>
                     {% empty %}
-                        <li class="list-group-item text-muted">Nenhum professor associado a esta modalidade.</li>
+                        <li class="list-group-item text-muted">Nenhum professor associado a esta categoria.</li>
                     {% endfor %}
                 </ul>
             </div>
@@ -71,7 +71,7 @@
     <div class="col-md-8">
         <div class="card shadow-sm h-100">
             <div class="card-header">
-                <h5>Atividade Mensal da Modalidade</h5>
+                <h5>Atividade Mensal da Categoria</h5>
             </div>
             <div class="card-body d-flex align-items-center justify-content-center">
                 <canvas id="activityChart"></canvas>
@@ -79,7 +79,7 @@
         </div>
     </div>
 </div>
-<h3 class="mt-5 mb-3">Histórico de Aulas da Modalidade</h3>
+<h3 class="mt-5 mb-3">Histórico de Aulas da Categoria</h3>
 <div class="card shadow-sm">
   <div class="card-body">
       {# Reutilizando nosso template de tabela de aulas #}

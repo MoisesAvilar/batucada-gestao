@@ -26,3 +26,6 @@ logs/
 # Environment Variables / Sensitive Data
 .env
 *.env
+
+
+notes.txt

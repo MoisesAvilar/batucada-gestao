@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.utils import timezone
 
 
 class CustomUser(AbstractUser):
@@ -26,7 +27,10 @@ class Aluno(models.Model):
     nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
     telefone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(unique=True, blank=True, null=True)
-    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_criacao = models.DateField(
+        default=timezone.now, 
+        verbose_name="Data de Criação/Matrícula"
+    )
 
     def __str__(self):
         return self.nome_completo

@@ -1,25 +1,58 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<h1 class="mb-4">{{ titulo }}</h1>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        {# --- CABEÇALHO APRIMORADO --- #}
+        <div class="text-center mb-4">
+            <h1 class="mb-1">{{ titulo }}</h1>
+            <p class="text-muted mb-0">Preencha os dados para adicionar ou editar um aluno.</p>
+        </div>
 
-<form method="post">
-    {% csrf_token %}
+        {% if form.errors %}
+            <div class="alert alert-danger">
+                Por favor, corrija os erros abaixo.
+            </div>
+        {% endif %}
 
-    <div class="mb-3">
-        <label for="{{ form.nome_completo.id_for_label }}" class="form-label">Nome Completo</label>
-        {{ form.nome_completo }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-        {{ form.email }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.telefone.id_for_label }}" class="form-label">Telefone</label>
-        {{ form.telefone }}
-    </div>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
 
-    <button type="submit" class="btn btn-primary mt-3">Salvar</button>
-    <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-secondary mt-3">Cancelar</a>
-</form>
+                    <div class="mb-3">
+                        <label for="{{ form.nome_completo.id_for_label }}" class="form-label fw-bold">Nome Completo</label>
+                        {{ form.nome_completo }}
+                        {% if form.nome_completo.errors %}<div class="text-danger small mt-1">{{ form.nome_completo.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">Email</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.telefone.id_for_label }}" class="form-label fw-bold">Telefone</label>
+                            {{ form.telefone }}
+                            {% if form.telefone.errors %}<div class="text-danger small mt-1">{{ form.telefone.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.data_criacao.id_for_label }}" class="form-label fw-bold">Data de Matrícula</label>
+                        {{ form.data_criacao }}
+                        <small class="form-text text-muted">A data padrão é a atual, mas pode ser editada para registrar alunos antigos.</small>
+                        {% if form.data_criacao.errors %}<div class="text-danger small mt-1">{{ form.data_criacao.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="mt-4 border-top pt-3 text-end">
+                        <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

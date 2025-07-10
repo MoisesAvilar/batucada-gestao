@@ -38,7 +38,7 @@ class AulaForm(forms.ModelForm):
 
     modalidade = TitlecaseModelChoiceField(
         queryset=Modalidade.objects.all().order_by('nome'),
-        label="Modalidade",
+        label="Categoria",
         widget=forms.Select(attrs={"class": "form-select"})
     )
 
@@ -83,12 +83,16 @@ class ProfessorChoiceForm(forms.Form):
 class AlunoForm(forms.ModelForm):
     class Meta:
         model = Aluno
-        fields = ["nome_completo", "email", "telefone"]
+        fields = ["nome_completo", "email", "telefone", "data_criacao"]
         widgets = {
             "nome_completo": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "telefone": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "(XX) XXXXX-XXXX"}
+            ),
+            "data_criacao": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"},
+                format="%Y-%m-%d",
             ),
         }
 
@@ -101,7 +105,7 @@ class ModalidadeForm(forms.ModelForm):
             "nome": forms.TextInput(
                 attrs={
                     "class": "form-control",
-                    "placeholder": "Nome da nova modalidade",
+                    "placeholder": "Nome da nova categoria",
                 }
             )
         }

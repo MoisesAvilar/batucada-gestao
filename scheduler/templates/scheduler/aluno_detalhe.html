@@ -81,12 +81,12 @@
                     {% endfor %}
                 </ul>
 
-                <h6 class="mt-4">Top Modalidades:</h6>
+                <h6 class="mt-4">Top Categorias:</h6>
                 <ul class="list-group list-group-flush">
                     {% for modalidade in top_modalidades %}
                         <li class="list-group-item">{{ modalidade.modalidade__nome|title }} <span class="badge bg-secondary float-end">{{ modalidade.contagem }} aulas</span></li>
                     {% empty %}
-                         <li class="list-group-item text-muted">Nenhuma modalidade recorrente.</li>
+                         <li class="list-group-item text-muted">Nenhuma categoria recorrente.</li>
                     {% endfor %}
                 </ul>
             </div>
