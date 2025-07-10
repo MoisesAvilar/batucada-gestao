@@ -1,10 +1,10 @@
-{% comment %} scheduler/templates/scheduler/partials/aula_table.html (VERSÃO RESPONSIVA) {% endcomment %}
+{% comment %} scheduler/templates/scheduler/partials/aula_table.html (VERSÃO CORRIGIDA) {% endcomment %}
 
 {% if not aulas %}
     <div class="text-center text-muted p-4">Nenhuma aula encontrada.</div>
 {% else %}
 
-{# --- 1. VISÃO DE DESKTOP: A Tabela Tradicional (visível em telas grandes 'lg' ou maiores) --- #}
+{# --- 1. VISÃO DE DESKTOP: A Tabela Tradicional --- #}
 <div class="d-none d-lg-block">
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -24,8 +24,44 @@
                 <tr>
                     <td>{% for aluno in aula.alunos.all %}<a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="fw-bold">{{ aluno.nome_completo|title }}</a>{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted">--</span>{% endfor %}</td>
                     <td>{{ aula.modalidade.nome|title }}</td>
-                    <td>{% for professor in aula.professores.all %}{% if professor == request.user %}<span class="fw-bold">Eu</span>{% else %}<a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted small">Não Atribuído</span>{% endfor %}</td>
-                    <td>{% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}<a href="{% url 'scheduler:professor_detalhe' aula.relatorioaula.professor_que_validou.pk %}">{{ aula.relatorioaula.professor_que_validou.username|title }}</a>{% else %}<span class="text-muted small">Aguardando</span>{% endif %}</td>
+                    
+                    {# --- CORREÇÃO DE PROFESSORES ATRIBUÍDOS --- #}
+                    <td>
+                        {% for professor in aula.professores.all %}
+                            {% if professor == request.user %}
+                                <span class="fw-bold">Eu</span>
+                            {% else %}
+                                {% if user.tipo == 'admin' %}
+                                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>
+                                {% else %}
+                                    {{ professor.username|title }}
+                                {% endif %}
+                            {% endif %}
+                            {% if not forloop.last %}<br>{% endif %}
+                        {% empty %}
+                            <span class="text-muted small">Não Atribuído</span>
+                        {% endfor %}
+                    </td>
+
+                    {# --- CORREÇÃO DE PROFESSOR QUE REALIZOU --- #}
+                    <td>
+                        {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
+                            {% with professor_realizou=aula.relatorioaula.professor_que_validou %}
+                                {% if professor_realizou == request.user %}
+                                    <span class="fw-bold">Eu</span>
+                                {% else %}
+                                    {% if user.tipo == 'admin' %}
+                                        <a href="{% url 'scheduler:professor_detalhe' professor_realizou.pk %}">{{ professor_realizou.username|title }}</a>
+                                    {% else %}
+                                        {{ professor_realizou.username|title }}
+                                    {% endif %}
+                                {% endif %}
+                            {% endwith %}
+                        {% else %}
+                            <span class="text-muted small">Aguardando</span>
+                        {% endif %}
+                    </td>
+
                     <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
                     <td class="text-center">{% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">Agendada</span>{% elif aula.status == 'Realizada' %}{% if aula.relatorioaula.professor_que_validou and aula.relatorioaula.professor_que_validou not in aula.professores.all %}<span class="badge bg-light border text-dark" title="Realizada por {{ aula.relatorioaula.professor_que_validou.username|title }} como substituto">Substituído</span>{% else %}<span class="badge bg-success">Realizada</span>{% endif %}{% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">Cancelada</span>{% elif aula.status == 'Aluno Ausente' %}<span class="badge bg-warning text-dark">Aluno Ausente</span>{% else %}<span class="badge bg-secondary">{{ aula.status }}</span>{% endif %}</td>
                     <td class="text-end">{% include 'scheduler/partials/aula_actions.html' with aula=aula %}</td>
@@ -36,7 +72,7 @@
     </div>
 </div>
 
-{# --- 2. VISÃO DE MOBILE: Lista de Cards (visível em telas pequenas 'md' ou menores) --- #}
+{# --- 2. VISÃO DE MOBILE: Lista de Cards --- #}
 <div class="d-lg-none">
     {% for aula in aulas %}
         <div class="card shadow-sm mb-3">
@@ -49,9 +85,25 @@
             </div>
             <div class="card-body small">
                 <p class="mb-2"><strong>Aluno(s):</strong> {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">N/A</span>{% endfor %}</p>
-                <p class="mb-2"><strong>Atribuído a:</strong> {% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">N/A</span>{% endfor %}</p>
+                
+                {# --- CORREÇÃO DE PROFESSORES ATRIBUÍDOS (MOBILE) --- #}
+                <p class="mb-2"><strong>Atribuído a:</strong> 
+                    {% for prof in aula.professores.all %}
+                        {% if prof == request.user %}Eu{% else %}{{ prof.username|title }}{% endif %}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        <span class="text-muted">N/A</span>
+                    {% endfor %}
+                </p>
+
+                {# --- CORREÇÃO DE PROFESSOR QUE REALIZOU (MOBILE) --- #}
                 {% if aula.status == 'Realizada' %}
-                <p class="mb-0"><strong>Realizado por:</strong> {% if aula.relatorioaula.professor_que_validou %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% else %}<span class="text-muted">N/A</span>{% endif %}</p>
+                <p class="mb-0"><strong>Realizado por:</strong> 
+                    {% if aula.relatorioaula.professor_que_validou %}
+                        {% if aula.relatorioaula.professor_que_validou == request.user %}Eu{% else %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% endif %}
+                    {% else %}
+                        <span class="text-muted">N/A</span>
+                    {% endif %}
+                </p>
                 {% endif %}
             </div>
             <div class="card-footer text-end">
