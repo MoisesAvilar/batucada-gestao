@@ -22,7 +22,8 @@ from datetime import datetime
 from django.utils import timezone
 from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
 from django.db.models.functions import TruncMonth
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 import csv
 
@@ -121,37 +122,65 @@ def agendar_aula(request):
         professor_formset = ProfessorFormSet(request.POST, prefix='professores')
 
         if form.is_valid() and aluno_formset.is_valid() and professor_formset.is_valid():
+            # Coleta todos os dados dos formulários
             modalidade = form.cleaned_data.get('modalidade')
-            alunos_ids = [f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')]
-            professores_ids = [f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')]
+            status = form.cleaned_data.get('status')
+            alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
+            professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
+            data_hora_inicial = form.cleaned_data.get('data_hora')
+            is_recorrente = form.cleaned_data.get('recorrente_mensal')
 
-            # --- CORREÇÃO AQUI ---
-            # Convertemos o nome da modalidade para minúsculas antes de comparar
-            modalidade_nome_lower = modalidade.nome.lower()
-
-            if modalidade_nome_lower == 'batera no fácil' and not alunos_ids:
-                messages.error(request, 'Para "Batera no Fácil", ao menos um aluno deve ser selecionado.')
-            elif modalidade_nome_lower == 'atividade complementar' and not professores_ids:
-                messages.error(request, 'Para "Atividade Complementar", ao menos um professor deve ser selecionado.')
-            # A validação para AC não exige mais alunos, então o erro não ocorrerá
-            elif modalidade_nome_lower not in ['batera no fácil', 'atividade complementar'] and (not alunos_ids or not professores_ids):
-                messages.error(request, 'Para aulas normais, um aluno e um professor são obrigatórios.')
+            # --- LÓGICA DE AULAS RECORRENTES RESTAURADA ---
+            datas_para_agendar = []
+            if is_recorrente:
+                dia_semana = data_hora_inicial.weekday()
+                mes = data_hora_inicial.month
+                ano = data_hora_inicial.year
+                cal = calendar.Calendar()
+                dias_do_mes = cal.itermonthdates(ano, mes)
+                
+                for dia in dias_do_mes:
+                    # Adiciona apenas os dias que são do mesmo mês e da mesma semana, a partir da data inicial
+                    if dia.month == mes and dia.weekday() == dia_semana and dia >= data_hora_inicial.date():
+                        nova_data_hora = data_hora_inicial.replace(year=dia.year, month=dia.month, day=dia.day)
+                        datas_para_agendar.append(nova_data_hora)
             else:
-                data_hora = form.cleaned_data.get('data_hora')
-                conflito_info = _check_conflito_aula(professores_ids, data_hora)
+                datas_para_agendar.append(data_hora_inicial)
+
+            # Validação de conflitos ANTES de salvar qualquer aula
+            conflitos_encontrados = []
+            for data_agendamento in datas_para_agendar:
+                conflito_info = _check_conflito_aula(list(professores_ids), data_agendamento)
                 if conflito_info['conflito']:
-                    messages.error(request, conflito_info['mensagem'])
+                    conflitos_encontrados.append(conflito_info['mensagem'] + f" na data {data_agendamento.strftime('%d/%m')}.")
+            
+            if conflitos_encontrados:
+                for erro in conflitos_encontrados:
+                    messages.error(request, erro)
+            else:
+                # Se não houver conflitos, cria todas as aulas
+                aulas_criadas_count = 0
+                for data_agendamento in datas_para_agendar:
+                    nova_aula = Aula.objects.create(
+                        modalidade=modalidade,
+                        data_hora=data_agendamento,
+                        status=status
+                    )
+                    nova_aula.alunos.set(list(alunos_ids))
+                    nova_aula.professores.set(list(professores_ids))
+                    aulas_criadas_count += 1
+                
+                if aulas_criadas_count > 1:
+                    messages.success(request, f'{aulas_criadas_count} aulas recorrentes foram agendadas com sucesso!')
                 else:
-                    aula = form.save()
-                    aula.alunos.set(alunos_ids)
-                    aula.professores.set(professores_ids)
                     messages.success(request, 'Aula agendada com sucesso!')
-                    return redirect('scheduler:dashboard')
-    else:
+                return redirect('scheduler:dashboard')
+    else: # GET
         form = AulaForm()
         aluno_formset = AlunoFormSet(prefix='alunos')
         professor_formset = ProfessorFormSet(prefix='professores')
 
+    # Se a requisição for GET ou se o formulário POST for inválido, renderiza a página
     contexto = {
         'form': form,
         'aluno_formset': aluno_formset,
@@ -173,32 +202,65 @@ def editar_aula(request, pk):
         professor_formset = ProfessorFormSet(request.POST, prefix='professores')
 
         if form.is_valid() and aluno_formset.is_valid() and professor_formset.is_valid():
-            modalidade = form.cleaned_data.get('modalidade')
-            alunos_ids = [f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')]
-            professores_ids = [f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')]
+            # Coleta os dados dos formulários
+            alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
+            professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
+            data_hora_nova = form.cleaned_data.get('data_hora')
+            is_recorrente = form.cleaned_data.get('recorrente_mensal')
 
-            # --- CORREÇÃO AQUI ---
-            # A mesma lógica de comparação em minúsculas aplicada na edição
-            modalidade_nome_lower = modalidade.nome.lower()
+            # --- LÓGICA DE RECORRÊNCIA NA EDIÇÃO ---
 
-            if modalidade_nome_lower == 'batera no fácil' and not alunos_ids:
-                messages.error(request, 'Para "Batera no Fácil", ao menos um aluno deve ser selecionado.')
-            elif modalidade_nome_lower == 'atividade complementar' and not professores_ids:
-                messages.error(request, 'Para "Atividade Complementar", ao menos um professor deve ser selecionado.')
-            elif modalidade_nome_lower not in ['batera no fácil', 'atividade complementar'] and (not alunos_ids or not professores_ids):
-                messages.error(request, 'Para aulas normais, um aluno e um professor são obrigatórios.')
+            # 1. Verifica conflito para a aula principal que está sendo editada
+            conflito_info_principal = _check_conflito_aula(list(professores_ids), data_hora_nova, aula_id=aula.pk)
+            if conflito_info_principal['conflito']:
+                messages.error(request, f"Não foi possível atualizar a aula: {conflito_info_principal['mensagem']}")
             else:
-                data_hora = form.cleaned_data.get('data_hora')
-                conflito_info = _check_conflito_aula(professores_ids, data_hora, aula_id=aula.pk)
-                if conflito_info['conflito']:
-                    messages.error(request, conflito_info['mensagem'])
+                # Se a aula principal está OK, salva as alterações nela
+                aula_salva = form.save()
+                aula_salva.alunos.set(list(alunos_ids))
+                aula_salva.professores.set(list(professores_ids))
+                
+                # 2. Se a checkbox de recorrência estiver marcada, cria as aulas seguintes
+                if is_recorrente:
+                    datas_para_agendar = []
+                    dia_semana = data_hora_nova.weekday()
+                    mes, ano = data_hora_nova.month, data_hora_nova.year
+                    cal = calendar.Calendar()
+                    
+                    for dia in cal.itermonthdates(ano, mes):
+                        # Adiciona apenas as datas que são no mesmo mês, mesmo dia da semana, e POSTERIORES à data atual
+                        if dia.month == mes and dia.weekday() == dia_semana and dia > data_hora_nova.date():
+                            nova_data_hora = data_hora_nova.replace(year=dia.year, month=dia.month, day=dia.day)
+                            datas_para_agendar.append(nova_data_hora)
+
+                    # 3. Verifica conflitos para as NOVAS aulas recorrentes
+                    conflitos_novos = [info['mensagem'] for dt in datas_para_agendar if (info := _check_conflito_aula(list(professores_ids), dt))['conflito']]
+
+                    if conflitos_novos:
+                        messages.warning(request, f"A aula do dia {data_hora_nova.strftime('%d/%m')} foi atualizada, mas as aulas recorrentes não puderam ser criadas devido a conflitos.")
+                        for erro in conflitos_novos:
+                            messages.error(request, erro)
+                    else:
+                        # 4. Cria as novas aulas recorrentes
+                        aulas_criadas_count = 0
+                        for data_agendamento in datas_para_agendar:
+                            nova_aula = Aula.objects.create(
+                                modalidade=aula_salva.modalidade, data_hora=data_agendamento, status=aula_salva.status
+                            )
+                            nova_aula.alunos.set(list(alunos_ids))
+                            nova_aula.professores.set(list(professores_ids))
+                            aulas_criadas_count += 1
+                        
+                        if aulas_criadas_count > 0:
+                            messages.success(request, f"Aula principal atualizada e {aulas_criadas_count} novas aulas recorrentes foram agendadas!")
+                        else:
+                            messages.success(request, 'Aula atualizada com sucesso!')
                 else:
-                    aula_salva = form.save()
-                    aula_salva.alunos.set(alunos_ids)
-                    aula_salva.professores.set(professores_ids)
                     messages.success(request, 'Aula atualizada com sucesso!')
-                    return redirect('scheduler:dashboard')
-    else:
+                
+                return redirect('scheduler:dashboard')
+
+    else: # GET
         form = AulaForm(instance=aula)
         alunos_data = [{'aluno': aluno_obj} for aluno_obj in aula.alunos.all()]
         professores_data = [{'professor': prof_obj} for prof_obj in aula.professores.all()]
@@ -207,7 +269,8 @@ def editar_aula(request, pk):
 
     contexto = {
         'form': form, 'aula': aula, 'aluno_formset': aluno_formset,
-        'professor_formset': professor_formset, 'titulo': 'Editar Aula'
+        'professor_formset': professor_formset, 'titulo': 'Editar Aula',
+        'form_action': reverse('scheduler:aula_editar', kwargs={'pk': aula.pk})
     }
     return render(request, 'scheduler/aula_form.html', contexto)
 

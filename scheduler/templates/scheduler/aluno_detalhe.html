@@ -64,18 +64,22 @@
 
                 <h6 class="mt-4">Top Professores:</h6>
                 <ul class="list-group list-group-flush">
-                {# --- CORRIGIDO: Loop para Top Professores --- #}
-                {% for prof in top_professores %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="fw-bold">
-                            {{ prof.professores__username|title }}
-                        </a>
-                        <span class="badge bg-secondary rounded-pill">{{ prof.contagem }} aulas</span>
-                    </li>
-                {% empty %}
-                    <li class="list-group-item text-muted">Nenhum professor encontrado.</li>
-                {% endfor %}
-            </ul>
+                    {# --- CORREÇÃO APLICADA AQUI --- #}
+                    {% for prof in top_professores %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if user.tipo == 'admin' %}
+                                    <a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="fw-bold">{{ prof.professores__username|title }}</a>
+                                {% else %}
+                                    <span class="fw-bold">{{ prof.professores__username|title }}</span>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-secondary rounded-pill">{{ prof.contagem }} aulas</span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-muted">Nenhum professor encontrado.</li>
+                    {% endfor %}
+                </ul>
 
                 <h6 class="mt-4">Top Modalidades:</h6>
                 <ul class="list-group list-group-flush">
