@@ -513,6 +513,7 @@ def listar_aulas(request):
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
+    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
     
     # 2. Definição do queryset base
     if request.user.tipo == "admin":
@@ -542,6 +543,13 @@ def listar_aulas(request):
             ).exclude(professores=F('relatorioaula__professor_que_validou'))
         else:
             aulas_queryset = aulas_queryset.filter(status=status_filtro)
+
+    if aluno_filtro_ids:
+        # Garante que os valores sejam inteiros para a consulta
+        aluno_filtro_ids = [int(id) for id in aluno_filtro_ids if id.isdigit()]
+        if aluno_filtro_ids:
+            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids).distinct()
+ 
             
     aulas_ordenadas = aulas_queryset.order_by("-data_hora").prefetch_related('alunos', 'professores', 'relatorioaula__professor_que_validou')
     
@@ -561,6 +569,7 @@ def listar_aulas(request):
         "status_filtro": status_filtro,
         "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
         "modalidades_list": Modalidade.objects.all().order_by("nome"),
+        "alunos_list": Aluno.objects.all().order_by("nome_completo"),
         "status_choices": Aula.STATUS_AULA_CHOICES,
     }
     return render(request, "scheduler/aula_listar.html", contexto)
@@ -1060,6 +1069,7 @@ def relatorios_aulas(request):
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
+    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
 
     aulas_base_queryset = Aula.objects.all()
 
@@ -1086,6 +1096,12 @@ def relatorios_aulas(request):
             ).exclude(professores=F('relatorioaula__professor_que_validou'))
         else:
             aulas_base_queryset = aulas_base_queryset.filter(status=status_filtro)
+
+    if aluno_filtro_ids:
+        aluno_filtro_ids = [int(id) for id in aluno_filtro_ids if id.isdigit()]
+        if aluno_filtro_ids:
+            aulas_base_queryset = aulas_base_queryset.filter(alunos__id__in=aluno_filtro_ids).distinct()
+
 
     total_aulas = aulas_base_queryset.count()
     total_realizadas_bruto = aulas_base_queryset.filter(status="Realizada").count()
@@ -1124,6 +1140,8 @@ def relatorios_aulas(request):
         "total_aluno_ausente": total_aluno_ausente, "total_substituidas": total_substituidas,
         "aulas_por_professor": aulas_por_professor_final, "aulas_por_modalidade": aulas_por_modalidade_final,
         "prof_chart_labels": prof_chart_labels, "prof_chart_data_realizadas": prof_chart_data_realizadas,
+        "aluno_filtro_ids": aluno_filtro_ids,
+        "alunos_list": Aluno.objects.all().order_by("nome_completo"),
     }
     return render(request, "scheduler/relatorios_aulas.html", contexto)
 

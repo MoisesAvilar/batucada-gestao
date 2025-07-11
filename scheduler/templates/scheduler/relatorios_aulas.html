@@ -35,6 +35,17 @@
                 <div class="col-lg-3 col-md-6"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}"></div>
                 <div class="col-lg-3 col-md-6"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}"></div>
                 <div class="col-lg-2 col-md-6"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
+                <div class="col-lg-3 col-md-6">
+                    <label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label>
+                    <select id="id_aluno_filtro" name="aluno_filtro" class="form-select form-select-sm" multiple>
+                        <option value="">Todos</option>
+                        {% for aluno in alunos_list %}
+                            <option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>
+                                {{ aluno.nome_completo|title }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
                 <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
             </div>
