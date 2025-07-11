@@ -109,9 +109,19 @@ class RelatorioAula(models.Model):
     conteudo_teorico = models.TextField(
         verbose_name="Conteúdo Teórico Abordado", blank=True, null=True
     )
+
+    observacoes_teoria = models.TextField(
+        verbose_name="Observações sobre a Teoria", blank=True, null=True
+    )
+
     repertorio_musicas = models.TextField(
         verbose_name="Músicas do Repertório", blank=True, null=True
     )
+
+    observacoes_repertorio = models.TextField(
+        verbose_name="Observações sobre o Repertório", blank=True, null=True
+    )
+
     observacoes_gerais = models.TextField(
         verbose_name="Observações Gerais sobre a Aula", blank=True, null=True
     )
@@ -141,6 +151,7 @@ class ItemRudimento(models.Model):
     descricao = models.CharField(max_length=255, verbose_name="Exercício")
     bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="BPM")
     duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
         return f"Rudimento: {self.descricao} para {self.relatorio}"
@@ -153,6 +164,7 @@ class ItemRitmo(models.Model):
     livro_metodo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Livro/Método")
     bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
     duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
         return f"Ritmo: {self.descricao} para {self.relatorio}"
@@ -164,6 +176,7 @@ class ItemVirada(models.Model):
     descricao = models.CharField(max_length=255, verbose_name="Exercício")
     bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
     duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
         return f"Virada: {self.descricao} para {self.relatorio}"

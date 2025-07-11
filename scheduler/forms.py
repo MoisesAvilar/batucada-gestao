@@ -168,14 +168,16 @@ class RelatorioAulaForm(forms.ModelForm):
     class Meta:
         model = RelatorioAula
         fields = [
-            'conteudo_teorico',
-            'repertorio_musicas',
+            'conteudo_teorico', 'observacoes_teoria',
+            'repertorio_musicas', 'observacoes_repertorio',
             'observacoes_gerais'
         ]
         widgets = {
-            'conteudo_teorico': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'conteudo_teorico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'observacoes_teoria': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Observações sobre o desenvolvimento teórico do aluno...'}),
             'repertorio_musicas': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'observacoes_gerais': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'observacoes_repertorio': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Observações sobre a execução do repertório...'}),
+            'observacoes_gerais': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
 
 
@@ -184,40 +186,49 @@ class RelatorioAulaForm(forms.ModelForm):
 ItemRudimentoFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemRudimento,
-    fields=('descricao', 'bpm', 'duracao_min'),
-    extra=1,  # Começa com 1 formulário em branco por padrão.
-    can_delete=True,  # Adiciona um checkbox para deletar itens existentes.
+    # ADICIONE O NOVO CAMPO AQUI
+    fields=('descricao', 'bpm', 'duracao_min', 'observacoes'),
+    extra=1,
+    can_delete=True,
     widgets={
-        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Toque simples (Single Stroke)'}),
-        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 120)'}),
+        'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Toque simples'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM'}),
         'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+        # ADICIONE O WIDGET PARA O NOVO CAMPO
+        'observacoes': forms.Textarea(attrs={'class': 'form-control mt-2', 'rows': 2, 'placeholder': 'Observações sobre este exercício...'}),
     }
 )
 
 ItemRitmoFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemRitmo,
-    fields=('descricao', 'livro_metodo', 'bpm', 'duracao_min'),
+    # ADICIONE O NOVO CAMPO AQUI
+    fields=('descricao', 'livro_metodo', 'bpm', 'duracao_min', 'observacoes'),
     extra=1,
     can_delete=True,
     widgets={
         'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Leitura da página 15'}),
-        'livro_metodo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Livro/Método (Ex: Pozzoli)'}),
-        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 70)'}),
+        'livro_metodo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Livro/Método'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM'}),
         'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+        # ADICIONE O WIDGET PARA O NOVO CAMPO
+        'observacoes': forms.Textarea(attrs={'class': 'form-control mt-2', 'rows': 2, 'placeholder': 'Observações sobre este exercício...'}),
     }
 )
 
 ItemViradaFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemVirada,
-    fields=('descricao', 'bpm', 'duracao_min'),
+    # ADICIONE O NOVO CAMPO AQUI
+    fields=('descricao', 'bpm', 'duracao_min', 'observacoes'),
     extra=1,
     can_delete=True,
     widgets={
         'descricao': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Virada com 2 notas por tempo'}),
-        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM (Ex: 90)'}),
+        'bpm': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'BPM'}),
         'duracao_min': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minutos'}),
+        # ADICIONE O WIDGET PARA O NOVO CAMPO
+        'observacoes': forms.Textarea(attrs={'class': 'form-control mt-2', 'rows': 2, 'placeholder': 'Observações sobre este exercício...'}),
     }
 )
 

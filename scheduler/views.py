@@ -1237,7 +1237,7 @@ def exportar_aulas(request):
 
     # 5. Escreve o cabeçalho do arquivo
     writer.writerow([
-        "ID da Aula", "Alunos", "Modalidade", "Professores Atribuídos", "Professor Realizou",
+        "ID da Aula", "Alunos", "Categoria", "Professores Atribuídos", "Professor Realizou",
         "Data e Hora", "Status", "Conteúdo Teórico", "Observações Gerais",
     ])
 
@@ -1424,6 +1424,7 @@ def get_eventos_calendario(request):
         # Em caso de erro, é útil registrar o erro no console do servidor para depuração
         print(f"Erro em get_eventos_calendario: {e}")
         return JsonResponse({"error": "Erro interno ao processar a requisição."}, status=500)
+
 
 @login_required
 def perfil_usuario(request):

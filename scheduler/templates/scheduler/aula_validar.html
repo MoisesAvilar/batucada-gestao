@@ -173,6 +173,12 @@
             <p><strong>Conteúdo Teórico Abordado:</strong></p>
             {# Usa o filtro 'default' para o campo de texto #}
             <p class="card-text">{{ relatorio.conteudo_teorico|default:"Não informado."|linebreaksbr }}</p>
+            {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+            {% if relatorio.observacoes_teoria %}
+            <hr>
+            <p><strong>Observações:</strong></p>
+            <p class="card-text fst-italic text-muted">{{ relatorio.observacoes_teoria|linebreaksbr }}</p>
+            {% endif %}
         </div>
     </div>
 
@@ -186,6 +192,10 @@
                         {{ item.descricao }} 
                         {% if item.bpm %}- {{ item.bpm }} BPM{% endif %}
                         {% if item.duracao_min %} - {{ item.duracao_min }} min{% endif %}
+                        {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                        {% if item.observacoes %}
+                            <p class="mb-0 mt-2 fst-italic text-muted small">{{ item.observacoes|linebreaksbr }}</p>
+                        {% endif %}
                     </li>
                 {# Usa a tag 'empty' para a lista de exercícios #}
                 {% empty %}
@@ -206,6 +216,10 @@
                         {% if item.livro_metodo %}(Livro/Método: {{ item.livro_metodo }}){% endif %}
                         {% if item.bpm %} - {{ item.bpm }} BPM{% endif %}
                         {% if item.duracao_min %} - {{ item.duracao_min }} min{% endif %}
+                        {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                        {% if item.observacoes %}
+                            <p class="mb-0 mt-2 fst-italic text-muted small">{{ item.observacoes|linebreaksbr }}</p>
+                        {% endif %}
                     </li>
                 {% empty %}
                     <li class="list-group-item text-muted">Nenhum exercício de ritmo informado.</li>
@@ -224,6 +238,10 @@
                         {{ item.descricao }} 
                         {% if item.bpm %}- {{ item.bpm }} BPM{% endif %}
                         {% if item.duracao_min %} - {{ item.duracao_min }} min{% endif %}
+                        {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                        {% if item.observacoes %}
+                            <p class="mb-0 mt-2 fst-italic text-muted small">{{ item.observacoes|linebreaksbr }}</p>
+                        {% endif %}
                     </li>
                 {% empty %}
                     <li class="list-group-item text-muted">Nenhum exercício de virada informado.</li>
@@ -238,6 +256,12 @@
         <div class="card-body">
             <p><strong>Músicas do Repertório:</strong></p>
             <p class="card-text">{{ relatorio.repertorio_musicas|default:"Não informado."|linebreaksbr }}</p>
+            {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+            {% if relatorio.observacoes_repertorio %}
+            <hr>
+            <p><strong>Observações:</strong></p>
+            <p class="card-text fst-italic text-muted">{{ relatorio.observacoes_repertorio|linebreaksbr }}</p>
+            {% endif %}
         </div>
     </div>
 
@@ -282,74 +306,148 @@
 {% else %}
     {# --- NOVO PAINEL DE HISTÓRICO DA ÚLTIMA AULA --- #}
     {% if historico_ultima_aula %}
-        <div class="accordion mb-4 sticky-top" 
-         id="accordionHistorico"
-         style="top: 0; background: white; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        
-        <div class="accordion-item">
-            <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button collapsed" type="button" 
-                        data-bs-toggle="collapse" 
-                        data-bs-target="#collapseHistorico" 
-                        aria-expanded="false" 
-                        aria-controls="collapseHistorico">
-                    <i class="bi bi-clock-history me-2"></i> 
-                    Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
-                </button>
-            </h2>
-            
-            <div id="collapseHistorico" class="accordion-collapse collapse" 
-                 aria-labelledby="headingOne" 
-                 data-bs-parent="#accordionHistorico">
+    <div class="accordion-open-overlay" id="historicoOverlay"></div>
+    <div class="accordion mb-4 sticky-top" 
+    id="accordionHistorico"
+    style="top: 0; background: white; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button collapsed" type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#collapseHistorico" 
+                            aria-expanded="false" 
+                            aria-controls="collapseHistorico">
+                        <i class="bi bi-clock-history me-2"></i> 
+                        Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
+                    </button>
+                </h2>
                 
-                <div class="accordion-body">
-                    {% with relatorio=historico_ultima_aula %}
-                        <!-- Conteúdo Teórico -->
-                        <p><strong>Conteúdo Teórico:</strong> {{ relatorio.conteudo_teorico|default:"N/A"|linebreaksbr }}</p>
-                        <hr>
-                        
-                        <!-- Lista de Exercícios -->
-                        <p><strong>Exercícios Aplicados:</strong></p>
-                        <ul class="list-group list-group-flush small mb-3">
-                            {% for item in relatorio.itens_rudimentos.all %}
-                                <li class="list-group-item list-group-item-primary list-group-item-action border-start border-primary border-5">
-                                    <strong>Rudimento {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                    <span class="text-muted">
-                                        {% if item.livro %}- <em>{{ item.livro }}</em>{% endif %}
-                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
-                                    </span>
-                                </li>
-                            {% endfor %}
+                <div id="collapseHistorico" class="accordion-collapse collapse accordion-open-content" 
+                    aria-labelledby="headingOne" 
+                    data-bs-parent="#accordionHistorico">
+                    
+                    <div class="accordion-body">
+                        {% with relatorio=historico_ultima_aula %}
+                            <p><strong>Conteúdo Teórico:</strong> {{ relatorio.conteudo_teorico|default:"N/A"|linebreaksbr }}</p>
+                            {% if relatorio.observacoes_teoria %}
+                                <p class="mt-1 mb-0 text-muted fst-italic"><small><strong>Obs:</strong> {{ relatorio.observacoes_teoria|linebreaksbr }}</small></p>
+                            {% endif %}
+                            <hr>
+                            <p><strong>Exercícios Aplicados:</strong></p>
                             
-                            {% for item in relatorio.itens_ritmo.all %}
-                                <li class="list-group-item list-group-item-success list-group-item-action border-start border-success border-5">
-                                    <strong>Ritmo {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                    <span class="text-muted">
-                                        {% if item.livro_metodo %}- <em>{{ item.livro_metodo }}</em>{% endif %}
-                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
-                                    </span>
-                                </li>
-                            {% endfor %}
+                            <!-- Accordion para Exercícios -->
+                            <div class="accordion accordion-flush" id="exercisesAccordion">
+                                
+                                <!-- Rudimentos -->
+                                {% if relatorio.itens_rudimentos.all %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingRudimentos">
+                                        <button class="accordion-button collapsed py-2" type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#collapseRudimentos" 
+                                                aria-expanded="false" 
+                                                aria-controls="collapseRudimentos">
+                                            <i class="bi bi-dot me-2"></i> Rudimentos ({{ relatorio.itens_rudimentos.all|length }})
+                                        </button>
+                                    </h2>
+                                    <div id="collapseRudimentos" class="accordion-collapse collapse" 
+                                        aria-labelledby="headingRudimentos" 
+                                        data-bs-parent="#exercisesAccordion">
+                                        <div class="accordion-body p-0">
+                                            <ul class="list-group list-group-flush small">
+                                                {% for item in relatorio.itens_rudimentos.all %}
+                                                    <li class="list-group-item list-group-item-light">
+                                                        <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                                        <span class="text-muted">{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
+                                                        {% if item.observacoes %}
+                                                            <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Ritmos -->
+                                {% if relatorio.itens_ritmo.all %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingRitmos">
+                                        <button class="accordion-button collapsed py-2" type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#collapseRitmos" 
+                                                aria-expanded="false" 
+                                                aria-controls="collapseRitmos">
+                                            <i class="bi bi-dot me-2"></i> Ritmos ({{ relatorio.itens_ritmo.all|length }})
+                                        </button>
+                                    </h2>
+                                    <div id="collapseRitmos" class="accordion-collapse collapse" 
+                                        aria-labelledby="headingRitmos" 
+                                        data-bs-parent="#exercisesAccordion">
+                                        <div class="accordion-body p-0">
+                                            <ul class="list-group list-group-flush small">
+                                                {% for item in relatorio.itens_ritmo.all %}
+                                                    <li class="list-group-item list-group-item-light">
+                                                        <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                                        <span class="text-muted">{% if item.livro_metodo %}- <em>{{ item.livro_metodo }}</em> {% endif %}{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
+                                                        {% if item.observacoes %}
+                                                            <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Viradas -->
+                                {% if relatorio.itens_viradas.all %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingViradas">
+                                        <button class="accordion-button collapsed py-2" type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#collapseViradas" 
+                                                aria-expanded="false" 
+                                                aria-controls="collapseViradas">
+                                            <i class="bi bi-dot me-2"></i> Viradas ({{ relatorio.itens_viradas.all|length }})
+                                        </button>
+                                    </h2>
+                                    <div id="collapseViradas" class="accordion-collapse collapse" 
+                                        aria-labelledby="headingViradas" 
+                                        data-bs-parent="#exercisesAccordion">
+                                        <div class="accordion-body p-0">
+                                            <ul class="list-group list-group-flush small">
+                                                {% for item in relatorio.itens_viradas.all %}
+                                                    <li class="list-group-item list-group-item-light">
+                                                        <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                                        <span class="text-muted">{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
+                                                        {% if item.observacoes %}
+                                                            <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
                             
-                            {% for item in relatorio.itens_viradas.all %}
-                                <li class="list-group-item list-group-item-warning list-group-item-action border-start border-warning border-5">
-                                    <strong>Virada {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                    <span class="text-muted">
-                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
-                                    </span>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                        
-                        <!-- Repertório e Observações -->
-                        <p><strong>Repertório:</strong> {{ relatorio.repertorio_musicas|default:"N/A"|linebreaksbr }}</p>
-                        <hr>
-                        <p><strong>Observações:</strong> {{ relatorio.observacoes_gerais|default:"N/A"|linebreaksbr }}</p>
-                    {% endwith %}
+                            <hr>
+                            <p><strong>Repertório:</strong> {{ relatorio.repertorio_musicas|default:"N/A"|linebreaksbr }}</p>
+                            {% if relatorio.observacoes_repertorio %}
+                                <p class="mt-1 mb-0 text-muted fst-italic"><small><strong>Obs:</strong> {{ relatorio.observacoes_repertorio|linebreaksbr }}</small></p>
+                            {% endif %}
+                            <hr>
+                            <p><strong>Observações Gerais:</strong> {{ relatorio.observacoes_gerais|default:"N/A"|linebreaksbr }}</p>
+                        {% endwith %}
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     {% endif %}
 
     <form method="post">
@@ -395,6 +493,11 @@
                     <label for="{{ form.conteudo_teorico.id_for_label }}" class="form-label">{{ form.conteudo_teorico.label }}</label>
                     {{ form.conteudo_teorico }}
                 </div>
+                {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                <div class="mb-3">
+                    <label for="{{ form.observacoes_teoria.id_for_label }}" class="form-label">{{ form.observacoes_teoria.label }}</label>
+                    {{ form.observacoes_teoria }}
+                </div>
             </div>
         </div>
 
@@ -417,6 +520,10 @@
                                 <div class="col-12 col-md-2 text-md-end">
                                     {% if form.instance.pk %}<div class="form-check d-inline-block"><label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label> {{ form.DELETE }}</div>{% endif %}
                                 </div>
+                            </div>
+                            {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">{{ form.observacoes }}</div>
                             </div>
                             {% if not forloop.last %}<hr class="my-3">{% endif %}
                         </div>
@@ -446,6 +553,10 @@
                                     {% if form.instance.pk %}<div class="form-check d-inline-block"><label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label> {{ form.DELETE }}</div>{% endif %}
                                 </div>
                             </div>
+                            {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">{{ form.observacoes }}</div>
+                            </div>
                             {% if not forloop.last %}<hr class="my-3">{% endif %}
                         </div>
                     {% endfor %}
@@ -473,6 +584,10 @@
                                     {% if form.instance.pk %}<div class="form-check d-inline-block"><label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label> {{ form.DELETE }}</div>{% endif %}
                                 </div>
                             </div>
+                            {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                            <div class="row g-2 mt-1">
+                                <div class="col-12">{{ form.observacoes }}</div>
+                            </div>
                             {% if not forloop.last %}<hr class="my-3">{% endif %}
                         </div>
                     {% endfor %}
@@ -487,6 +602,11 @@
                     <label for="{{ form.repertorio_musicas.id_for_label }}" class="form-label">{{ form.repertorio_musicas.label }}</label>
                     {{ form.repertorio_musicas }}
                     {% if form.repertorio_musicas.errors %}<div class="text-danger small mt-1">{{ form.repertorio_musicas.errors }}</div>{% endif %}
+                </div>
+                {# --- NOVO CAMPO DE OBSERVAÇÃO --- #}
+                <div class="mb-3">
+                    <label for="{{ form.observacoes_repertorio.id_for_label }}" class="form-label">{{ form.observacoobservacoes_repertorioes_teoria.label }}</label>
+                    {{ form.observacoes_repertorio }}
                 </div>
             </div>
         </div>
@@ -517,40 +637,55 @@
     </form>
     
     {# --- TEMPLATES VAZIOS ATUALIZADOS --- #}
-    <div id="empty-forms" style="display:none">
-        <div id="rudimento-empty-form">
-            <div class="formset-item-container"><hr class="my-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-5">{{ rudimentos_formset.empty_form.descricao }}</div>
-                    <div class="col-6 col-md-3">{{ rudimentos_formset.empty_form.bpm }}</div>
-                    <div class="col-6 col-md-2">{{ rudimentos_formset.empty_form.duracao_min }}</div>
-                    <div class="col-12 col-md-2 text-md-end"></div>
-                </div>
+<div id="empty-forms" style="display:none">
+    
+    <div id="rudimento-empty-form">
+        <div class="formset-item-container"><hr class="my-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">{{ rudimentos_formset.empty_form.descricao }}</div>
+                <div class="col-6 col-md-3">{{ rudimentos_formset.empty_form.bpm }}</div>
+                <div class="col-6 col-md-2">{{ rudimentos_formset.empty_form.duracao_min }}</div>
+                <div class="col-12 col-md-2 text-md-end"></div>
+            </div>
+            {# --- CAMPO DE OBSERVAÇÕES ADICIONADO --- #}
+            <div class="row g-2 mt-1">
+                <div class="col-12">{{ rudimentos_formset.empty_form.observacoes }}</div>
             </div>
         </div>
-        <div id="ritmo-empty-form">
-            <div class="formset-item-container"><hr class="my-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-4">{{ ritmo_formset.empty_form.descricao }}</div>
-                    <div class="col-12 col-md-3">{{ ritmo_formset.empty_form.livro_metodo }}</div>
-                    <div class="col-6 col-md-2">{{ ritmo_formset.empty_form.bpm }}</div>
-                    <div class="col-6 col-md-2">{{ ritmo_formset.empty_form.duracao_min }}</div>
-                    <div class="col-12 col-md-1 text-md-end"></div>
-                </div>
-            </div>
-        </div>
-        <div id="virada-empty-form">
-            <div class="formset-item-container"><hr class="my-3">
-                <div class="row g-2 align-items-center">
-                    <div class="col-12 col-md-5">{{ viradas_formset.empty_form.descricao }}</div>
-                    <div class="col-6 col-md-3">{{ viradas_formset.empty_form.bpm }}</div>
-                    <div class="col-6 col-md-2">{{ viradas_formset.empty_form.duracao_min }}</div>
-                    <div class="col-12 col-md-2 text-md-end"></div>
-                </div>
-            </div>
-        </div>
-
     </div>
+
+    <div id="ritmo-empty-form">
+        <div class="formset-item-container"><hr class="my-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-4">{{ ritmo_formset.empty_form.descricao }}</div>
+                <div class="col-12 col-md-3">{{ ritmo_formset.empty_form.livro_metodo }}</div>
+                <div class="col-6 col-md-2">{{ ritmo_formset.empty_form.bpm }}</div>
+                <div class="col-6 col-md-2">{{ ritmo_formset.empty_form.duracao_min }}</div>
+                <div class="col-12 col-md-1 text-md-end"></div>
+            </div>
+            {# --- CAMPO DE OBSERVAÇÕES ADICIONADO --- #}
+            <div class="row g-2 mt-1">
+                <div class="col-12">{{ ritmo_formset.empty_form.observacoes }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="virada-empty-form">
+        <div class="formset-item-container"><hr class="my-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-12 col-md-5">{{ viradas_formset.empty_form.descricao }}</div>
+                <div class="col-6 col-md-3">{{ viradas_formset.empty_form.bpm }}</div>
+                <div class="col-6 col-md-2">{{ viradas_formset.empty_form.duracao_min }}</div>
+                <div class="col-12 col-md-2 text-md-end"></div>
+            </div>
+            {# --- CAMPO DE OBSERVAÇÕES ADICIONADO --- #}
+            <div class="row g-2 mt-1">
+                <div class="col-12">{{ viradas_formset.empty_form.observacoes }}</div>
+            </div>
+        </div>
+    </div>
+
+</div>
 {% endif %}
 
 {% endblock %}
@@ -582,6 +717,40 @@ document.addEventListener('DOMContentLoaded', function() {
     addFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
     addFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
     addFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
+
+    const collapseHistorico = document.getElementById('collapseHistorico');
+    const historicoOverlay = document.getElementById('historicoOverlay');
+    const accordionButton = document.querySelector('[data-bs-target="#collapseHistorico"]');
+    const accordionItem = document.querySelector('#accordionHistorico .accordion-item');
+    
+    if (collapseHistorico && historicoOverlay && accordionButton && accordionItem) {
+        // Mostrar/ocultar overlay e estilos quando o accordion abre/fecha
+        collapseHistorico.addEventListener('show.bs.collapse', function() {
+            historicoOverlay.style.display = 'block';
+            accordionItem.classList.add('active-accordion');
+        });
+        
+        collapseHistorico.addEventListener('hide.bs.collapse', function() {
+            historicoOverlay.style.display = 'none';
+            accordionItem.classList.remove('active-accordion');
+        });
+
+        // Fechar accordion ao clicar no overlay
+        historicoOverlay.addEventListener('click', function() {
+            const bsCollapse = new bootstrap.Collapse(collapseHistorico, {
+                toggle: false
+            });
+            bsCollapse.hide();
+        });
+
+        // Impedir que o clique no accordion propague para o overlay
+        const accordionContent = document.querySelector('#collapseHistorico .accordion-body');
+        if (accordionContent) {
+            accordionContent.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        }
+    }
 });
 </script>
 {% endblock %}
