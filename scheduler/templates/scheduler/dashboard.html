@@ -140,117 +140,222 @@
         </div>
     </div>
 {% endif %}
+{% if user.tipo == 'admin' %}
+    <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="agendamentoModalLabel">Agendar Nova Aula</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {# Inclui o nosso novo formulário parcial #}
+            {% include 'scheduler/partials/aula_form_content.html' with form=aula_form_modal aluno_formset=aluno_formset_modal professor_formset=professor_formset_modal form_action=form_action_modal %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 {% endblock %}
 
 {% block extra_js %}
+<!-- SCRIPTS NECESSÁRIOS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.min.js"></script>
+
 <script>
-  function toTitleCase(str) {
-        if (!str) return '';
-        return str.toLowerCase().split(' ').map(function(word) {
-            return word.charAt(0).toUpperCase() + word.slice(1);
-        }).join(' ');
-    }
+document.addEventListener('DOMContentLoaded', function () {
+    const calendarEl = document.getElementById('fullcalendar');
+    if (!calendarEl) return;
+
+    const isMobile = window.innerWidth < 768;
+
     const statusColorMap = {
         'Realizada': 'success',
         'Agendada': 'info',
         'Cancelada': 'danger',
         'Aluno Ausente': 'warning'
     };
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        var calendarEl = document.getElementById('fullcalendar');
-        if (calendarEl) {
-            // 1. Define se a tela é mobile
-            const isMobile = window.innerWidth < 768;
-            
-            // 2. Define as configurações do cabeçalho com base no tamanho da tela
-            const mobileHeaderToolbar = {
-                left: 'title',                                  // Título da data à esquerda
-                center: '',                                     // Centro vazio
-                right: 'listWeek,dayGridMonth prev,next'        // Botões de visão e navegação agrupados à direita
-            };
-            const desktopHeaderToolbar = {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,listWeek'
-            };
 
-            // Configuração do Calendário com a nova lógica
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: isMobile ? 'listWeek' : 'dayGridMonth',
-                headerToolbar: isMobile ? mobileHeaderToolbar : desktopHeaderToolbar,
-                 views: {
-                    dayGridMonth: { // Visão de Mês
-                        titleFormat: { year: 'numeric', month: 'long' } // Ex: "Julho de 2025"
-                    },
-                    timeGridWeek: { // Visão de Semana
-                        titleFormat: { day: 'numeric', month: 'short' } // Ex: "6 - 12 de jul"
-                    },
-                    listWeek: { // Visão de Lista
-                        titleFormat: { day: 'numeric', month: 'short' } // Ex: "6 - 12 de jul"
-                    }
-                },
-                locale: 'pt-br',
-                height: 'auto',
-                buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', listWeek: 'Lista' },
-                noEventsContent: "📭 Nenhuma aula encontrada para este período.",
-                allDayText: 'Dia Inteiro',
-                eventMouseEnter: function(info) {
-                  // --- CORREÇÃO AQUI: USANDO O MAPA DE CORES ---
-                  const status = info.event.extendedProps.status;
-                  const badgeClass = statusColorMap[status] || 'secondary'; // Usa 'secondary' como cor padrão
-                  const textColorClass = (badgeClass === 'warning' || badgeClass === 'info') ? 'text-dark' : '';
-                  
-                  var popover = new bootstrap.Popover(info.el, {
-                    title: info.event.extendedProps.modalidade.charAt(0).toUpperCase() + info.event.extendedProps.modalidade.slice(1),
+    const toTitleCase = (str) => {
+        if (!str) return '';
+        return str.toLowerCase().split(' ').map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+    };
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+        headerToolbar: isMobile
+            ? { left: 'title', center: '', right: 'listWeek,dayGridMonth prev,next' }
+            : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+
+        views: {
+            dayGridMonth: { titleFormat: { year: 'numeric', month: 'long' } },
+            timeGridWeek: { titleFormat: { day: 'numeric', month: 'short' } },
+            listWeek: { titleFormat: { day: 'numeric', month: 'short' } },
+        },
+
+        locale: 'pt-br',
+        height: 'auto',
+        buttonText: {
+            today: 'Hoje',
+            month: 'Mês',
+            week: 'Semana',
+            day: 'Dia',
+            listWeek: 'Lista'
+        },
+        noEventsContent: "📭 Nenhuma aula encontrada para este período.",
+        allDayText: 'Dia Inteiro',
+
+        eventMouseEnter: function (info) {
+            const status = info.event.extendedProps.status;
+            const badgeClass = statusColorMap[status] || 'secondary';
+            const textColorClass = ['warning', 'info'].includes(badgeClass) ? 'text-dark' : '';
+
+            try {
+                const popover = new bootstrap.Popover(info.el, {
+                    title: toTitleCase(info.event.extendedProps.modalidade || ''),
                     content: `
-                      <strong>Aluno:</strong> ${toTitleCase(info.event.extendedProps.aluno)}<br>
-                      <strong>Status:</strong> <span class="badge ${textColorClass} bg-${badgeClass}">${status}</span><br>
-                      <strong>Prof. Atribuído:</strong> ${toTitleCase(info.event.extendedProps.professor_atribuido)}
+                        <strong>Aluno:</strong> ${toTitleCase(info.event.extendedProps.aluno || '')}<br>
+                        <strong>Status:</strong> <span class="badge ${textColorClass} bg-${badgeClass}">${status}</span><br>
+                        <strong>Prof. Atribuído:</strong> ${toTitleCase(info.event.extendedProps.professor_atribuido || '')}
                     `,
                     placement: 'top',
                     html: true,
-                    container: 'body',
-                  });
-                  
-                  info.el.bsPopover = popover;
-                  popover.show();
-                },
+                    container: 'body'
+                });
+                info.el.bsPopover = popover;
+                popover.show();
+            } catch (err) {
+                console.warn("Erro ao exibir popover:", err);
+            }
+        },
 
-                eventMouseLeave: function(info) {
-                  if (info.el.bsPopover) {
+        eventMouseLeave: function (info) {
+            try {
+                if (info.el.bsPopover) {
                     info.el.bsPopover.dispose();
                     info.el.bsPopover = null;
-                  }
-                },
-
-                eventSources: [{
-                    url: "{% url 'scheduler:get_eventos_calendario' %}",
-                    extraParams: function() {
-                        // Para o admin, pega o valor do filtro. Para professor, não envia nada (a view se encarrega).
-                        var profFiltro = document.getElementById('professor_calendario_filtro');
-                        return { professor_filtro_id: profFiltro ? profFiltro.value : "" };
-                    },
-                    failure: function() { alert('Houve um erro ao carregar os eventos!'); },
-                }],
-                eventClick: function(info) { if (info.event.url) { info.jsEvent.preventDefault(); window.location.href = info.event.url; } },
-                // Ação de clique na data só funciona para o admin
-                dateClick: function(info) {
-                    if ({% if user.tipo == 'admin' %}true{% else %}false{% endif %}) {
-                        window.location.href = "{% url 'scheduler:aula_agendar' %}?data_hora=" + info.dateStr + "T08:00";
-                    }
                 }
-            });
-            calendar.render();
+            } catch (err) {
+                console.warn("Erro ao remover popover:", err);
+            }
+        },
 
-            // Adiciona listener para o filtro de professor do admin
-            var profFiltroEl = document.getElementById('professor_calendario_filtro');
-            if (profFiltroEl) {
-                profFiltroEl.addEventListener('change', function() {
-                    calendar.refetchEvents(); // Recarrega os eventos do calendário
+        eventClick: function (info) {
+            if (info.event.url) {
+                info.jsEvent.preventDefault();
+                window.location.href = info.event.url;
+            }
+        },
+
+        dateClick: function (info) {
+            {% if user.tipo == 'admin' %}
+            const modalEl = document.getElementById('agendamentoModal');
+            const form = modalEl?.querySelector('form');
+            const inputDataHora = form?.querySelector('#id_data_hora');
+            if (modalEl && form && inputDataHora) {
+                inputDataHora.value = info.dateStr + "T08:00";
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+            {% endif %}
+        },
+
+        eventSources: [{
+            url: "{% url 'scheduler:get_eventos_calendario' %}",
+            extraParams: function () {
+                const filtroEl = document.getElementById('professor_calendario_filtro');
+                return { professor_filtro_id: filtroEl?.value || "" };
+            },
+            failure: function () {
+                alert("Erro ao carregar eventos do calendário.");
+            }
+        }]
+    });
+
+    calendar.render();
+
+    // Recarrega eventos ao trocar o filtro (admin)
+    const profFiltroEl = document.getElementById('professor_calendario_filtro');
+    if (profFiltroEl) {
+        profFiltroEl.addEventListener('change', () => calendar.refetchEvents());
+    }
+
+    // MODAL DE AGENDAMENTO E FORMSETS
+    const modalEl = document.getElementById('agendamentoModal');
+    if (modalEl) {
+        const form = modalEl.querySelector('form');
+        const errorDiv = modalEl.querySelector('#modal-errors');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const formData = new FormData(form);
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        modal.hide();
+                        calendar.refetchEvents();
+                    } else if (data.errors && errorDiv) {
+                        errorDiv.innerHTML = data.errors.map(err => `
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                              ${err}
+                              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => {
+                    if (errorDiv) {
+                        errorDiv.innerHTML = `<div class="alert alert-danger">Erro ao enviar o formulário.</div>`;
+                    }
+                    console.error("Erro AJAX:", err);
+                });
+            });
+
+            // ----- FORMSETS -----
+            function setupFormset(buttonId, containerId, totalFormsId, emptyFormId, prefix) {
+                const addButton = document.getElementById(buttonId);
+                const container = document.getElementById(containerId);
+                const totalForms = document.getElementById(totalFormsId);
+                const emptyFormTemplate = document.getElementById(emptyFormId);
+
+                if (!addButton || !container || !totalForms || !emptyFormTemplate) return;
+
+                addButton.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const formIndex = parseInt(totalForms.value);
+                    const newFormHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIndex);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newFormHtml;
+                    container.appendChild(tempDiv.firstElementChild);
+                    totalForms.value = formIndex + 1;
                 });
             }
+
+            function toggleFormsets() {
+                const checkRecorrente = document.getElementById('id_recorrente_mensal');
+                const avisoRecorrente = document.getElementById('aviso-recorrente');
+                if (checkRecorrente && avisoRecorrente) {
+                    checkRecorrente.addEventListener('change', function () {
+                        avisoRecorrente.classList.toggle('d-none', !this.checked);
+                    });
+                }
+            }
+
+            setupFormset('add-aluno-form', 'aluno-formset-container', 'id_alunos-TOTAL_FORMS', 'empty-form-alunos', 'alunos');
+            setupFormset('add-professor-form', 'professor-formset-container', 'id_professores-TOTAL_FORMS', 'empty-form-professores', 'professores');
+            toggleFormsets();
         }
-    });
+    }
+});
 </script>
 {% endblock %}

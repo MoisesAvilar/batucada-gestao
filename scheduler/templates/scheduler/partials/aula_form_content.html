@@ -1,0 +1,94 @@
+{% comment %} NOVO ARQUIVO: scheduler/templates/scheduler/partials/aula_form_content.html {% endcomment %}
+
+<form method="post" action="{{ form_action }}">
+  {% csrf_token %}
+  
+  {# Div para exibir erros de validação do AJAX #}
+  <div id="modal-errors" class="alert alert-danger" style="display: none;"></div>
+
+  <div class="row">
+    <div class="col-md-4 mb-3"><label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold">Categoria</label>{{ form.modalidade }}</div>
+    <div class="col-md-4 mb-3"><label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold">Data e Horário</label>{{ form.data_hora }}</div>
+    <div class="col-md-4 mb-3"><label for="{{ form.status.id_for_label }}" class="form-label fw-bold">Status</label>{{ form.status }}</div>
+  </div>
+  <div class="mb-3 form-check">
+      {{ form.recorrente_mensal }}
+      <label class="form-check-label" for="{{ form.recorrente_mensal.id_for_label }}">{{ form.recorrente_mensal.label }}</label>
+  </div>
+  <hr>
+
+<div id="aluno-formset-container" class="formset-container mb-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+    <h5 class="mb-2 mb-md-0">Alunos</h5>
+    <button type="button" id="add-aluno-form" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-plus-circle"></i> Adicionar Aluno
+    </button>
+  </div>
+  {{ aluno_formset.management_form }}
+  
+  <div id="aluno-forms">
+    {% for form in aluno_formset %}
+      <div class="row align-items-center mb-2 formset-row">
+        <div class="col-md-10 col-8">{{ form.aluno }}</div>
+        <div class="col-md-2 col-4 text-end">
+          {% if form.initial %}
+            <div class="form-check form-check-inline">
+              <input type="checkbox" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}">
+              <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
+            </div>
+          {% endif %}
+        </div>
+        {{ form.id }}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div id="professor-formset-container" class="formset-container mb-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+    <h5 class="mb-2 mb-md-0">Professores</h5>
+    <button type="button" id="add-professor-form" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-plus-circle"></i> Adicionar Professor
+    </button>
+  </div>
+  {{ professor_formset.management_form }}
+  
+  <div id="professor-forms">
+    {% for form in professor_formset %}
+      <div class="row align-items-center mb-2 formset-row">
+        <div class="col-md-10 col-8">{{ form.professor }}</div>
+        <div class="col-md-2 col-4 text-end">
+          {% if form.initial %}
+            <div class="form-check form-check-inline">
+              <input type="checkbox" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}">
+              <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
+            </div>
+          {% endif %}
+        </div>
+        {{ form.id }}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+  
+  <div class="mt-4 border-top pt-3 text-end">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+    <button type="submit" class="btn btn-primary">Agendar Aula</button>
+  </div>
+</form>
+
+{# Templates vazios para o JavaScript clonar #}
+<template id="empty-form-alunos">
+  <div class="row align-items-center mb-2 formset-row">
+    <div class="col-md-10 col-12">{{ aluno_formset.empty_form.aluno }}</div>
+    <div class="col-md-2"></div>
+    {{ aluno_formset.empty_form.id }}
+  </div>
+</template>
+<template id="empty-form-professores">
+  <div class="row align-items-center mb-2 formset-row">
+    <div class="col-md-10 col-12">{{ professor_formset.empty_form.professor }}</div>
+    <div class="col-md-2"></div>
+    {{ professor_formset.empty_form.id }}
+  </div>
+</template>

@@ -1,92 +1,148 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<h1 class="mb-1">Relatório da Aula</h1>
-<div class="d-flex align-items-baseline mb-4 text-muted">
-    {# Alunos e Data (sem alterações) #}
-    <strong class="me-2">Aluno(s):</strong> 
-    <div>
-    {% for aluno in aula.alunos.all %}
-        <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}">{{ aluno.nome_completo|title }}</a>{% if not forloop.last %}, {% endif %}
-    {% empty %}
-        Nenhum aluno associado.
-    {% endfor %}
+<div class="text-center mb-4">
+    <h1 class="mb-3">Relatório da Aula</h1>
+    
+    <!-- Alunos e Data -->
+    <div class="d-flex flex-column align-items-center mb-3">
+        <div class="mb-2">
+            <i class="bi bi-person-fill me-1 text-muted"></i>
+            {% for aluno in aula.alunos.all %}
+                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none">
+                    {{ aluno.nome_completo|title }}
+                </a>{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                <span class="text-muted">Nenhum aluno associado</span>
+            {% endfor %}
+        </div>
+        
+        <div class="text-muted small">
+            <i class="bi bi-calendar3 me-1"></i>
+            {{ aula.data_hora|date:"d/m/Y, H:i" }}
+        </div>
     </div>
-    <span class="mx-2">|</span>
-    <strong class="me-2">Data:</strong>
-    <div>{{ aula.data_hora|date:"d/m/Y, H:i" }}</div>
-</div>
 
-<div class="professores-info mb-4">
-    {# --- CORREÇÃO APLICADA AQUI --- #}
-    {% if aula.status == 'Realizada' and aula.relatorioaula and aula.relatorioaula.professor_que_validou %}
-        {% with professor_validou=aula.relatorioaula.professor_que_validou %}
-            <strong>Professor(es):</strong>
-            {# Caso 1: Houve uma SUBSTITUIÇÃO #}
-            {% if professor_validou not in aula.professores.all %}
-                <div class="mt-2">
-                    <small class="d-block text-muted">Atribuído(s):</small>
+    <!-- Professores - Container Flexível -->
+    <div class="d-flex flex-column align-items-center">
+        {% if aula.status == 'Realizada' and aula.relatorioaula and aula.relatorioaula.professor_que_validou %}
+            {% with professor_validou=aula.relatorioaula.professor_que_validou %}
+                <!-- CASO COM SUBSTITUIÇÃO -->
+                {% if professor_validou not in aula.professores.all %}
+                    <div class="text-center mb-2">
+                        <div class="mb-1">
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+                            <small class="text-muted">Substituição de Professor</small>
+                        </div>
+                        
+                        <!-- Professores Originais -->
+                        <div class="d-flex flex-wrap justify-content-center gap-1 mb-2">
+                            {% for prof in aula.professores.all %}
+                                <div class="badge bg-light text-dark text-decoration-line-through">
+                                    {% if user.tipo == 'admin' %}
+                                        <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="text-reset">
+                                            {{ prof.username|title }}
+                                        </a>
+                                    {% else %}
+                                        {{ prof.username|title }}
+                                    {% endif %}
+                                </div>
+                            {% empty %}
+                                <span class="badge bg-light">Não atribuído</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Professor Substituto -->
+                        <div class="d-flex flex-wrap justify-content-center gap-1">
+                            <div class="badge bg-success text-white">
+                                <i class="bi bi-arrow-right me-1"></i>
+                                {% if user.tipo == 'admin' %}
+                                    <a href="{% url 'scheduler:professor_detalhe' professor_validou.pk %}" class="text-reset text-decoration-none">
+                                        {{ professor_validou.username|title }}
+                                    </a>
+                                {% else %}
+                                    {{ professor_validou.username|title }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                <!-- CASO NORMAL (sem substituição) -->
+                {% else %}
+                    <div class="text-center">
+                        <i class="bi bi-person-check-fill text-success me-1"></i>
+                        <small class="text-muted">Ministrado por:</small>
+                        
+                        <div class="d-flex flex-wrap justify-content-center gap-1 mt-1">
+                            <!-- Professor que validou -->
+                            <div class="badge bg-success text-white">
+                                {% if user.tipo == 'admin' %}
+                                    <a href="{% url 'scheduler:professor_detalhe' professor_validou.pk %}" class="text-reset text-decoration-none">
+                                        {{ professor_validou.username|title }}
+                                    </a>
+                                {% else %}
+                                    {{ professor_validou.username|title }}
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Outros professores (se houver) -->
+                            {% for prof in aula.professores.all %}
+                                {% if prof != professor_validou %}
+                                    <div class="badge bg-primary text-white">
+                                        {% if user.tipo == 'admin' %}
+                                            <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="text-reset text-decoration-none">
+                                                {{ prof.username|title }}
+                                            </a>
+                                        {% else %}
+                                            {{ prof.username|title }}
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+        <!-- AULA NÃO REALIZADA -->
+        {% else %}
+            <div class="text-center">
+                <i class="bi bi-person-fill text-primary me-1"></i>
+                <small class="text-muted">Professor(es) Atribuído(s):</small>
+                
+                <div class="d-flex flex-wrap justify-content-center gap-1 mt-1">
                     {% for prof in aula.professores.all %}
-                        {% if user.tipo == 'admin' %}
-                            <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="badge text-bg-secondary text-decoration-line-through me-1 fs-6">{{ prof.username|title }}</a>
-                        {% else %}
-                            <span class="badge text-bg-secondary text-decoration-line-through me-1 fs-6">{{ prof.username|title }}</span>
-                        {% endif %}
+                        <div class="badge bg-primary text-white">
+                            {% if user.tipo == 'admin' %}
+                                <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="text-reset text-decoration-none">
+                                    {{ prof.username|title }}
+                                </a>
+                            {% else %}
+                                {{ prof.username|title }}
+                            {% endif %}
+                        </div>
                     {% empty %}
-                        <span class="badge text-bg-light">Ninguém</span>
+                        <span class="badge bg-light text-muted">Não Atribuído</span>
                     {% endfor %}
                 </div>
-                <div class="mt-2">
-                    <small class="d-block text-muted">Realizado por (Substituto):</small>
-                    {% if user.tipo == 'admin' %}
-                        <a href="{% url 'scheduler:professor_detalhe' professor_validou.pk %}" class="badge text-bg-success me-1 fs-6"><i class="bi bi-check-circle-fill"></i> {{ professor_validou.username|title }}</a>
-                    {% else %}
-                        <span class="badge text-bg-success me-1 fs-6"><i class="bi bi-check-circle-fill"></i> {{ professor_validou.username|title }}</span>
-                    {% endif %}
-                </div>
-
-            {# Caso 2: Aula realizada por um dos professores atribuídos (Normal) #}
-            {% else %}
-                {% if user.tipo == 'admin' %}
-                    <a href="{% url 'scheduler:professor_detalhe' professor_validou.pk %}" class="badge text-bg-success me-1 fs-6"><i class="bi bi-check-circle-fill"></i> {{ professor_validou.username|title }}</a>
-                {% else %}
-                    <span class="badge text-bg-success me-1 fs-6"><i class="bi bi-check-circle-fill"></i> {{ professor_validou.username|title }}</span>
-                {% endif %}
-                {% for prof in aula.professores.all %}
-                    {% if prof != professor_validou %}
-                        {% if user.tipo == 'admin' %}
-                            <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="badge text-bg-secondary me-1 fs-6">{{ prof.username|title }}</a>
-                        {% else %}
-                            <span class="badge text-bg-secondary me-1 fs-6">{{ prof.username|title }}</span>
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-    {# Caso 3: A aula AINDA NÃO FOI REALIZADA #}
-    {% else %}
-        <strong>Professor(es) Atribuído(s):</strong>
-        {% for prof in aula.professores.all %}
-            {% if user.tipo == 'admin' %}
-                <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="badge text-bg-primary me-1 fs-6">{{ prof.username|title }}</a>
-            {% else %}
-                <span class="badge text-bg-primary me-1 fs-6">{{ prof.username|title }}</span>
-            {% endif %}
-        {% empty %}
-            <span class="badge text-bg-light">Não Atribuído</span>
-        {% endfor %}
-    {% endif %}
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 {# --- INÍCIO DO MODO VISUALIZAÇÃO (COM MENSAGENS PADRÃO) --- #}
 {% if view_mode == 'visualizar' or aula.status == 'Realizada' and user.tipo != 'admin' %}
 
-    <div class="alert alert-info" role="alert">
-        Você está visualizando o relatório.
-        {% if user.tipo == 'admin' %}
-            <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="alert-link">Clique aqui para habilitar a edição</a>.
-        {% endif %}
+    <div class="alert alert-info d-flex align-items-center justify-content-center gap-2 mt-4 p-3 border-0 shadow-sm">
+        <i class="bi bi-info-circle-fill fs-5"></i>
+        <div>
+            Você está visualizando o relatório.
+            {% if user.tipo == 'admin' %}
+                <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="alert-link fw-bold">
+                    Clique aqui para editar
+                </a>
+            {% endif %}
+        </div>
     </div>
 
     {# Lista de Presença em modo 'somente leitura' #}
@@ -112,7 +168,7 @@
     
     {# --- Card: Parte Teórica --- #}
     <div class="card mb-3 shadow-sm">
-        <div class="card-header"><h5>1. Parte Teórica</h5></div>
+        <div class="card-header"><h5>1. Teoria</h5></div>
         <div class="card-body">
             <p><strong>Conteúdo Teórico Abordado:</strong></p>
             {# Usa o filtro 'default' para o campo de texto #}
@@ -210,25 +266,101 @@
         </div>
     </div>
 
-    <div class="mt-4">
+    <div class="d-flex justify-content-center gap-3 mt-4 py-3">
         {% if user.tipo == 'admin' %}
-            <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="btn btn-primary me-2">
-                <i class="bi bi-pencil"></i> Habilitar Edição
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="btn btn-primary px-4 py-2">
+                <i class="bi bi-pencil-fill me-2"></i>
+                Editar
             </a>
         {% endif %}
-        <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-secondary">Voltar para a Lista de Aulas</a>
+        <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary px-4 py-2">
+            <i class="bi bi-list-ul me-2"></i>
+            Voltar
+        </a>
     </div>
 
 {% else %}
+    {# --- NOVO PAINEL DE HISTÓRICO DA ÚLTIMA AULA --- #}
+    {% if historico_ultima_aula %}
+        <div class="accordion mb-4 sticky-top" 
+         id="accordionHistorico"
+         style="top: 0; background: white; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button collapsed" type="button" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#collapseHistorico" 
+                        aria-expanded="false" 
+                        aria-controls="collapseHistorico">
+                    <i class="bi bi-clock-history me-2"></i> 
+                    Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
+                </button>
+            </h2>
+            
+            <div id="collapseHistorico" class="accordion-collapse collapse" 
+                 aria-labelledby="headingOne" 
+                 data-bs-parent="#accordionHistorico">
+                
+                <div class="accordion-body">
+                    {% with relatorio=historico_ultima_aula %}
+                        <!-- Conteúdo Teórico -->
+                        <p><strong>Conteúdo Teórico:</strong> {{ relatorio.conteudo_teorico|default:"N/A"|linebreaksbr }}</p>
+                        <hr>
+                        
+                        <!-- Lista de Exercícios -->
+                        <p><strong>Exercícios Aplicados:</strong></p>
+                        <ul class="list-group list-group-flush small mb-3">
+                            {% for item in relatorio.itens_rudimentos.all %}
+                                <li class="list-group-item list-group-item-primary list-group-item-action border-start border-primary border-5">
+                                    <strong>Rudimento {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                    <span class="text-muted">
+                                        {% if item.livro %}- <em>{{ item.livro }}</em>{% endif %}
+                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                            
+                            {% for item in relatorio.itens_ritmo.all %}
+                                <li class="list-group-item list-group-item-success list-group-item-action border-start border-success border-5">
+                                    <strong>Ritmo {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                    <span class="text-muted">
+                                        {% if item.livro_metodo %}- <em>{{ item.livro_metodo }}</em>{% endif %}
+                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                            
+                            {% for item in relatorio.itens_viradas.all %}
+                                <li class="list-group-item list-group-item-warning list-group-item-action border-start border-warning border-5">
+                                    <strong>Virada {{ forloop.counter }}:</strong> {{ item.descricao }}
+                                    <span class="text-muted">
+                                        {% if item.bpm %}({{ item.bpm }} BPM){% endif %}
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                        
+                        <!-- Repertório e Observações -->
+                        <p><strong>Repertório:</strong> {{ relatorio.repertorio_musicas|default:"N/A"|linebreaksbr }}</p>
+                        <hr>
+                        <p><strong>Observações:</strong> {{ relatorio.observacoes_gerais|default:"N/A"|linebreaksbr }}</p>
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <form method="post">
         {% csrf_token %}
 
         {# Card de Lista de Presença #}
+        {{ presenca_formset.management_form }}
         {% if aula.alunos.all %}
         <div class="card mb-3 shadow-sm">
             <div class="card-header"><h5>1. Lista de Presença</h5></div>
             <div class="card-body">
-                {{ presenca_formset.management_form }}
                 {% for presenca_form in presenca_formset %}
                     {{ presenca_form.id }} {# Campo de ID oculto, mas necessário #}
                     <div class="row align-items-center mb-2 pb-2 {% if not forloop.last %}border-bottom{% endif %}">
@@ -248,11 +380,16 @@
                 {% endfor %}
             </div>
         </div>
+        {% elif "atividade complementar" in aula.modalidade.nome|lower %}
+        <div class="alert alert-info" role="alert">
+            <h5 class="alert-heading"><i class="bi bi-info-circle-fill"></i> Atividade Complementar</h5>
+            <p>Este é um evento sem lista de presença de alunos. Prossiga com o preenchimento do relatório de atividades.</p>
+        </div>
         {% endif %}
 
         {# Card: Parte Teórica #}
         <div class="card mb-3 shadow-sm">
-            <div class="card-header"><h5>1. Parte Teórica</h5></div>
+            <div class="card-header"><h5>1. Teoria</h5></div>
             <div class="card-body">
                 <div class="mb-3">
                     <label for="{{ form.conteudo_teorico.id_for_label }}" class="form-label">{{ form.conteudo_teorico.label }}</label>
@@ -364,9 +501,18 @@
                 </div>
             </div>
         </div>
-        <div class="mt-4">
-            <button type="submit" class="btn btn-success">Salvar Relatório e Finalizar Aula</button>
-            <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-secondary">Cancelar</a>
+        <div class="d-flex justify-content-center gap-3 mt-4 py-3">
+            <!-- Botão Principal -->
+            <button type="submit" class="btn btn-success px-4 py-2">
+                <i class="bi bi-check-circle me-2"></i>
+                Salvar Aula
+            </button>
+            
+            <!-- Botão Secundário -->
+            <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary px-4 py-2">
+                <i class="bi bi-x me-2"></i>
+                Cancelar
+            </a>
         </div>
     </form>
     

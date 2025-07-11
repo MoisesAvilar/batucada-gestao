@@ -20,23 +20,21 @@
     </div>
     <div class="card-body text-center"> {# Centraliza o avatar #}
         {# Avatar do usuário (foto ou iniciais) - REUTILIZA A LÓGICA DO BASE.HTML #}
-        {% if user.profile_picture_url %}
-                  <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+        <div class="text-center mb-4">
+                {% if user.profile_picture_url %}
+                <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" 
+                     class="rounded-circle shadow-sm" style="width: 100px; height: 100px; object-fit: cover;">
                 {% else %}
-                  {% if user.first_name and user.last_name %}
-                      {% with first_initial=user.first_name|slice:"0:1"|upper last_initial=user.last_name|slice:"0:1"|upper %}
-                          <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center mb-3"
-                     style="background-color:#6c757d; width:100px; height:100px; font-size:2.5em; font-weight:bold; vertical-align:middle; cursor:default;">
-                              {{ first_initial|add:last_initial }}
-                          </div>
-                      {% endwith %}
-                  {% elif user.username %}
-                      <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center mb-3"
-                     style="background-color:#6c757d; width:100px; height:100px; font-size:2.5em; font-weight:bold; vertical-align:middle; cursor:default;">
-                          {{ user.username|slice:"0:1"|upper }}
-                      </div>
-                  {% endif %}
+                <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width: 100px; height: 100px; font-size: 2rem;">
+                    {% if user.first_name and user.last_name %}
+                        {{ user.first_name|slice:"0:1"|upper }}{{ user.last_name|slice:"0:1"|upper }}
+                    {% else %}
+                        {{ user.username|slice:"0:1"|upper }}
+                    {% endif %}
+                </div>
                 {% endif %}
+            </div>
 
         <form method="post">
             {% csrf_token %}
