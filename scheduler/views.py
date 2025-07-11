@@ -28,6 +28,11 @@ from django.urls import reverse
 from django.http import JsonResponse, HttpResponse
 import csv
 
+# --- NOVOS IMPORTS PARA O EXCEL ---
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
+
 
 # --- Funções de Teste para Permissões ---
 def is_admin(user):
@@ -1148,124 +1153,301 @@ def relatorios_aulas(request):
 # --- NOVA VIEW DE EXPORTAÇÃO ---
 @user_passes_test(is_admin)
 def exportar_relatorio_agregado(request):
-    # 1. Chama a MESMA função auxiliar para obter os dados já filtrados
-    dados = _get_dados_relatorio_agregado(request)
-    
-    # 2. Prepara a resposta HTTP para ser um arquivo CSV
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="relatorio_gerencial.csv"'
-    response.write(u'\ufeff'.encode('utf8')) # BOM para caracteres PT-BR no Excel
-
-    writer = csv.writer(response, delimiter=';')
-
-    # 3. Escreve os dados de "Aulas por Professor"
-    writer.writerow(['Professor', 'Aulas Realizadas'])
-    for item in dados['aulas_por_professor']:
-        writer.writerow([
-            item['relatorioaula__professor_que_validou__username'],
-            item['aulas_realizadas']
-        ])
-        
-    writer.writerow([]) # Linha em branco para separar as tabelas
-
-    # 4. Escreve os dados de "Aulas por Modalidade"
-    writer.writerow(['Modalidade', 'Total de Aulas', 'Aulas Realizadas'])
-    for item in dados['aulas_por_modalidade']:
-        writer.writerow([
-            item['modalidade__nome'],
-            item['total_aulas'],
-            item['aulas_realizadas']
-        ])
-
-    return response
-
-
-# --- NOVA VIEW PARA EXPORTAÇÃO DE DADOS ---
-@user_passes_test(is_admin)  # Apenas administradores podem exportar dados
-def exportar_aulas(request):
     """
-    Exporta uma lista detalhada de aulas para um arquivo CSV, 
+    Exporta um relatório gerencial AGREGADO e ESTILIZADO para um arquivo Excel (.xlsx),
     respeitando os filtros aplicados na página de relatórios.
     """
-    # 1. Inicia a consulta base
+    # 1. Lógica de filtros (AGORA CORRIGIDA E COMPLETA)
     aulas_queryset = Aula.objects.all()
-
-    # 2. Reaplica a lógica de filtros da página de relatórios
+    
+    # --- INÍCIO DO BLOCO DE FILTROS CORRIGIDO ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
+    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
 
     if data_inicial_str:
-        try:
-            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
         except ValueError: pass
     if data_final_str:
-        try:
-            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__lte=datetime.strptime(data_final_str, "%Y-%m-%d").date())
         except ValueError: pass
     if professor_filtro_id:
-        aulas_queryset = aulas_queryset.filter(
-            Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
-        )
+        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id))
     if modalidade_filtro_id:
         aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
     if status_filtro:
         if status_filtro == 'Substituído':
-            aulas_queryset = aulas_queryset.filter(
-                status='Realizada', professores__isnull=False, relatorioaula__professor_que_validou__isnull=False
-            ).exclude(professores=F('relatorioaula__professor_que_validou'))
+            aulas_queryset = aulas_queryset.filter(status='Realizada', professores__isnull=False, relatorioaula__professor_que_validou__isnull=False).exclude(professores=F('relatorioaula__professor_que_validou'))
         else:
             aulas_queryset = aulas_queryset.filter(status=status_filtro)
+    if aluno_filtro_ids:
+        aluno_filtro_ids = [int(id) for id in aluno_filtro_ids if id.isdigit()]
+        if aluno_filtro_ids:
+            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids).distinct()
+    # --- FIM DO BLOCO DE FILTROS CORRIGIDO ---
 
-    # 3. Otimiza a consulta para performance e ordena o resultado
-    aulas = aulas_queryset.order_by("data_hora").select_related(
-        'modalidade', 'relatorioaula__professor_que_validou'
-    ).prefetch_related('alunos', 'professores')
+    # 2. Cálculo dos KPIs Gerais
+    total_aulas = aulas_queryset.count()
+    total_realizadas = aulas_queryset.filter(status="Realizada").count()
+    total_canceladas = aulas_queryset.filter(status="Cancelada").count()
+    total_aluno_ausente = aulas_queryset.filter(status="Aluno Ausente").count()
 
-    # 4. Prepara a resposta HTTP para ser um arquivo CSV
-    response = HttpResponse(
-        content_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="aulas_exportadas.csv"'},
-    )
-    # Garante a codificação correta para caracteres PT-BR no Excel
-    response.write(u'\ufeff'.encode('utf8')) 
-    writer = csv.writer(response, delimiter=";")
+    # 3. Cálculo dos dados por Professor (Agora sobre o queryset filtrado)
+    professores = CustomUser.objects.filter(tipo__in=['professor', 'admin']).annotate(
+        total_atribuidas=Count('aulas_lecionadas', distinct=True, filter=Q(aulas_lecionadas__in=aulas_queryset)),
+        total_realizadas=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_queryset, aulas_validadas_por_mim__aula__status='Realizada')),
+        total_ausencias=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_queryset, aulas_validadas_por_mim__aula__status='Aluno Ausente'))
+    ).filter(Q(total_atribuidas__gt=0) | Q(total_realizadas__gt=0)).order_by('-total_realizadas')
 
-    # 5. Escreve o cabeçalho do arquivo
-    writer.writerow([
-        "ID da Aula", "Alunos", "Categoria", "Professores Atribuídos", "Professor Realizou",
-        "Data e Hora", "Status", "Conteúdo Teórico", "Observações Gerais",
-    ])
+    # 4. Cálculo dos dados por Categoria (Agora sobre o queryset filtrado)
+    aulas_por_modalidade = aulas_queryset.filter(modalidade__isnull=False).values(
+        'modalidade__id', 'modalidade__nome'
+    ).annotate(
+        total_aulas=Count('id'),
+        aulas_realizadas=Count('id', filter=Q(status='Realizada')),
+        aulas_ausencias=Count('id', filter=Q(status='Aluno Ausente')),
+        aulas_canceladas=Count('id', filter=Q(status='Cancelada'))
+    ).order_by('-total_aulas')
 
-    # 6. Itera sobre as aulas e escreve cada linha no arquivo
-    for aula in aulas:
-        relatorio = getattr(aula, "relatorioaula", None)
+    # 5. Criação e Estilização da Planilha Excel
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "Relatorio Gerencial"
+
+    # Estilos
+    font_bold = Font(bold=True)
+    font_header = Font(bold=True, color="FFFFFF")
+    fill_header = PatternFill(start_color="2F75B5", end_color="2F75B5", fill_type="solid")
+    fill_subheader = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid")
+
+    # --- Bloco de KPIs Gerais ---
+    ws.merge_cells('B2:E2')
+    cell_kpi_header = ws['B2']
+    cell_kpi_header.value = "Resumo Geral do Período"
+    cell_kpi_header.font = font_header
+    cell_kpi_header.fill = fill_header
+    cell_kpi_header.alignment = Alignment(horizontal='center')
+
+    ws['B4'] = "Total de Aulas no Período:"; ws['B4'].font = font_bold
+    ws['C4'] = total_aulas
+    ws['B5'] = "Aulas Realizadas:"; ws['B5'].font = font_bold
+    ws['C5'] = total_realizadas
+    ws['B6'] = "Aulas com Ausência:"; ws['B6'].font = font_bold
+    ws['C6'] = total_aluno_ausente
+    ws['B7'] = "Aulas Canceladas:"; ws['B7'].font = font_bold
+    ws['C7'] = total_canceladas
+    
+    # --- Tabela de Resumo por Professor ---
+    current_row = 10
+    ws.merge_cells(f'B{current_row}:F{current_row}')
+    cell_prof_header = ws[f'B{current_row}']
+    cell_prof_header.value = "Resumo por Professor"
+    cell_prof_header.font = font_header
+    cell_prof_header.fill = fill_header
+    cell_prof_header.alignment = Alignment(horizontal='center')
+    current_row += 1
+
+    prof_headers = ["Professor", "Aulas Atribuídas", "Aulas Realizadas", "Aulas c/ Ausência", "Taxa de Realização (%)"]
+    ws.append([''] + prof_headers) # Adiciona uma coluna vazia no início para espaçamento
+    for cell in ws[current_row]:
+        cell.font = font_bold
+        cell.fill = fill_subheader
+
+    current_row += 1
+    for p in professores:
+        taxa = (p.total_realizadas / p.total_atribuidas * 100) if p.total_atribuidas > 0 else 0
+        ws.append(['', p.username.title(), p.total_atribuidas, p.total_realizadas, p.total_ausencias, f"{taxa:.2f}%"])
+
+    # --- Tabela de Resumo por Categoria ---
+    current_row += 3 # Espaço entre as tabelas
+    ws.merge_cells(f'B{current_row}:G{current_row}')
+    cell_cat_header = ws[f'B{current_row}']
+    cell_cat_header.value = "Resumo por Categoria"
+    cell_cat_header.font = font_header
+    cell_cat_header.fill = fill_header
+    cell_cat_header.alignment = Alignment(horizontal='center')
+    current_row += 1
+
+    cat_headers = ["Categoria", "Total de Aulas", "Aulas Realizadas", "Ausências", "Canceladas", "Taxa de Realização (%)"]
+    ws.append([''] + cat_headers)
+    for cell in ws[current_row]:
+        cell.font = font_bold
+        cell.fill = fill_subheader
+    
+    current_row += 1
+    for item in aulas_por_modalidade:
+        taxa = (item['aulas_realizadas'] / item['total_aulas'] * 100) if item['total_aulas'] > 0 else 0
+        ws.append(['', item['modalidade__nome'].title(), item['total_aulas'], item['aulas_realizadas'], item['aulas_ausencias'], item['aulas_canceladas'], f"{taxa:.2f}%"])
         
-        # Junta os nomes das listas ManyToMany em uma única string
+    # Ajuste final das colunas
+    for i, column_cells in enumerate(ws.columns):
+        max_length = 0
+        column = get_column_letter(i + 1)
+        for cell in column_cells:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[column].width = adjusted_width
+
+    # 6. Preparação da resposta HTTP
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Resumo Gerencial.xlsx"'},
+    )
+    workbook.save(response)
+    
+    return response
+
+
+# --- NOVA VIEW PARA EXPORTAÇÃO DE DADOS ---
+@user_passes_test(is_admin)
+def exportar_aulas(request):
+    """
+    Exporta um relatório detalhado de atividades das aulas para um arquivo CSV,
+    respeitando os filtros aplicados. Cada linha representa uma atividade.
+    """
+    # 1. Reaplica a lógica de filtros da página de listagem (nenhuma mudança aqui)
+    aulas_queryset = Aula.objects.all()
+    # (Toda a sua lógica de filtros por data, professor, aluno, etc., permanece a mesma)
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+    professor_filtro_id = request.GET.get("professor_filtro", "")
+    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
+    status_filtro = request.GET.get("status_filtro", "")
+    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
+
+    if data_inicial_str:
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
+        except ValueError: pass
+    if data_final_str:
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__lte=datetime.strptime(data_final_str, "%Y-%m-%d").date())
+        except ValueError: pass
+    if professor_filtro_id:
+        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id))
+    if modalidade_filtro_id:
+        aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
+    if status_filtro:
+        if status_filtro == 'Substituído':
+            aulas_queryset = aulas_queryset.filter(status='Realizada', professores__isnull=False, relatorioaula__professor_que_validou__isnull=False).exclude(professores=F('relatorioaula__professor_que_validou'))
+        else:
+            aulas_queryset = aulas_queryset.filter(status=status_filtro)
+    if aluno_filtro_ids:
+        aluno_filtro_ids = [int(id) for id in aluno_filtro_ids if id.isdigit()]
+        if aluno_filtro_ids:
+            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids).distinct()
+
+    # 2. Otimiza a consulta para performance, buscando todos os dados relacionados de uma vez
+    aulas_list = list(aulas_queryset.order_by("data_hora").select_related(
+        'modalidade', 'relatorioaula__professor_que_validou'
+    ).prefetch_related(
+        'alunos', 'professores',
+        'relatorioaula__itens_rudimentos',
+        'relatorioaula__itens_ritmo',
+        'relatorioaula__itens_viradas'
+    ))
+
+    # 3. Workbook e Estilos...
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Relatorio Detalhado de Aulas"
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+    center_alignment = Alignment(horizontal="center", vertical="center")
+    cores_atividades = {
+        "Teoria": PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid"),
+        "Repertório": PatternFill(start_color="F2DCDB", end_color="F2DCDB", fill_type="solid"),
+        "Rudimento": PatternFill(start_color="EAF1DD", end_color="EAF1DD", fill_type="solid"),
+        "Ritmo": PatternFill(start_color="DBEEF3", end_color="DBEEF3", fill_type="solid"),
+        "Virada": PatternFill(start_color="E5E0EC", end_color="E5E0EC", fill_type="solid"),
+        "Observações Gerais": PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid"),
+        "N/A": PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid"),
+    }
+
+    # 4. Cabeçalho
+    headers = [
+        "ID Aula", "Data e Hora", "Status", "Alunos", "Prof. Atribuído(s)", "Prof. Realizou",
+        "Categoria", "Tipo de Conteúdo", "Descrição", "Detalhes (BPM, Livro, Duração)", "Observações do Conteúdo"
+    ]
+    worksheet.append(headers)
+    for col_num, header_title in enumerate(headers, 1):
+        cell = worksheet.cell(row=1, column=col_num)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_alignment
+
+    # 5. Loop principal com a lógica corrigida
+    for i, aula in enumerate(aulas_list):
+        if i > 0:
+            worksheet.append([])
+
         alunos_str = ", ".join([al.nome_completo.title() for al in aula.alunos.all()])
         professores_str = ", ".join([p.username.title() for p in aula.professores.all()])
-        
+        relatorio = getattr(aula, "relatorioaula", None)
         professor_realizou_str = relatorio.professor_que_validou.username.title() if relatorio and relatorio.professor_que_validou else "N/A"
-        conteudo_teorico_str = relatorio.conteudo_teorico if relatorio else ""
-        observacoes_gerais_str = relatorio.observacoes_gerais if relatorio else ""
+        data_hora_naive = timezone.localtime(aula.data_hora).replace(tzinfo=None)
+        base_row_data = [
+            aula.id, data_hora_naive, aula.get_status_display(), alunos_str,
+            professores_str, professor_realizou_str, aula.modalidade.nome
+        ]
 
-        writer.writerow([
-            aula.id,
-            alunos_str,
-            aula.modalidade.nome,
-            professores_str,
-            professor_realizou_str,
-            aula.data_hora.strftime("%d/%m/%Y %H:%M"),
-            aula.get_status_display(), # Usa a versão legível do status
-            conteudo_teorico_str,
-            observacoes_gerais_str,
-        ])
+        def adicionar_linha_estilizada(dados_atividade):
+            worksheet.append(base_row_data + dados_atividade)
+            cor_tipo = dados_atividade[0]
+            fill_style = cores_atividades.get(cor_tipo, cores_atividades["N/A"])
+            for cell in worksheet[worksheet.max_row]:
+                cell.fill = fill_style
 
+        if relatorio:
+            conteudo_adicionado = False
+            if relatorio.conteudo_teorico:
+                adicionar_linha_estilizada(["Teoria", relatorio.conteudo_teorico, "", relatorio.observacoes_teoria or ""])
+                conteudo_adicionado = True
+            for item in relatorio.itens_rudimentos.all():
+                detalhes = f"BPM: {item.bpm or 'N/A'} / Duração: {item.duracao_min or 'N/A'} min"
+                adicionar_linha_estilizada(["Rudimento", item.descricao, detalhes, item.observacoes or ""])
+                conteudo_adicionado = True
+            for item in relatorio.itens_ritmo.all():
+                detalhes = f"Livro: {item.livro_metodo or 'N/A'} / BPM: {item.bpm or 'N/A'} / Duração: {item.duracao_min or 'N/A'} min"
+                adicionar_linha_estilizada(["Ritmo", item.descricao, detalhes, item.observacoes or ""])
+                conteudo_adicionado = True
+            for item in relatorio.itens_viradas.all():
+                detalhes = f"BPM: {item.bpm or 'N/A'} / Duração: {item.duracao_min or 'N/A'} min"
+                adicionar_linha_estilizada(["Virada", item.descricao, detalhes, item.observacoes or ""])
+                conteudo_adicionado = True
+            if relatorio.repertorio_musicas:
+                adicionar_linha_estilizada(["Repertório", relatorio.repertorio_musicas, "", relatorio.observacoes_repertorio or ""])
+                conteudo_adicionado = True
+            if relatorio.observacoes_gerais:
+                adicionar_linha_estilizada(["Observações Gerais", relatorio.observacoes_gerais, "", ""])
+                conteudo_adicionado = True
+            if not conteudo_adicionado:
+                adicionar_linha_estilizada(["N/A", "Relatório existe, mas está vazio.", "", ""])
+        else:
+            adicionar_linha_estilizada(["N/A", "Aula sem relatório criado.", "", ""])
+    
+    # 7. Ajuste de colunas
+    for col_num, _ in enumerate(headers, 1):
+        column_letter = get_column_letter(col_num)
+        worksheet.column_dimensions[column_letter].width = 20
+    worksheet.column_dimensions['D'].width = 40
+    worksheet.column_dimensions['I'].width = 40
+    worksheet.column_dimensions['J'].width = 50
+    worksheet.column_dimensions['K'].width = 50
+    
+    # 8. Retorno da resposta
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="Relatório de Aulas.xlsx"'},
+    )
+    workbook.save(response)
     return response
+
 
 
 @login_required

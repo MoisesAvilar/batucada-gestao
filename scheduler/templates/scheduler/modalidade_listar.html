@@ -31,7 +31,7 @@
                 <tbody>
                     {% for modalidade in modalidades %}
                     <tr>
-                        <td class="fw-bold align-top"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="text-dark text-decoration-none"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</a></td>
+                        <td class="fw-bold align-top"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</a></td>
                         <td class="text-center"><span class="badge bg-secondary fs-6">{{ modalidade.total_aulas }}</span></td>
                         <td class="text-center"><span class="badge bg-success fs-6">{{ modalidade.alunos_ativos }}</span></td>
                         <td>{% if modalidade.proxima_aula %}{{ modalidade.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
@@ -61,12 +61,12 @@
                         <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ modalidade.proxima_aula|date:"d/m, H:i"|default:"N/A" }}</strong></div>
                     </div>
                     <div class="text-center border-top pt-2">
-    <div class="d-flex justify-content-center gap-2">
-        <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
-        <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-        <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
-    </div>
-</div>
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
+                            <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         {% endfor %}

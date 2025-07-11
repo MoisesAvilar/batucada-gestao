@@ -1,69 +1,138 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO CENTRALIZADO --- #}
-<div class="text-center mb-4">
-    <h1 class="mb-1">Relatórios de Aulas</h1>
-    <p class="text-muted mb-0">Analise o desempenho e as estatísticas gerais das aulas.</p>
+
+{# --- CABEÇALHO MELHORADO --- #}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    {# Título e Subtítulo #}
+    <div>
+        <h1 class="h2 mb-1">Relatórios de Aulas</h1>
+        <p class="text-muted mb-0">Analise o desempenho e as estatísticas gerais das aulas.</p>
+    </div>
+
+    {# Botões de Ação ATUALIZADOS #}
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        {# Botão para o relatório DETALHADO que criamos #}
+        <a href="{% url 'scheduler:exportar_aulas' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar Detalhes
+        </a>
+        {# Botão para o relatório RESUMIDO que já existia #}
+        <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-file-earmark-bar-graph me-1"></i> Exportar Resumo
+        </a>
+        
+        {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
+        <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-info btn-sm" title="Ver a lista detalhada destas aulas">
+            <i class="bi bi-list-ul me-1"></i> Ver Lista
+        </a>
+        {% endif %}
+    </div>
 </div>
 
-{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
+{% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+{% endif %}
 
-{# --- BOTÃO PARA MOSTRAR/OCULTAR FILTROS --- #}
-<div class="d-grid d-md-flex justify-content-md-end mb-3">
-    <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
-        <i class="bi bi-filter-right"></i> Mostrar/Ocultar Filtros
+{# --- BOTÃO DE FILTROS --- #}
+<div class="d-flex justify-content-end mb-3">
+    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
+        <i class="bi bi-funnel me-1"></i> Filtros Avançados
     </button>
 </div>
 
 {# --- PAINEL DE FILTROS --- #}
-{# --- PAINEL DE FILTROS RECOLHÍVEL --- #}
-<div class="collapse" id="filterCollapse">
-    <div class="card p-3 shadow-sm mb-4">
-        {# --- CORREÇÃO 1: Adicionado id="filter-form" --- #}
-        <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}" id="filter-form">
-            <div class="row g-3">
+<div class="collapse mb-4" id="filterCollapse">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+            <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}" id="filter-form">
                 {# Botões Rápidos #}
-                <div class="col-12">
-                    <div class="btn-group w-100" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-today">Hoje</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-week">Esta Semana</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="filter-month">Este Mês</button>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="filter-today">
+                        <i class="bi bi-calendar-day me-1"></i> Hoje
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="filter-week">
+                        <i class="bi bi-calendar-week me-1"></i> Esta Semana
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="filter-month">
+                        <i class="bi bi-calendar-month me-1"></i> Este Mês
+                    </button>
+                </div>
+
+                {# Filtros Avançados #}
+                <div class="row g-2">
+                    {# Linha 1 - Filtros Principais #}
+                    <div class="col-md-3">
+                        <label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label>
+                        <input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="id_data_final" class="form-label small fw-bold">Data Final</label>
+                        <input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="id_professor_filtro" class="form-label small fw-bold">Professor</label>
+                        <select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            {% for prof in professores_list %}
+                            <option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label>
+                        <select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm">
+                            <option value="">Todas</option>
+                            {% for modalidade in modalidades_list %}
+                            <option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    {# Linha 2 - Filtros Secundários #}
+                    <div class="col-md-6">
+                        <label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label>
+                        <select id="id_aluno_filtro" name="aluno_filtro" class="form-select form-select-sm" multiple>
+                            <option value="">Todos</option>
+                            {% for aluno in alunos_list %}
+                                <option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>
+                                    {{ aluno.nome_completo|title }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="id_status_filtro" class="form-label small fw-bold">Status</label>
+                        <select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            {% for status_value, status_label in status_choices %}
+                            <option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
+                            <option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option>
+                        </select>
+                    </div>
+                    
+                    {# Botões do Formulário #}
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="d-flex gap-2 w-100">
+                            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-danger btn-sm flex-grow-1">
+                                <i class="bi bi-x-circle me-1"></i> Limpar
+                            </a>
+                            <button class="btn btn-primary btn-sm flex-grow-1" type="submit">
+                                <i class="bi bi-check-circle me-1"></i> Aplicar
+                            </button>
+                        </div>
                     </div>
                 </div>
-                {# Filtros Manuais #}
-                <div class="col-lg-3 col-md-6"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}"></div>
-                <div class="col-lg-3 col-md-6"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}"></div>
-                <div class="col-lg-2 col-md-6"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
-                <div class="col-lg-3 col-md-6">
-                    <label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label>
-                    <select id="id_aluno_filtro" name="aluno_filtro" class="form-select form-select-sm" multiple>
-                        <option value="">Todos</option>
-                        {% for aluno in alunos_list %}
-                            <option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>
-                                {{ aluno.nome_completo|title }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-lg-2 col-md-6"><label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
-                <div class="col-lg-2 col-md-12"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option></select></div>
-            </div>
-            
-            {# --- CORREÇÃO 2: Botões com espaçamento e layout aprimorados --- #}
-            <div class="row border-top mt-3 pt-3">
-                <div class="col-12">
-                    <div class="d-flex flex-column flex-md-row justify-content-center gap-2">
-                        {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
-                            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i> Limpar Filtros</a>
-                            <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-info" title="Ver a lista detalhada destas aulas"><i class="bi bi-list-ul me-1"></i> Ver Lista</a>
-                        {% endif %}
-                        <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class="bi bi-file-earmark-excel me-1"></i> Exportar</a>
-                        <button class="btn btn-primary" type="submit"><i class="bi bi-filter me-1"></i> Aplicar Filtros</button>
-                    </div>
-                </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -285,10 +354,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         {{ total_canceladas }}
                     ],
                     backgroundColor: [
-                        'rgba(25, 135, 84, 0.8)',
-                        'rgba(13, 202, 240, 0.8)',
-                        'rgba(255, 193, 7, 0.8)',
-                        'rgba(220, 53, 69, 0.8)'
+                        'rgba(25, 135, 84, 0.7)',  // Verde (Realizadas)
+                        'rgba(13, 202, 240, 0.7)',  // Azul (Agendadas)
+                        'rgba(255, 193, 7, 0.7)',   // Amarelo (Ausências)
+                        'rgba(220, 53, 69, 0.7)'    // Vermelho (Canceladas)
                     ],
                     hoverOffset: 4
                 }]
