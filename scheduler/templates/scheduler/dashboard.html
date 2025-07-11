@@ -159,6 +159,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <!-- SCRIPTS NECESSÁRIOS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.min.js"></script>
@@ -185,6 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
+        themeSystem: 'bootstrap5',
         initialView: isMobile ? 'listWeek' : 'dayGridMonth',
         headerToolbar: isMobile
             ? { left: 'title', center: '', right: 'listWeek,dayGridMonth prev,next' }
@@ -286,6 +288,46 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalEl = document.getElementById('agendamentoModal');
     if (modalEl) {
         const form = modalEl.querySelector('form');
+
+        function resetModalForm() {
+            if (!form) return;
+
+            // 1. Reseta os campos principais (categoria, data, status) para seus valores padrão
+            form.reset();
+
+            // 2. Função interna para limpar e resetar um formset específico
+            function cleanAndResetFormset(containerSelector, templateId, totalFormsSelector) {
+                const container = form.querySelector(containerSelector);
+                const template = document.getElementById(templateId);
+                const totalFormsInput = form.querySelector(totalFormsSelector);
+                if (!container || !template || !totalFormsInput) return;
+
+                // Limpa todas as linhas de formulário que foram adicionadas
+                container.innerHTML = '';
+
+                // Adiciona uma única linha nova e vazia a partir do template
+                const newFormHtml = template.innerHTML.replace(/__prefix__/g, 0);
+                container.insertAdjacentHTML('beforeend', newFormHtml);
+                
+                // Reseta a contagem de formulários para 1
+                totalFormsInput.value = 1;
+            }
+
+            // 3. Executa a limpeza para alunos e professores
+            cleanAndResetFormset('#aluno-forms', 'empty-form-alunos', '#id_alunos-TOTAL_FORMS');
+            cleanAndResetFormset('#professor-forms', 'empty-form-professores', '#id_professores-TOTAL_FORMS');
+
+            // 4. Reavalia a visibilidade dos formsets (para o caso de "Atividade Complementar")
+            toggleFormsetsInModal();
+
+            // 5. Limpa qualquer mensagem de erro que tenha ficado
+            const errorDiv = form.querySelector('#modal-errors');
+            if (errorDiv) {
+                errorDiv.innerHTML = '';
+                errorDiv.style.display = 'none';
+            }
+        }
+
         const errorDiv = modalEl.querySelector('#modal-errors');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
@@ -293,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
             form.addEventListener('submit', function(event) {
                 event.preventDefault();
                 const formData = new FormData(form);
+                const errorDiv = form.querySelector('#modal-errors');
 
                 fetch(form.action, {
                     method: 'POST',
@@ -302,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        modal.hide();
+                        modal.hide(); // Esconde o modal
                         calendar.refetchEvents();
                     } else if (data.errors && errorDiv) {
                         errorDiv.innerHTML = data.errors.map(err => `
@@ -353,7 +396,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
             setupFormset('add-aluno-form', 'aluno-formset-container', 'id_alunos-TOTAL_FORMS', 'empty-form-alunos', 'alunos');
             setupFormset('add-professor-form', 'professor-formset-container', 'id_professores-TOTAL_FORMS', 'empty-form-professores', 'professores');
-            toggleFormsets();
+            
+
+            // Função para habilitar/desabilitar um container de formset
+        function setContainerEnabled(container, isEnabled) {
+            if (!container) return;
+            container.style.display = isEnabled ? 'block' : 'none';
+            // Desabilita/habilita os inputs para que não sejam enviados com o form
+            container.querySelectorAll('select, input[type="checkbox"]').forEach(input => {
+                input.disabled = !isEnabled;
+            });
+        }
+
+        // Função para mostrar/esconder os formsets baseado na categoria
+        function toggleFormsetsInModal() {
+            // Seleciona os elementos DENTRO do modal
+            const modalidadeSelect = modalEl.querySelector('#id_modalidade');
+            if (!modalidadeSelect) return;
+            
+            const alunosContainer = modalEl.querySelector('#aluno-formset-container');
+            const professoresContainer = modalEl.querySelector('#professor-formset-container');
+            
+            // Pega o texto da opção selecionada para a verificação
+            const selectedOptionText = modalidadeSelect.options[modalidadeSelect.selectedIndex].text.toLowerCase();
+            
+            if (selectedOptionText.includes('atividade complementar')) {
+                setContainerEnabled(alunosContainer, false); // Esconde e desabilita alunos
+                setContainerEnabled(professoresContainer, true);
+            } else {
+                setContainerEnabled(alunosContainer, true); // Mostra e habilita alunos para outras categorias
+                setContainerEnabled(professoresContainer, true);
+            }
+        }
+
+        // Adiciona o 'escutador' de eventos ao select de modalidade
+        const modalidadeSelectEl = modalEl.querySelector('#id_modalidade');
+        if (modalidadeSelectEl) {
+            modalidadeSelectEl.addEventListener('change', toggleFormsetsInModal);
+        }
+
+        // Garante que o estado correto seja exibido sempre que o modal for aberto
+        modalEl.addEventListener('show.bs.modal', function () {
+            toggleFormsetsInModal();
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            resetModalForm();
+        });
         }
     }
 });

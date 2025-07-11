@@ -180,6 +180,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 // Script para renderizar o gráfico de status de aulas
 document.addEventListener('DOMContentLoaded', function() {

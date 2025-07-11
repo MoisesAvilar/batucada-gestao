@@ -30,7 +30,7 @@
                 <tbody>
                     {% for professor in professores %}
                     <tr>
-                        <td class="fw-bold align-top"><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="text-dark text-decoration-none"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}<small class="d-block text-muted fw-normal ps-4">{{ professor.first_name|title }} {{ professor.last_name|title }}</small></a></td>
+                        <td class="fw-bold align-top"><a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}<small class="d-block text-muted fw-normal ps-4">{{ professor.first_name|title }} {{ professor.last_name|title }}</small></a></td>
                         <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_aulas_realizadas }}</span></td>
                         <td>{% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
                         <td class="text-center"><span class="badge bg-secondary fs-6">{{ professor.total_alunos_atendidos }}</span></td>

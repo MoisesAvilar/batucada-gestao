@@ -70,6 +70,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const togglePassword = document.getElementById('togglePassword');

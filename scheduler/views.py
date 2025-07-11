@@ -572,22 +572,33 @@ def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
     relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
 
+    # --- INÍCIO DA LÓGICA DE HISTÓRICO CORRIGIDA ---
     historico_ultima_aula = None
+    ultima_aula = None # Variável para armazenar a aula encontrada
     alunos_da_aula = aula.alunos.all()
+
     if alunos_da_aula.exists():
-        # Busca a aula anterior mais recente que tenha o mesmo grupo de alunos, que tenha sido realizada e tenha um relatório
+        # Se a aula tem alunos, busca a última aula do mesmo grupo.
         ultima_aula = Aula.objects.filter(
             alunos__in=alunos_da_aula, 
             status__in=['Realizada', 'Aluno Ausente'],
             data_hora__lt=aula.data_hora,
             relatorioaula__isnull=False
         ).distinct().order_by('-data_hora').first()
+    else:
+        # Se NÃO tem alunos (Atividade Complementar), busca a última aula da mesma modalidade.
+        ultima_aula = Aula.objects.filter(
+            modalidade=aula.modalidade,
+            status='Realizada',
+            data_hora__lt=aula.data_hora,
+            relatorioaula__isnull=False
+        ).order_by('-data_hora').first()
         
-        if ultima_aula:
-            historico_ultima_aula = ultima_aula.relatorioaula
+    if ultima_aula:
+        historico_ultima_aula = ultima_aula.relatorioaula
+    # --- FIM DA LÓGICA DE HISTÓRICO CORRIGIDA ---
 
-    # --- LÓGICA DA LISTA DE PRESENÇA ---
-    alunos_da_aula = aula.alunos.all()
+    # --- LÓGICA DA LISTA DE PRESENÇA (sem alterações) ---
     # Se a aula tem alunos, garante que um registro de presença exista para cada um.
     if alunos_da_aula.exists():
         for aluno in alunos_da_aula:
@@ -596,7 +607,7 @@ def validar_aula(request, pk):
     # Cria o queryset de presença para esta aula específica
     presenca_queryset = PresencaAluno.objects.filter(aula=aula).order_by('aluno__nome_completo')
 
-    # Lógica para determinar o modo de visualização
+    # Lógica para determinar o modo de visualização (sem alterações)
     url_mode = request.GET.get('mode')
     view_mode = "editar" if aula.status == "Agendada" else url_mode if url_mode in ["visualizar", "editar"] else "visualizar"
 
@@ -607,10 +618,10 @@ def validar_aula(request, pk):
         ritmo_formset = ItemRitmoFormSet(request.POST, instance=relatorio, prefix='ritmo')
         viradas_formset = ItemViradaFormSet(request.POST, instance=relatorio, prefix='viradas')
 
-        # Valida todos os formulários e formsets
+        # Valida todos os formulários e formsets (sem alterações)
         if all([f.is_valid() for f in [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]]):
             
-            # Salva tudo
+            # Salva tudo (sem alterações)
             relatorio.professor_que_validou = request.user
             form.save()
             rudimentos_formset.save()
@@ -618,15 +629,12 @@ def validar_aula(request, pk):
             viradas_formset.save()
             presenca_formset.save()
 
-            # --- LÓGICA DE ATUALIZAÇÃO DE STATUS DA AULA ---
-            # Após salvar, contamos quantos alunos foram marcados como presentes
+            # --- LÓGICA DE ATUALIZAÇÃO DE STATUS DA AULA (sem alterações) ---
             num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
             
-            # Se a aula tinha alunos e nenhum esteve presente, marca como "Aluno Ausente"
             if alunos_da_aula.exists() and num_presentes == 0:
                 aula.status = 'Aluno Ausente'
             else:
-                # Caso contrário (ou se for uma aula sem alunos), marca como "Realizada"
                 aula.status = 'Realizada'
             aula.save()
 
@@ -635,7 +643,7 @@ def validar_aula(request, pk):
         else:
             messages.error(request, 'Erro ao salvar o relatório. Verifique os campos marcados.')
     
-    else:
+    else: # GET (sem alterações)
         form = RelatorioAulaForm(instance=relatorio)
         presenca_formset = PresencaAlunoFormSet(queryset=presenca_queryset, prefix='presencas')
         rudimentos_formset = ItemRudimentoFormSet(instance=relatorio, prefix='rudimentos')
@@ -652,9 +660,9 @@ def validar_aula(request, pk):
         'historico_ultima_aula': historico_ultima_aula,
     }
     return render(request, 'scheduler/aula_validar.html', context)
+
+
 # --- VIEWS PARA GERENCIAMENTO DE MODALIDADES ---
-
-
 @user_passes_test(is_admin)
 def listar_modalidades(request):
     search_query = request.GET.get("q", "")

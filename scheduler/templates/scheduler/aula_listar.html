@@ -119,6 +119,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Encontra os elementos do formulário

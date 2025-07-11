@@ -556,6 +556,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     function addFormset(buttonId, containerId, emptyFormId, prefix) {
