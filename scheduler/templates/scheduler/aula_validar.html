@@ -88,6 +88,27 @@
             <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="alert-link">Clique aqui para habilitar a edição</a>.
         {% endif %}
     </div>
+
+    {# Lista de Presença em modo 'somente leitura' #}
+    {% if aula.alunos.all %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header"><h5>Lista de Presença</h5></div>
+        <ul class="list-group list-group-flush">
+            {% for presenca in aula.presencas.all %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ presenca.aluno.nome_completo|title }}
+                    {% if presenca.status == 'presente' %}
+                        <span class="badge bg-success">Presente</span>
+                    {% else %}
+                        <span class="badge bg-danger">Ausente</span>
+                    {% endif %}
+                </li>
+            {% empty %}
+                <li class="list-group-item text-muted">Nenhum registro de presença encontrado.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
     
     {# --- Card: Parte Teórica --- #}
     <div class="card mb-3 shadow-sm">
@@ -201,6 +222,33 @@
 {% else %}
     <form method="post">
         {% csrf_token %}
+
+        {# Card de Lista de Presença #}
+        {% if aula.alunos.all %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header"><h5>1. Lista de Presença</h5></div>
+            <div class="card-body">
+                {{ presenca_formset.management_form }}
+                {% for presenca_form in presenca_formset %}
+                    {{ presenca_form.id }} {# Campo de ID oculto, mas necessário #}
+                    <div class="row align-items-center mb-2 pb-2 {% if not forloop.last %}border-bottom{% endif %}">
+                        <div class="col-md-6 fw-bold">
+                            <i class="bi bi-person me-2"></i>{{ presenca_form.instance.aluno.nome_completo|title }}
+                            {{ presenca_form.aluno }} {# Campo de aluno oculto #}
+                        </div>
+                        <div class="col-md-6">
+                            {% for radio in presenca_form.status %}
+                                <div class="form-check form-check-inline">
+                                    {{ radio.tag }}
+                                    <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         {# Card: Parte Teórica #}
         <div class="card mb-3 shadow-sm">

@@ -44,7 +44,7 @@
             <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th scope="col">Nome Completo</th>
+                        <th scope="col">Nome</th>
                         <th scope="col">Email</th>
                         <th scope="col">Telefone</th>
                         <th scope="col">Data de Matrícula</th>
@@ -63,7 +63,13 @@
                         <td class="text-center"><span class="badge bg-secondary">{{ aluno.total_aulas }}</span></td>
                         <td>{{ aluno.proxima_aula|date:"d/m/Y, H:i"|default:"Nenhuma" }}</td>
                         <td class="text-end">
-                            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-primary">Detalhes</a>
+                            <div class="text-end border-top pt-2">
+                                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-info">Ver Perfil</a>
+                                {% if user.tipo == 'admin' %}
+                                    <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                    <a href="{% url 'scheduler:aluno_excluir' aluno.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -73,33 +79,33 @@
 
         {# --- 2. VISÃO DE MOBILE (LISTA DE CARDS) --- #}
         <div class="d-lg-none p-2">
-            {% for aluno in alunos %}
-                <div class="card shadow-sm mb-2 card-hover">
-                    <div class="card-body">
-                        <div class="row align-items-center g-2">
-                            <div class="col">
-                                <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ aluno.nome_completo|title }}</h6>
-                                <small class="text-muted">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</small>
-                            </div>
-                            <div class="col-auto">
-                                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
-                            </div>
+        {% for aluno in alunos %}
+            <div class="card shadow-sm mb-2 card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ aluno.nome_completo|title }}</h6>
+                            <small class="text-muted">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</small>
                         </div>
-                        <hr class="my-2">
-                        <div class="row text-center small">
-                            <div class="col">
-                                <div class="text-muted">Total de Aulas</div>
-                                <strong>{{ aluno.total_aulas }}</strong>
-                            </div>
-                            <div class="col">
-                                <div class="text-muted">Próxima Aula</div>
-                                <strong>{{ aluno.proxima_aula|date:"d/m, H:i"|default:"Nenhuma" }}</strong>
-                            </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row text-center small mb-2">
+                        <div class="col"><div class="text-muted">Total de Aulas</div><strong>{{ aluno.total_aulas }}</strong></div>
+                        <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ aluno.proxima_aula|date:"d/m, H:i"|default:"Nenhuma" }}</strong></div>
+                    </div>
+                    <div class="text-center border-top pt-2">
+                        <div class="d-flex justify-content-center gap-2">
+                            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-info">Ver Perfil</a>
+                            {% if user.tipo == 'admin' %}
+                                <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <a href="{% url 'scheduler:aluno_excluir' aluno.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
+            </div>
+        {% endfor %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}

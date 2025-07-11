@@ -146,7 +146,7 @@
                         {% for professor in aulas_por_professor %}
                         <tr>
                             <td class="align-top">
-                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-dark text-decoration-none">
+                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold">
                                     <i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}
                                 </a>
                             </td>
@@ -205,7 +205,7 @@
                         <tr>
                             <td class="align-top">
                                 {% if item.modalidade__id %}
-                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-dark text-decoration-none">
+                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold">
                                         <i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}
                                     </a>
                                 {% else %}

@@ -84,6 +84,23 @@ class Aula(models.Model):
                 return f"Atividade Complementar em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
             return f"{getattr(self, 'modalidade', 'Aula')} (sem alunos) em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
         return f"{self.modalidade.nome} com {nomes_alunos} em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+    
+    @property
+    def foi_substituida(self):
+        """
+        Verifica se a aula foi realizada por um professor que não estava
+        na lista original de professores atribuídos.
+        """
+        # Se a aula não foi 'Realizada' ou não tem relatório, não pode ter sido substituída.
+        if self.status != 'Realizada' or not hasattr(self, 'relatorioaula'):
+            return False
+        
+        professor_validou = self.relatorioaula.professor_que_validou
+        if not professor_validou:
+            return False
+            
+        # Retorna True se o professor que validou NÃO EXISTE na lista de professores atribuídos.
+        return not self.professores.filter(pk=professor_validou.pk).exists()
 
 
 class RelatorioAula(models.Model):
@@ -150,3 +167,20 @@ class ItemVirada(models.Model):
 
     def __str__(self):
         return f"Virada: {self.descricao} para {self.relatorio}"
+
+
+class PresencaAluno(models.Model):
+    STATUS_CHOICES = (
+        ('presente', 'Presente'),
+        ('ausente', 'Ausente'),
+    )
+    aula = models.ForeignKey(Aula, on_delete=models.CASCADE, related_name="presencas")
+    aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='presente')
+
+    class Meta:
+        # Garante que um aluno não pode ter dois status de presença para a mesma aula
+        unique_together = ('aula', 'aluno')
+
+    def __str__(self):
+        return f"{self.aluno.nome_completo} - {self.get_status_display()} em {self.aula}"

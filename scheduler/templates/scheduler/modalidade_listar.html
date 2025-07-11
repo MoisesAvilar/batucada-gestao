@@ -35,7 +35,13 @@
                         <td class="text-center"><span class="badge bg-secondary fs-6">{{ modalidade.total_aulas }}</span></td>
                         <td class="text-center"><span class="badge bg-success fs-6">{{ modalidade.alunos_ativos }}</span></td>
                         <td>{% if modalidade.proxima_aula %}{{ modalidade.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
-                        <td class="text-end"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Detalhes</a></td>
+                        <td class="text-end">
+                            <div class="text-end border-top pt-2">
+                                <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
+                                <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                                <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -44,23 +50,27 @@
 
         {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
         <div class="d-lg-none p-2">
-            {% for modalidade in modalidades %}
-                <div class="card shadow-sm mb-2 card-hover">
-                    <div class="card-body">
-                        <div class="row align-items-center g-2">
-                            <div class="col"><h6 class="mb-0"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</h6></div>
-                            <div class="col-auto"><a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a></div>
-                        </div>
-                        <hr class="my-2">
-                        <div class="row text-center small">
-                            <div class="col"><div class="text-muted">Total de Aulas</div><strong>{{ modalidade.total_aulas }}</strong></div>
-                            <div class="col"><div class="text-muted">Alunos Ativos</div><strong>{{ modalidade.alunos_ativos }}</strong></div>
-                            <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ modalidade.proxima_aula|date:"d/m, H:i"|default:"N/A" }}</strong></div>
-                        </div>
+        {% for modalidade in modalidades %}
+            <div class="card shadow-sm mb-2 card-hover">
+                <div class="card-body">
+                    <h6 class="mb-0"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ modalidade.nome|title }}</h6>
+                    <hr class="my-2">
+                    <div class="row text-center small mb-2">
+                        <div class="col"><div class="text-muted">Total de Aulas</div><strong>{{ modalidade.total_aulas }}</strong></div>
+                        <div class="col"><div class="text-muted">Alunos Ativos</div><strong>{{ modalidade.alunos_ativos }}</strong></div>
+                        <div class="col"><div class="text-muted">Próxima Aula</div><strong>{{ modalidade.proxima_aula|date:"d/m, H:i"|default:"N/A" }}</strong></div>
                     </div>
+                    <div class="text-center border-top pt-2">
+    <div class="d-flex justify-content-center gap-2">
+        <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
+        <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
+        <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+    </div>
+</div>
                 </div>
-            {% endfor %}
-        </div>
+            </div>
+        {% endfor %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}

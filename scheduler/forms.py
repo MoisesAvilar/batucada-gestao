@@ -1,7 +1,7 @@
 # forms.py (VERSÃO ATUALIZADA)
 
 from django import forms
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, modelformset_factory
 from .models import (
     Aluno,
     Aula,
@@ -10,7 +10,8 @@ from .models import (
     RelatorioAula,
     ItemRudimento,
     ItemRitmo,
-    ItemVirada
+    ItemVirada,
+    PresencaAluno
 )
 
 
@@ -244,3 +245,25 @@ class UserProfileForm(forms.ModelForm):
         if CustomUser.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("Este e-mail já está cadastrado.")
         return email
+
+
+class PresencaAlunoForm(forms.ModelForm):
+    """ Formulário para um único registro de presença de aluno. """
+    class Meta:
+        model = PresencaAluno
+        fields = ['aluno', 'status']
+        widgets = {
+            # Oculta o campo do aluno, pois já vamos exibi-lo como texto
+            'aluno': forms.HiddenInput(),
+            # Usa botões de rádio para uma melhor UX
+            'status': forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        }
+
+
+# Usamos modelformset_factory para criar/editar múltiplos registros de presença de uma vez.
+PresencaAlunoFormSet = modelformset_factory(
+    PresencaAluno,
+    form=PresencaAlunoForm,
+    extra=0, # Não mostra formulários em branco por padrão
+    can_delete=False
+)

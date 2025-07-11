@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
-from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser
+from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser, PresencaAluno
 # --- IMPORTS ATUALIZADOS ---
 from django.forms import formset_factory
 from .forms import (
@@ -14,7 +14,8 @@ from .forms import (
     ItemRudimentoFormSet,   # O novo formset de rudimentos
     ItemRitmoFormSet,       # O novo formset de ritmo
     ItemViradaFormSet,       # O novo formset de viradas
-    UserProfileForm
+    UserProfileForm,
+    PresencaAlunoFormSet
 )
 from django.contrib import messages
 import calendar
@@ -437,38 +438,31 @@ def excluir_aluno(request, pk):
 def detalhe_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
     
-    # --- CORREÇÃO AQUI ---
-    # Filtro de aulas agora usa 'alunos' (plural).
-    aulas_do_aluno = Aula.objects.filter(alunos=aluno)
+    # --- LÓGICA DE CONSULTA APRIMORADA ---
+    # Subquery para buscar o status de presença individual do aluno para cada aula
+    presenca_status_subquery = PresencaAluno.objects.filter(
+        aula=OuterRef('pk'),
+        aluno=aluno
+    ).values('status')[:1]
 
-    # Coleta de dados para o dashboard
+    # Anota o status de presença na consulta principal de aulas
+    aulas_do_aluno = Aula.objects.filter(alunos=aluno).annotate(
+        status_presenca_aluno=Subquery(presenca_status_subquery)
+    ).order_by("-data_hora")
+
+    # A lógica de cálculo dos KPIs permanece a mesma que corrigimos antes
+    presencas_do_aluno = PresencaAluno.objects.filter(aluno=aluno)
+    total_realizadas = presencas_do_aluno.filter(status="presente").count()
+    total_aluno_ausente = presencas_do_aluno.filter(status="ausente").count()
     total_aulas = aulas_do_aluno.count()
-    total_realizadas = aulas_do_aluno.filter(status="Realizada").count()
     total_canceladas = aulas_do_aluno.filter(status="Cancelada").count()
-    total_aluno_ausente = aulas_do_aluno.filter(status="Aluno Ausente").count()
     total_agendadas = aulas_do_aluno.filter(status="Agendada").count()
-
     aulas_contabilizaveis_presenca = total_realizadas + total_aluno_ausente
     taxa_presenca = (total_realizadas / aulas_contabilizaveis_presenca * 100) if aulas_contabilizaveis_presenca > 0 else 0
-
-    # --- CORREÇÃO AQUI ---
-    # As agregações agora usam 'professores' (plural).
-    top_professores = (
-        aulas_do_aluno.filter(professores__isnull=False)
-        .values("professores__pk", "professores__username")  # Agrupa por ID e nome do professor
-        .annotate(contagem=Count("professores__pk"))         # Conta quantas vezes cada professor aparece
-        .order_by("-contagem")[:3]                           # Ordena pela contagem
-    )
-
-    top_modalidades = (
-        aulas_do_aluno.values("modalidade__nome")
-        .annotate(contagem=Count("modalidade"))
-        .order_by("-contagem")[:3]
-    )
-
-    # Paginação para o histórico
-    paginator = Paginator(aulas_do_aluno.order_by("-data_hora"), 10)
-    aulas_do_aluno_paginated = paginator.get_page(request.GET.get("page"))
+    top_professores = aulas_do_aluno.filter(professores__isnull=False).values("professores__pk", "professores__username").annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
+    top_modalidades = aulas_do_aluno.values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
+    
+    aulas_do_aluno_paginated = Paginator(aulas_do_aluno, 10).get_page(request.GET.get("page"))
 
     contexto = {
         "aluno": aluno,
@@ -551,73 +545,73 @@ def listar_aulas(request):
 @user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
 def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
-    # get_or_create continua sendo a abordagem correta para o objeto pai.
     relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
 
-    # Lógica de modo de visualização/edição (permanece a mesma)
-    url_mode = request.GET.get('mode')
-    if aula.status == "Agendada":
-        view_mode = "editar"
-    elif url_mode in ["visualizar", "editar"]:
-        view_mode = url_mode
-    else:
-        view_mode = "visualizar"
+    # --- LÓGICA DA LISTA DE PRESENÇA ---
+    alunos_da_aula = aula.alunos.all()
+    # Se a aula tem alunos, garante que um registro de presença exista para cada um.
+    if alunos_da_aula.exists():
+        for aluno in alunos_da_aula:
+            PresencaAluno.objects.get_or_create(aula=aula, aluno=aluno)
+    
+    # Cria o queryset de presença para esta aula específica
+    presenca_queryset = PresencaAluno.objects.filter(aula=aula).order_by('aluno__nome_completo')
 
-    # Se a requisição for POST (usuário está salvando o formulário)
+    # Lógica para determinar o modo de visualização
+    url_mode = request.GET.get('mode')
+    view_mode = "editar" if aula.status == "Agendada" else url_mode if url_mode in ["visualizar", "editar"] else "visualizar"
+
     if request.method == 'POST':
-        # 1. Instancie o formulário principal E todos os formsets com os dados do POST.
-        #    O 'instance=relatorio' conecta os formsets ao relatório correto.
-        #    O 'prefix' é crucial para o Django diferenciar os dados de cada formset.
         form = RelatorioAulaForm(request.POST, instance=relatorio)
+        presenca_formset = PresencaAlunoFormSet(request.POST, queryset=presenca_queryset, prefix='presencas')
         rudimentos_formset = ItemRudimentoFormSet(request.POST, instance=relatorio, prefix='rudimentos')
         ritmo_formset = ItemRitmoFormSet(request.POST, instance=relatorio, prefix='ritmo')
         viradas_formset = ItemViradaFormSet(request.POST, instance=relatorio, prefix='viradas')
 
-        # 2. Verifique se o formulário principal E TODOS os formsets são válidos.
-        if form.is_valid() and rudimentos_formset.is_valid() and ritmo_formset.is_valid() and viradas_formset.is_valid():
+        # Valida todos os formulários e formsets
+        if all([f.is_valid() for f in [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]]):
             
-            # Salva o formulário principal (commit=False para adicionar o professor antes)
-            relatorio_salvo = form.save(commit=False)
-            relatorio_salvo.professor_que_validou = request.user
-            relatorio_salvo.save() # Agora salva o relatório no banco.
-
-            # 3. Salva os formsets. O Django magicamente cria, atualiza ou deleta
-            #    os itens (ItemRudimento, etc.) conforme a interação do usuário.
+            # Salva tudo
+            relatorio.professor_que_validou = request.user
+            form.save()
             rudimentos_formset.save()
             ritmo_formset.save()
             viradas_formset.save()
+            presenca_formset.save()
+
+            # --- LÓGICA DE ATUALIZAÇÃO DE STATUS DA AULA ---
+            # Após salvar, contamos quantos alunos foram marcados como presentes
+            num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
             
-            # Atualiza o status da aula e salva
-            aula.status = 'Realizada'
+            # Se a aula tinha alunos e nenhum esteve presente, marca como "Aluno Ausente"
+            if alunos_da_aula.exists() and num_presentes == 0:
+                aula.status = 'Aluno Ausente'
+            else:
+                # Caso contrário (ou se for uma aula sem alunos), marca como "Realizada"
+                aula.status = 'Realizada'
             aula.save()
 
-            messages.success(request, 'Relatório da aula salvo e aula marcada como Realizada!')
+            messages.success(request, 'Relatório da aula salvo e presenças registradas com sucesso!')
             return redirect('scheduler:aula_listar')
         else:
-            # Se qualquer um dos formulários ou formsets for inválido, exibe um erro.
-            # O Django automaticamente re-renderizará os formulários com os erros.
             messages.error(request, 'Erro ao salvar o relatório. Verifique os campos marcados.')
     
-    # Se a requisição for GET (usuário está abrindo a página pela primeira vez)
-    else:
-        # Apenas instancie o formulário e os formsets vazios ou com dados existentes.
+    else: # GET
         form = RelatorioAulaForm(instance=relatorio)
+        presenca_formset = PresencaAlunoFormSet(queryset=presenca_queryset, prefix='presencas')
         rudimentos_formset = ItemRudimentoFormSet(instance=relatorio, prefix='rudimentos')
         ritmo_formset = ItemRitmoFormSet(instance=relatorio, prefix='ritmo')
         viradas_formset = ItemViradaFormSet(instance=relatorio, prefix='viradas')
 
-    # 4. Passe todos os formulários e formsets para o contexto do template.
     context = {
-        'aula': aula,
-        'relatorio': relatorio,
-        'form': form, # Formulário principal
-        'rudimentos_formset': rudimentos_formset, # Formset de rudimentos
-        'ritmo_formset': ritmo_formset,           # Formset de ritmo
-        'viradas_formset': viradas_formset,       # Formset de viradas
+        'aula': aula, 'relatorio': relatorio, 'form': form,
+        'presenca_formset': presenca_formset, # Novo formset no contexto
+        'rudimentos_formset': rudimentos_formset,
+        'ritmo_formset': ritmo_formset,
+        'viradas_formset': viradas_formset,
         'view_mode': view_mode,
     }
     return render(request, 'scheduler/aula_validar.html', context)
-
 # --- VIEWS PARA GERENCIAMENTO DE MODALIDADES ---
 
 
@@ -766,16 +760,18 @@ def listar_professores(request):
 
     professores_queryset = CustomUser.objects.filter(tipo__in=['professor', 'admin'])
 
-    # --- CORRIGIDO: Subquery agora usa 'professores' (plural) ---
     proxima_aula_subquery = Aula.objects.filter(
         professores=OuterRef('pk'), 
         data_hora__gte=now
     ).order_by('data_hora').values('data_hora')[:1]
 
     professores_queryset = professores_queryset.annotate(
-        # 'aulas_validadas_por_mim' continua correto, pois vem do modelo RelatorioAula
-        total_aulas_realizadas=Count('aulas_validadas_por_mim', distinct=True),
-        # --- CORRIGIDO: Contagem de alunos agora usa a relação plural ---
+        total_aulas_realizadas=Count(
+            'aulas_validadas_por_mim',
+            filter=Q(aulas_validadas_por_mim__aula__status='Realizada'),
+            distinct=True
+        ),
+
         total_alunos_atendidos=Count('aulas_lecionadas__alunos', distinct=True),
         proxima_aula=Subquery(proxima_aula_subquery)
     )
@@ -796,6 +792,7 @@ def listar_professores(request):
         "search_query": search_query,
     }
     return render(request, "scheduler/professor_listar.html", contexto)
+
 
 @user_passes_test(is_admin)
 def editar_professor(request, pk):
