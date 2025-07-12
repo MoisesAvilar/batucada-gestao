@@ -25,8 +25,8 @@ from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
 from django.db.models.functions import TruncMonth
 from django.core.paginator import Paginator
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponse
-import csv
 
 # --- NOVOS IMPORTS PARA O EXCEL ---
 from openpyxl import Workbook
@@ -54,8 +54,6 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
 
 
 # --- Views Principais (dashboard) ---
-# scheduler/views.py
-
 @login_required
 def dashboard(request):
     now = timezone.now()
@@ -234,6 +232,7 @@ def agendar_aula(request):
     }
     return render(request, 'scheduler/aula_form.html', contexto)
 
+
 @user_passes_test(is_admin)
 def editar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
@@ -320,16 +319,13 @@ def editar_aula(request, pk):
 
 
 @user_passes_test(is_admin)
+@require_POST
 def excluir_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
-    if request.method == "POST":
-        aula.delete()
-        messages.success(request, "Aula excluída com sucesso!")
-        return redirect("scheduler:dashboard")
-    return render(request, "scheduler/aula_confirm_delete.html", {"aula": aula})
+    aula.delete()
+    messages.success(request, "Aula excluída com sucesso!")
+    return redirect("scheduler:aula_listar")
 
-
-# scheduler/views.py
 
 @login_required
 @user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
@@ -419,6 +415,7 @@ def listar_alunos(request):
     }
     return render(request, "scheduler/aluno_listar.html", contexto)
 
+
 @user_passes_test(is_admin)
 def criar_aluno(request):
     if request.method == "POST":
@@ -453,14 +450,12 @@ def editar_aluno(request, pk):
 
 
 @user_passes_test(is_admin)
+@require_POST
 def excluir_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
-    if request.method == "POST":
-        aluno.delete()
-        messages.success(request, "Aluno excluído com sucesso!")
-        return redirect("scheduler:aluno_listar")
-    contexto = {"aluno": aluno}
-    return render(request, "scheduler/aluno_confirm_delete.html", contexto)
+    aluno.delete()
+    messages.success(request, "Aluno excluído com sucesso!")
+    return redirect("scheduler:aluno_listar")
 
 
 # --- VISÃO DE DETALHE DO ALUNO ---
@@ -708,8 +703,6 @@ def listar_modalidades(request):
     return render(request, "scheduler/modalidade_listar.html", contexto)
 
 
-
-
 @user_passes_test(is_admin)
 def criar_modalidade(request):
     if request.method == "POST":
@@ -740,24 +733,21 @@ def editar_modalidade(request, pk):
 
 
 @user_passes_test(is_admin)
+@require_POST
 def excluir_modalidade(request, pk):
     modalidade = get_object_or_404(Modalidade, pk=pk)
+
+    # A lógica de proteção permanece, excelente!
     if modalidade.aula_set.exists():
         messages.error(
             request,
-            f'Não é possível excluir a categoria "{modalidade.nome}" porque há aulas associadas a ela. Remova as aulas primeiro.',
+            f'Não é possível excluir a categoria "{modalidade.nome}" porque há aulas associadas a ela.'
         )
         return redirect("scheduler:modalidade_listar")
 
-    if request.method == "POST":
-        modalidade.delete()
-        messages.success(request, "Categoria excluída com sucesso!")
-        return redirect("scheduler:modalidade_listar")
-    contexto = {
-        "modalidade": modalidade,
-        "titulo": f"Confirmar Exclusão de Categoria: {modalidade.nome}",
-    }
-    return render(request, "scheduler/modalidade_confirm_delete.html", contexto)
+    modalidade.delete()
+    messages.success(request, "Categoria excluída com sucesso!")
+    return redirect("scheduler:modalidade_listar")
 
 
 @user_passes_test(is_admin)
@@ -813,6 +803,7 @@ def detalhe_modalidade(request, pk):
     }
     
     return render(request, "scheduler/modalidade_detalhe.html", contexto)
+
 
 # --- VIEWS PARA GERENCIAMENTO DE PROFESSORES ---
 @user_passes_test(is_admin)
@@ -881,28 +872,24 @@ def editar_professor(request, pk):
 
 
 @user_passes_test(is_admin)
+@require_POST
 def excluir_professor(request, pk):
     professor = get_object_or_404(CustomUser, pk=pk)
-    # --- CORRIGIDO: Usa o related_name 'aulas_lecionadas' que definimos no modelo ---
-    if professor.aulas_lecionadas.exists():
-        messages.warning(
-            request,
-            f'O professor "{professor.username}" está atribuído a {professor.aulas_lecionadas.count()} aulas. Ao excluí-lo, essas aulas ficarão sem professor atribuído.',
-        )
 
     if request.user.pk == pk:
         messages.error(request, "Você não pode excluir seu próprio usuário.")
         return redirect("scheduler:professor_listar")
 
-    if request.method == "POST":
-        professor.delete()
-        messages.success(request, "Professor excluído com sucesso!")
-        return redirect("scheduler:professor_listar")
-    contexto = {
-        "professor": professor,
-        "titulo": f"Confirmar Exclusão de Professor: {professor.username}",
-    }
-    return render(request, "scheduler/professor_confirm_delete.html", contexto)
+    # A lógica de aviso permanece, o que é ótimo!
+    if professor.aulas_lecionadas.exists():
+        messages.warning(
+            request,
+            f'O professor "{professor.username}" foi excluído, mas estava atribuído a {professor.aulas_lecionadas.count()} aulas. Essas aulas agora estão sem professor.'
+        )
+    
+    professor.delete()
+    messages.success(request, "Professor excluído com sucesso!")
+    return redirect("scheduler:professor_listar")
 
 
 # --- VISÃO DE DETALHE DO PROFESSOR ---
@@ -989,6 +976,7 @@ def detalhe_professor(request, pk):
     }
     return render(request, "scheduler/professor_detalhe.html", contexto)
 
+
 # --- NOVA VIEW PARA VERIFICAÇÃO DE CONFLITO VIA AJAX ---
 @login_required
 def verificar_conflito_aula(request):
@@ -1066,6 +1054,7 @@ def _get_dados_relatorio_agregado(request):
         "aulas_por_professor": aulas_por_professor_final,
         "aulas_por_modalidade": aulas_por_modalidade_final,
     }
+
 
 @user_passes_test(is_admin)
 def relatorios_aulas(request):
@@ -1149,6 +1138,7 @@ def relatorios_aulas(request):
         "alunos_list": Aluno.objects.all().order_by("nome_completo"),
     }
     return render(request, "scheduler/relatorios_aulas.html", contexto)
+
 
 # --- NOVA VIEW DE EXPORTAÇÃO ---
 @user_passes_test(is_admin)

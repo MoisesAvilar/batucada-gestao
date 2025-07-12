@@ -67,8 +67,13 @@
                                 <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-info">Ver Perfil</a>
                                 {% if user.tipo == 'admin' %}
                                     <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                    <a href="{% url 'scheduler:aluno_excluir' aluno.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
-                                {% endif %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#confirmDeleteModal"
+                                            data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">
+                                        Excluir
+                                    </button>
+                                    {% endif %}
                             </div>
                         </td>
                     </tr>

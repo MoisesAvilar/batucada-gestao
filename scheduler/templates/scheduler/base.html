@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Studio Batucada - Gestão</title>
+    
+    {# --- Favicon --- #}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-music-note-beamed' viewBox='0 0 16 16'><path d='M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z'/><path fill-rule='evenodd' d='M14 11V2h1v9h-1zM6 3v10H5V3h1z'/><path d='M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z'/></svg>">
-     {# --- INÍCIO GOOGLE FONTS --- #}
+    
+    {# --- Fontes --- #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    {# --- FIM GOOGLE FONTS --- #}
+    
+    {# --- Bibliotecas CSS --- #}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
@@ -17,17 +21,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css' rel='stylesheet' />
 
+    {# --- Script de Tema --- #}
     <script>
         const getStoredTheme = () => localStorage.getItem('theme');
         const setStoredTheme = theme => localStorage.setItem('theme', theme);
 
         const getPreferredTheme = () => {
             const storedTheme = getStoredTheme();
-            if (storedTheme) {
-                return storedTheme;
-            }
-            // Se não houver tema salvo, o padrão é SEMPRE claro.
-            return 'light';
+            if (storedTheme) return storedTheme;
+            return 'light'; // Tema padrão sempre claro
         };
 
         const setTheme = theme => {
@@ -39,21 +41,16 @@
             const darkIcon = document.querySelector('#theme-icon-dark');
             if (!lightIcon || !darkIcon) return;
 
-            if (theme === 'dark') {
-                lightIcon.classList.add('d-none');
-                darkIcon.classList.remove('d-none');
-            } else {
-                lightIcon.classList.remove('d-none');
-                darkIcon.classList.add('d-none');
-            }
+            theme === 'dark' 
+                ? (lightIcon.classList.add('d-none'), darkIcon.classList.remove('d-none'))
+                : (lightIcon.classList.remove('d-none'), darkIcon.classList.add('d-none'));
         };
 
-        // Aplica o ícone correto no carregamento da página
+        // Aplica tema ao carregar
         setTheme(getPreferredTheme());
         showActiveThemeIcon(getPreferredTheme());
 
-
-        // Ouve por cliques no botão de troca de tema
+        // Configura botão de alternância
         const themeToggler = document.getElementById('theme-toggle-btn');
         if (themeToggler) {
             themeToggler.addEventListener('click', () => {
@@ -65,361 +62,411 @@
             });
         }
         
-        // O BÔNUS para ouvir mudanças no SO não é mais necessário da mesma forma,
-        // mas podemos mantê-lo para o caso de o usuário não ter um tema salvo.
+        // Responde a mudanças no tema do SO
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            // Esta parte agora só vai funcionar se o usuário limpar o localStorage.
-            // Se não houver preferência salva, ele ainda reagirá à mudança do SO.
-            const storedTheme = getStoredTheme();
-            if (!storedTheme) {
-                const newTheme = getPreferredTheme(); // Que agora retornará 'light'
+            if (!getStoredTheme()) {
+                const newTheme = getPreferredTheme();
                 setTheme(newTheme);
                 showActiveThemeIcon(newTheme);
             }
         });
     </script>
     
-    {# CSS para destacar dias com aulas (já existente) #}
+    {# --- Estilos Customizados --- #}
     <style>
-      label.required::after {
-          content: " *";
-          color: red;
-      }
-      body {
-        font-family: 'Nunito Sans', sans-serif;
-      }
-      .flatpickr-day.has-class-day {
-        background-color: #d4edda; /* Um verde claro */
-        color: #155724; /* Texto verde escuro */
-        border-color: #c3e6cb;
-        font-weight: bold;
-      }
-      .flatpickr-day.has-class-day:hover,
-      .flatpickr-day.has-class-day.selected {
-        background-color: #28a745 !important; /* Verde mais escuro no hover/seleção */
-        color: white !important;
-      }
-      /* NOVO: Estilo para eventos no FullCalendar */
-      .fc-event {
-        color: white !important;
-        font-size: .85em;
-        padding: 2px 5px;
-        border-radius: 3px;
-        white-space: pre-wrap; /* <--- CORREÇÃO AQUI: Isso fará o '\n' virar quebra de linha */
-        overflow: hidden; /* Garante que o texto não "vaze" se a célula for pequena */
-        text-overflow: ellipsis; /* Adiciona "..." se o texto for muito longo e não quebrar */
-      }
-      .fc-event-main-frame { /* Para quebra de linha em mobile */
-        flex-wrap: wrap; 
-      }
-      .fc-event.fc-list-event:hover,
-      .fc .fc-list-table tbody tr:hover {
-        background-color: inherit !important;
-        filter: brightness(90%);
-        color: inherit !important;
-      }
-      /* Cores por status (opcional, se quiser diferenciar) */
-      .fc-event.status-Realizada {
-          background-color: #28a745; /* Verde */
-          border-color: #28a745;
-      }
-      .fc-event.status-Cancelada {
-          background-color: #dc3545; /* Vermelho */
-          border-color: #dc3545;
-      }
-      .fc-event.status-AlunoAusente {
-          background-color: #ffc107; /* Amarelo */
-          border-color: #ffc107;
-          color: #212529 !important; /* Texto escuro no amarelo */
-      }
-      .fc-event.status-Agendada {
-          background-color: #17a2b8; /* Azul claro / Ciano */
-          border-color: #17a2b8;
-      }
-
-      .ts-wrapper.multi.has-items .ts-control > input::placeholder {
-          opacity: 0 !important;
-      }
-
-    .accordion-open-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.3);
-        z-index: 999;
-        display: none;
-        cursor: pointer; /* Muda o cursor para indicar que é clicável */
-    }
-
-    .accordion-open-content {
-        position: relative;
-        z-index: 1000;
-        background: white;
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-        transition: all 0.3s ease; /* Adiciona transição suave */
-    }
-    .accordion-button:not(.collapsed) {
-        background-color: #f8f9fa; /* Cor de fundo quando aberto */
-        box-shadow: inset 0 -1px 0 rgba(0,0,0,0.125); /* Sombra interna */
-    }
-
-    /* Borda e sombra para o accordion-item quando aberto */
-    .accordion-item.active-accordion {
-        border: 1px solid rgba(0, 0, 0, 0.125);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        border-radius: 0.375rem;
-        transition: all 0.3s ease;
-        margin-bottom: 1rem; /* Espaçamento extra */
-    }
-
-    /* Remove a borda padrão do Bootstrap quando fechado */
-    .accordion-item {
-        border: none;
-        margin-bottom: 0.5rem;
-    }
+        /* Estilos básicos */
+        label.required::after {
+            content: " *";
+            color: red;
+        }
+        
+        body {
+            font-family: 'Nunito Sans', sans-serif;
+        }
+        
+        /* Estilos para calendário */
+        .flatpickr-day.has-class-day {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+            font-weight: bold;
+        }
+        
+        .flatpickr-day.has-class-day:hover,
+        .flatpickr-day.has-class-day.selected {
+            background-color: #28a745 !important;
+            color: white !important;
+        }
+        
+        /* Estilos para FullCalendar */
+        .fc-event {
+            color: white !important;
+            font-size: .85em;
+            padding: 2px 5px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .fc-event-main-frame {
+            flex-wrap: wrap; 
+        }
+        
+        .fc-event.fc-list-event:hover,
+        .fc .fc-list-table tbody tr:hover {
+            background-color: inherit !important;
+            filter: brightness(90%);
+            color: inherit !important;
+        }
+        
+        /* Cores por status */
+        .fc-event.status-Realizada {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .fc-event.status-Cancelada {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        
+        .fc-event.status-AlunoAusente {
+            background-color: #ffc107;
+            border-color: #ffc107;
+            color: #212529 !important;
+        }
+        
+        .fc-event.status-Agendada {
+            background-color: #17a2b8;
+            border-color: #17a2b8;
+        }
+        
+        /* TomSelect */
+        .ts-wrapper.multi.has-items .ts-control > input::placeholder {
+            opacity: 0 !important;
+        }
+        
+        /* Accordion */
+        .accordion-open-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.3);
+            z-index: 999;
+            display: none;
+            cursor: pointer;
+        }
+        
+        .accordion-open-content {
+            position: relative;
+            z-index: 1000;
+            background: white;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .accordion-button:not(.collapsed) {
+            background-color: #f8f9fa;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,0.125);
+        }
+        
+        .accordion-item.active-accordion {
+            border: 1px solid rgba(0, 0, 0, 0.125);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 0.375rem;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+        
+        .accordion-item {
+            border: none;
+            margin-bottom: 0.5rem;
+        }
     </style>
-  </head>
-  <body>
+</head>
+
+<body>
+    {# --- Barra de Navegação --- #}
     <nav class="navbar navbar-expand-lg bg-body-tertiary mb-4 shadow-sm">
-      <div class="container">
-        <a class="navbar-brand" href="{% url 'scheduler:dashboard' %}">Studio Batucada</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            {% if user.is_authenticated %}
-              
-              {# --- Links Comuns para Todos os Usuários Logados --- #}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'scheduler:dashboard' %}">Dashboard</a>
-              </li>
-              {% if user.tipo != 'admin' %}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Minhas Aulas</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}">Alunos</a>
-              </li>
-              {% else %}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Aulas</a>
-              </li>
-              {% endif %}
-
-              {# --- Bloco de Links Específicos do ADMIN --- #}
-              {% if user.tipo == 'admin' %}
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'scheduler:aula_agendar' %}">Agendar Aula</a>
-                </li>
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'scheduler:dashboard' %}">Studio Batucada</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if user.is_authenticated %}
+                        {# Links comuns para todos os usuários #}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'scheduler:dashboard' %}">Dashboard</a>
+                        </li>
+                        
+                        {% if user.tipo != 'admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Minhas Aulas</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}">Alunos</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Aulas</a>
+                            </li>
+                        {% endif %}
+                        
+                        {# Links específicos para admin #}
+                        {% if user.tipo == 'admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:aula_agendar' %}">Agendar Aula</a>
+                            </li>
+                            
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    Gerenciamento
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:aluno_listar' %}">Alunos</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:professor_listar' %}">Professores</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:modalidade_listar' %}">Categorias</a></li>
+                                </ul>
+                            </li>
+                            
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:relatorios_aulas' %}">Relatórios</a>
+                            </li>
+                        
+                        {# Links específicos para professores #}
+                        {% elif user.tipo == 'professor' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'scheduler:aulas_para_substituir' %}">
+                                    <i class="bi bi-person-plus"></i> Aulas para Substituir
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
                 
-                <li class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Gerenciamento
-                  </a>
-                  <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{% url 'scheduler:aluno_listar' %}">Alunos</a></li>
-                    <li><a class="dropdown-item" href="{% url 'scheduler:professor_listar' %}">Professores</a></li>
-                    <li><a class="dropdown-item" href="{% url 'scheduler:modalidade_listar' %}">Categorias</a></li>
-                  </ul>
-                </li>
-                
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'scheduler:relatorios_aulas' %}">Relatórios</a>
-                </li>
-
-              {# --- Bloco de Links Específicos do PROFESSOR --- #}
-              {% elif user.tipo == 'professor' %}
-                <li class="nav-item">
-                  <a class="nav-link" href="{% url 'scheduler:aulas_para_substituir' %}">
-                    <i class="bi bi-person-plus"></i> Aulas para Substituir
-                  </a>
-                </li>
-              {% endif %}
-
-            {% endif %}
-          </ul>
-          <ul class="navbar-nav">
-            {# --- INÍCIO DO NOVO BOTÃO DE TEMA --- #}
-            <div class="ms-auto">
-                {# Use .btn-outline-secondary para um botão neutro #}
-                <button type="button" class="btn btn-outline-secondary" id="theme-toggle-btn">
-                    <i class="bi bi-sun-fill" id="theme-icon-light"></i>
-                    <i class="bi bi-moon-stars-fill d-none" id="theme-icon-dark"></i>
-                </button>
+                <ul class="navbar-nav">
+                    {# Botão de alternância de tema #}
+                    <div class="ms-auto">
+                        <button type="button" class="btn btn-outline-secondary" id="theme-toggle-btn">
+                            <i class="bi bi-sun-fill" id="theme-icon-light"></i>
+                            <i class="bi bi-moon-stars-fill d-none" id="theme-icon-dark"></i>
+                        </button>
+                    </div>
+                    
+                    {# Menu do usuário #}
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                {% if user.profile_picture_url %}
+                                    <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                                {% else %}
+                                    {% if user.first_name and user.last_name %}
+                                        {% with first_initial=user.first_name|slice:"0:1"|upper last_initial=user.last_name|slice:"0:1"|upper %}
+                                            <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold;" title="{{ user.get_full_name|default:user.username }}">
+                                                {{ first_initial|add:last_initial }}
+                                            </div>
+                                        {% endwith %}
+                                    {% elif user.username %}
+                                        <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold;" title="{{ user.get_full_name|default:user.username }}">
+                                            {{ user.username|slice:"0:1"|upper }}
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                                {{ user.username|title }}
+                            </a>
+                            
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if user.tipo == 'professor' or user.tipo == 'admin' %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:professor_detalhe' user.pk %}">
+                                            <i class="bi bi-person-circle me-2"></i>Meu Perfil
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:perfil_usuario' %}">
+                                            <i class="bi bi-gear me-2"></i>Dados Pessoais
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% if user.is_staff %}
+                                    <li>
+                                        <a class="dropdown-item" href="/admin/" target="_blank">
+                                            <i class="bi bi-shield-lock me-2"></i>Painel de Admin
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                <li>
+                                    <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="bi bi-box-arrow-right me-2"></i>Sair
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'accounts:login' %}">Entrar</a>
+                        </li>
+                    {% endif %}
+                </ul>
             </div>
-            {% if user.is_authenticated %}
-              <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                {# --- Lógica da foto/iniciais (sem alterações) --- #}
-                {% if user.profile_picture_url %}
-                  <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
-                {% else %}
-                  {% if user.first_name and user.last_name %}
-                      {% with first_initial=user.first_name|slice:"0:1"|upper last_initial=user.last_name|slice:"0:1"|upper %}
-                          <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold; vertical-align:middle;" title="{{ user.get_full_name|default:user.username }}">
-                              {{ first_initial|add:last_initial }}
-                          </div>
-                      {% endwith %}
-                  {% elif user.username %}
-                      <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold; vertical-align:middle;" title="{{ user.get_full_name|default:user.username }}">
-                          {{ user.username|slice:"0:1"|upper }}
-                      </div>
-                  {% endif %}
-                {% endif %}
-                {{ user.username|title }}
-              </a>
-
-              {# --- MENU DROPDOWN APRIMORADO --- #}
-              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                
-                {# NOVO: Link para o perfil do próprio usuário #}
-                {% if user.tipo == 'professor' or user.tipo == 'admin' %}
-                  <li>
-                    <a class="dropdown-item" href="{% url 'scheduler:professor_detalhe' user.pk %}">
-                      <i class="bi bi-person-circle me-2"></i>Meu Perfil
-                    </a>
-                  </li>
-                  <li><a class="dropdown-item" href="{% url 'scheduler:perfil_usuario' %}">
-                    <i class="bi bi-gear me-2"></i>Dados Pessoais
-                  </a></li> {# NOVO LINK #}
-                {% endif %}
-
-                {# NOVO: Link para o Painel de Admin, apenas para staff #}
-                {% if user.is_staff %}
-                  <li>
-                    <a class="dropdown-item" href="/admin/" target="_blank">
-                      <i class="bi bi-shield-lock me-2"></i>Painel de Admin
-                    </a>
-                  </li>
-                {% endif %}
-                
-                {# NOVO: Separador visual #}
-                <li><hr class="dropdown-divider"></li>
-                
-                {# Ação de Sair (Logout) #}
-                <li>
-                  <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="dropdown-item text-danger">
-                      <i class="bi bi-box-arrow-right me-2"></i>Sair
-                    </button>
-                  </form>
-                </li>
-              </ul>
-            </li>
-            {% else %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'accounts:login' %}">Entrar</a>
-            </li>
-            {% endif %}
-          </ul>
         </div>
-      </div>
     </nav>
 
+    {# --- Conteúdo Principal --- #}
     <main class="container mt-4">
-      {% if messages %} {% for message in messages %}
-      <div
-        class="alert alert-{{ message.tags }} alert-dismissible fade show"
-        role="alert"
-      >
-        {{ message }}
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="alert"
-          aria-label="Close"
-        ></button>
-      </div>
-      {% endfor %} {% endif %} {% block content %} {% endblock %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block content %}{% endblock %}
     </main>
 
+    {# --- Bibliotecas JavaScript --- #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script> 
-    {# NOVO: FullCalendar JS #}
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const getStoredTheme = () => localStorage.getItem('theme');
-    const setStoredTheme = theme => localStorage.setItem('theme', theme);
-
-    const getPreferredTheme = () => {
-        const storedTheme = getStoredTheme();
-        if (storedTheme) return storedTheme;
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    };
-
-    const setTheme = theme => {
-        document.documentElement.setAttribute('data-bs-theme', theme);
-        document.documentElement.style.colorScheme = theme; // Adicione esta linha
-    };
-
-    const showActiveThemeIcon = (theme) => {
-        const lightIcon = document.querySelector('#theme-icon-light');
-        const darkIcon = document.querySelector('#theme-icon-dark');
-        if (!lightIcon || !darkIcon) return;
-
-        if (theme === 'dark') {
-            lightIcon.classList.add('d-none');
-            darkIcon.classList.remove('d-none');
-        } else {
-            lightIcon.classList.remove('d-none');
-            darkIcon.classList.add('d-none');
-        }
-    };
-
-    // Aplica o tema imediatamente
-    const preferredTheme = getPreferredTheme();
-    setTheme(preferredTheme);
-    showActiveThemeIcon(preferredTheme);
-
-    // Ouve por cliques no botão de troca de tema
-    const themeToggler = document.getElementById('theme-toggle-btn');
-    if (themeToggler) {
-        themeToggler.addEventListener('click', () => {
-            const currentTheme = getStoredTheme() || getPreferredTheme();
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            setStoredTheme(newTheme);
-            setTheme(newTheme);
-            showActiveThemeIcon(newTheme);
+    
+    {# --- JavaScript Customizado --- #}
+    {% block extra_js %}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Gerenciamento de tema
+        const getStoredTheme = () => localStorage.getItem('theme');
+        const setStoredTheme = theme => localStorage.setItem('theme', theme);
+        
+        const getPreferredTheme = () => {
+            const storedTheme = getStoredTheme();
+            if (storedTheme) return storedTheme;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        };
+        
+        const setTheme = theme => {
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            document.documentElement.style.colorScheme = theme;
+        };
+        
+        const showActiveThemeIcon = (theme) => {
+            const lightIcon = document.querySelector('#theme-icon-light');
+            const darkIcon = document.querySelector('#theme-icon-dark');
+            if (!lightIcon || !darkIcon) return;
             
-            // Força redesenho de componentes que podem não atualizar automaticamente
-            if (typeof Calendar !== 'undefined') {
-                Calendar.render();
+            theme === 'dark' 
+                ? (lightIcon.classList.add('d-none'), darkIcon.classList.remove('d-none'))
+                : (lightIcon.classList.remove('d-none'), darkIcon.classList.add('d-none'));
+        };
+        
+        // Aplica tema inicial
+        setTheme(getPreferredTheme());
+        showActiveThemeIcon(getPreferredTheme());
+        
+        // Configura botão de alternância de tema
+        const themeToggler = document.getElementById('theme-toggle-btn');
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = getStoredTheme() || getPreferredTheme();
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                setStoredTheme(newTheme);
+                setTheme(newTheme);
+                showActiveThemeIcon(newTheme);
+                
+                if (typeof Calendar !== 'undefined') {
+                    Calendar.render();
+                }
+            });
+        }
+        
+        // Responde a mudanças no tema do SO
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            if (!getStoredTheme()) {
+                const newTheme = getPreferredTheme();
+                setTheme(newTheme);
+                showActiveThemeIcon(newTheme);
             }
         });
-    }
-    
-    // Ouve por mudanças no tema do sistema operacional
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const storedTheme = getStoredTheme();
-        if (!storedTheme) {
-            const newTheme = getPreferredTheme();
-            setTheme(newTheme);
-            showActiveThemeIcon(newTheme);
+        
+        // Configura TomSelect para filtro de alunos
+        const alunoSelect = document.getElementById('id_aluno_filtro');
+        if (alunoSelect) {
+            new TomSelect(alunoSelect, {
+                plugins: ['remove_button'],
+                create: false,
+                placeholder: 'Selecione um ou mais alunos...',
+            });
+        }
+        
+        // Configura modal de confirmação de exclusão
+        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
+        if (confirmDeleteModal) {
+            confirmDeleteModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const url = button.getAttribute('data-delete-url');
+                const deleteForm = confirmDeleteModal.querySelector('#delete-form');
+                deleteForm.setAttribute('action', url);
+            });
         }
     });
+    </script>
+    {% endblock %}
 
-    const alunoSelect = document.getElementById('id_aluno_filtro');
-    if (alunoSelect) {
-        new TomSelect(alunoSelect, {
-            plugins: ['remove_button'], // Adiciona um 'x' para remover cada aluno selecionado
-            create: false, // Impede que o usuário crie novos alunos a partir do filtro
-            placeholder: 'Selecione um ou mais alunos...',
-            // A opção 'valueField' e 'labelField' já são 'value' e 'text' por padrão,
-            // então não precisamos configurá-las para um select simples.
-        });
-    }
-});
-</script>
-{% endblock %}
-  </body>
+    {# --- Modal de Confirmação de Exclusão --- #}
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 bg-gradient bg-danger text-white rounded-top">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-exclamation-octagon-fill me-2 fs-4"></i>
+                        <h5 class="modal-title mb-0" id="confirmDeleteModalLabel">Confirmar Exclusão</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body py-4">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-4 mt-1"></i>
+                        <div>
+                            <h6 class="fw-bold mb-2">Você está prestes a excluir este item permanentemente!</h6>
+                            <p class="mb-0 text-muted">Esta ação não pode ser desfeita. Tem certeza de que deseja continuar?</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer border-0 bg-light rounded-bottom">
+                    <form method="post" id="delete-form" action="" class="w-100">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between w-100">
+                            <button type="button" class="btn btn-outline-secondary flex-grow-1 me-2" data-bs-dismiss="modal">
+                                <i class="bi bi-x-circle me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-danger flex-grow-1 ms-2">
+                                <i class="bi bi-trash3 me-1"></i> Confirmar Exclusão
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
 </html>

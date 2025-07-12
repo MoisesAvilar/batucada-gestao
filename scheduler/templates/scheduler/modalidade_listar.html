@@ -39,7 +39,12 @@
                             <div class="text-end border-top pt-2">
                                 <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
                                 <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#confirmDeleteModal"
+                                        data-delete-url="{% url 'scheduler:modalidade_excluir' modalidade.pk %}">
+                                    Excluir
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -64,7 +69,12 @@
                         <div class="d-flex justify-content-center gap-2">
                             <a href="{% url 'scheduler:modalidade_detalhe' modalidade.pk %}" class="btn btn-sm btn-outline-info">Ver Detalhes</a>
                             <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#confirmDeleteModal"
+                                    data-delete-url="{% url 'scheduler:modalidade_excluir' modalidade.pk %}">
+                                Excluir
+                            </button>
                         </div>
                     </div>
                 </div>

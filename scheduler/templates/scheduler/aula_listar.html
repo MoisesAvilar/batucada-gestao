@@ -160,7 +160,14 @@
                             {% if user.tipo == 'admin' %}
                             <li><a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar Aula</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{% url 'scheduler:aula_excluir' aula.pk %}"><i class="bi bi-trash me-2"></i>Excluir Aula</a></li>
+                            <li>
+                                <button type="button" class="dropdown-item text-danger delete-button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#confirmDeleteModal"
+                                        data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                                    <i class="bi bi-trash me-2"></i>Excluir Aula
+                                </button>
+                            </li>
                             {% endif %}
                         </ul>
                     </div>

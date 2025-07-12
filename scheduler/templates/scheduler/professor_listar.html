@@ -39,7 +39,12 @@
                                 <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-info">Ver Perfil</a>
                                 {% if user.tipo == 'admin' %}
                                     <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                    <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#confirmDeleteModal"
+                                            data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">
+                                        Excluir
+                                    </button>
                                 {% endif %}
                             </div>
                         </td>
@@ -66,7 +71,12 @@
                             <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-info">Ver Perfil</a>
                             {% if user.tipo == 'admin' %}
                                 <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                <a href="{% url 'scheduler:professor_excluir' professor.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#confirmDeleteModal"
+                                    data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">
+                                Excluir
+                            </button>
                             {% endif %}
                         </div>
                     </div>
