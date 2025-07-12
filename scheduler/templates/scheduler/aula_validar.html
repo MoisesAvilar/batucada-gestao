@@ -506,24 +506,26 @@
                 </div>
                 <div class="card-body">
                     {% for presenca_form in presenca_formset %}
-                        <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                            <div class="col-md-6 fw-medium">
-                                <i class="bi bi-person me-2"></i>
-                                {{ presenca_form.instance.aluno.nome_completo|title }}
-                                {{ presenca_form.aluno }}
-                            </div>
-                            <div class="col-md-6">
-                                {% for radio in presenca_form.status %}
-                                    <div class="form-check form-check-inline">
-                                        {{ radio.tag }}
-                                        <label class="form-check-label" for="{{ radio.id_for_label }}">
-                                            {{ radio.choice_label }}
-                                        </label>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endfor %}
+    {{ presenca_form.id }} {# <-- ESTA LINHA É ESSENCIAL PARA O DJANGO RECONHECER A INSTÂNCIA #}
+    <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+        <div class="col-md-6 fw-medium">
+            <i class="bi bi-person me-2"></i>
+            {{ presenca_form.instance.aluno.nome_completo|title }}
+            {{ presenca_form.aluno }}
+        </div>
+        <div class="col-md-6">
+            {% for radio in presenca_form.status %}
+                <div class="form-check form-check-inline">
+                    {{ radio.tag }}
+                    <label class="form-check-label" for="{{ radio.id_for_label }}">
+                        {{ radio.choice_label }}
+                    </label>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endfor %}
+
                 </div>
             </div>
             {% elif "atividade complementar" in aula.modalidade.nome|lower %}

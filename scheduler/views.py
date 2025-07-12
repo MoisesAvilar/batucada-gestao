@@ -627,20 +627,19 @@ def validar_aula(request, pk):
         ritmo_formset = ItemRitmoFormSet(request.POST, instance=relatorio, prefix='ritmo')
         viradas_formset = ItemViradaFormSet(request.POST, instance=relatorio, prefix='viradas')
 
-        # Valida todos os formulários e formsets (sem alterações)
-        if all([f.is_valid() for f in [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]]):
+        form_list = [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]
+        
+        # Valida todos os formulários
+        if all(f.is_valid() for f in form_list):
             
-            # Salva tudo (sem alterações)
             relatorio.professor_que_validou = request.user
             form.save()
+            presenca_formset.save()
             rudimentos_formset.save()
             ritmo_formset.save()
             viradas_formset.save()
-            presenca_formset.save()
 
-            # --- LÓGICA DE ATUALIZAÇÃO DE STATUS DA AULA (sem alterações) ---
             num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
-            
             if alunos_da_aula.exists() and num_presentes == 0:
                 aula.status = 'Aluno Ausente'
             else:
@@ -650,8 +649,30 @@ def validar_aula(request, pk):
             messages.success(request, 'Relatório da aula salvo e presenças registradas com sucesso!')
             return redirect('scheduler:aula_listar')
         else:
+            # --- CÓDIGO DE DEBUG TEMPORÁRIO ---
+            # Este bloco irá imprimir os erros no seu terminal
+            print("\n--- ERROS DE VALIDAÇÃO AO SALVAR RELATÓRIO ---")
+            if not form.is_valid():
+                print("Erros no formulário principal (RelatorioAulaForm):")
+                print(form.errors)
+            if not presenca_formset.is_valid():
+                print("Erros no formset de presença (PresencaAlunoFormSet):")
+                print(presenca_formset.errors)
+                print(presenca_formset.non_form_errors())
+            if not rudimentos_formset.is_valid():
+                print("Erros no formset de rudimentos:")
+                print(rudimentos_formset.errors)
+            if not ritmo_formset.is_valid():
+                print("Erros no formset de ritmos:")
+                print(ritmo_formset.errors)
+            if not viradas_formset.is_valid():
+                print("Erros no formset de viradas:")
+                print(viradas_formset.errors)
+            print("------------------------------------------\n")
+            # --- FIM DO CÓDIGO DE DEBUG ---
+
             messages.error(request, 'Erro ao salvar o relatório. Verifique os campos marcados.')
-    
+
     else: # GET (sem alterações)
         form = RelatorioAulaForm(instance=relatorio)
         presenca_formset = PresencaAlunoFormSet(queryset=presenca_queryset, prefix='presencas')
