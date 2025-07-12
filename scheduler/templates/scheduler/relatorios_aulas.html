@@ -10,17 +10,14 @@
         <p class="text-muted mb-0">Analise o desempenho e as estatísticas gerais das aulas.</p>
     </div>
 
-    {# Botões de Ação ATUALIZADOS #}
-    <div class="d-flex flex-column flex-sm-row gap-2">
-        {# Botão para o relatório DETALHADO que criamos #}
+    {# Botões de Ação CENTRALIZADOS NO MOBILE #}
+    <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center justify-content-sm-end text-center text-sm-start w-100 w-md-auto">
         <a href="{% url 'scheduler:exportar_aulas' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
             <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar Detalhes
         </a>
-        {# Botão para o relatório RESUMIDO que já existia #}
         <a href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">
             <i class="bi bi-file-earmark-bar-graph me-1"></i> Exportar Resumo
         </a>
-        
         {% if data_inicial or data_final or professor_filtro or modalidade_filtro or status_filtro %}
         <a href="{% url 'scheduler:aula_listar' %}?{{ request.GET.urlencode }}" class="btn btn-info btn-sm" title="Ver a lista detalhada destas aulas">
             <i class="bi bi-list-ul me-1"></i> Ver Lista
@@ -28,6 +25,7 @@
         {% endif %}
     </div>
 </div>
+
 
 {% if messages %}
     {% for message in messages %}
@@ -137,68 +135,104 @@
 </div>
 
 {# --- SEÇÃO DE CARDS DE RESUMO (KPIs) MODERNIZADA --- #}
-<div class="row">
-    <div class="col-lg-3 col-md-6 mb-4">
+<div class="row gy-4 mb-4">
+    <div class="col-lg-3 col-md-6">
         <div class="card text-bg-secondary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Total de Aulas</div><div class="h4 mb-0 fw-bold">{{ total_aulas }}</div>
-            </div><div class="col-auto"><i class="bi bi-journal-text fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-success shadow h-100">
             <div class="card-body">
-                <div class="row g-0 align-items-center"><div class="col">
-                    <div class="small fw-bold text-uppercase mb-1">Aulas Realizadas</div>
-                    <div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
-                    {% if total_substituidas > 0 %}<div class="small opacity-75 mt-1">({{ total_substituidas }} substituídas)</div>{% endif %}
-                </div><div class="col-auto"><i class="bi bi-calendar2-check fs-1 opacity-75"></i></div></div>
+                <div class="row g-0 align-items-center justify-content-center justify-content-md-start text-center text-md-start">
+                    <div class="col">
+                        <div class="small fw-bold text-uppercase mb-1">Total de Aulas</div>
+                        <div class="h4 mb-0 fw-bold">{{ total_aulas }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-journal-text fs-1 opacity-75"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-warning shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Alunos Ausentes</div><div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
-            </div><div class="col-auto"><i class="bi bi-calendar2-x fs-1 opacity-75"></i></div></div></div>
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-bg-success shadow h-100">
+            <div class="card-body">
+                <div class="row g-0 align-items-center justify-content-center justify-content-md-start text-center text-md-start">
+                    <div class="col">
+                        <div class="small fw-bold text-uppercase mb-1">Aulas Realizadas</div>
+                        <div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
+                        {% if total_substituidas > 0 %}
+                        <div class="small opacity-75 mt-1">({{ total_substituidas }} substituídas)</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-calendar2-check fs-1 opacity-75"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-3 col-md-6">
+        <div class="card text-bg-warning shadow h-100">
+            <div class="card-body">
+                <div class="row g-0 align-items-center justify-content-center justify-content-md-start text-center text-md-start">
+                    <div class="col">
+                        <div class="small fw-bold text-uppercase mb-1">Alunos Ausentes</div>
+                        <div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-calendar2-x fs-1 opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
         <div class="card text-bg-danger shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Aulas Canceladas</div><div class="h4 mb-0 fw-bold">{{ total_canceladas }}</div>
-            </div><div class="col-auto"><i class="bi bi-slash-circle fs-1 opacity-75"></i></div></div></div>
+            <div class="card-body">
+                <div class="row g-0 align-items-center justify-content-center justify-content-md-start text-center text-md-start">
+                    <div class="col">
+                        <div class="small fw-bold text-uppercase mb-1">Aulas Canceladas</div>
+                        <div class="h4 mb-0 fw-bold">{{ total_canceladas }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="bi bi-slash-circle fs-1 opacity-75"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
+
 {# --- SEÇÃO DE GRÁFICOS --- #}
-<div class="row mb-4">
-    <div class="col-lg-5 mb-4">
+<div class="row mb-4 gy-4">
+    <div class="col-lg-5">
         <div class="card shadow-sm h-100">
-            <div class="card-header"><h5>Distribuição de Status</h5></div>
-            <div class="card-body d-flex align-items-center justify-content-center">
+            <div class="card-header">
+                <h5 class="mb-0">Distribuição de Status</h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 250px;">
                 {% if total_aulas > 0 %}
-                    <canvas id="statusPieChart"></canvas>
+                    <canvas id="statusPieChart" class="w-100" style="max-height: 250px;"></canvas>
                 {% else %}
                     <div class="text-center text-muted">
                         <i class="bi bi-pie-chart fs-1"></i>
-                        <p class="mt-2">Nenhum dado para exibir no gráfico.</p>
+                        <p class="mt-2 mb-0">Nenhum dado para exibir no gráfico.</p>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
-    <div class="col-lg-7 mb-4">
+    <div class="col-lg-7">
         <div class="card shadow-sm h-100">
-            <div class="card-header"><h5>Desempenho por Professor (Aulas Realizadas)</h5></div>
-            <div class="card-body">
+            <div class="card-header">
+                <h5 class="mb-0">Desempenho por Professor (Aulas Realizadas)</h5>
+            </div>
+            <div class="card-body" style="min-height: 250px;">
                 {% if prof_chart_labels %}
-                    <canvas id="professorBarChart"></canvas>
+                    <canvas id="professorBarChart" class="w-100" style="max-height: 250px;"></canvas>
                 {% else %}
-                     <div class="text-center text-muted">
+                    <div class="text-center text-muted">
                         <i class="bi bi-bar-chart-line fs-1"></i>
-                        <p class="mt-2">Nenhum dado para exibir no gráfico.</p>
+                        <p class="mt-2 mb-0">Nenhum dado para exibir no gráfico.</p>
                     </div>
                 {% endif %}
             </div>
@@ -206,11 +240,12 @@
     </div>
 </div>
 
+
 {# --- SEÇÃO DE TABELAS DETALHADAS --- #}
-<div class="row">
+<div class="row gy-4">
     <div class="col-lg-6 mb-4">
-        <div class="card shadow-sm">
-            <div class="card-header"><h5>Aulas por Professor</h5></div>
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h5 class="mb-0">Aulas por Professor</h5></div>
             
             {# --- VISÃO DE DESKTOP (TABELA) --- #}
             <div class="d-none d-lg-block table-responsive">
@@ -226,7 +261,7 @@
                         {% for professor in aulas_por_professor %}
                         <tr>
                             <td class="align-top">
-                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold">
+                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="fw-bold text-decoration-none">
                                     <i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}
                                 </a>
                             </td>
@@ -234,13 +269,18 @@
                             <td class="text-center"><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-people fs-2"></i><p class="mt-2 mb-0">Nenhum dado de professor para exibir com os filtros atuais.</p></td></tr>
+                        <tr>
+                            <td colspan="3" class="text-center text-muted p-4">
+                                <i class="bi bi-people fs-2"></i>
+                                <p class="mt-2 mb-0">Nenhum dado de professor para exibir com os filtros atuais.</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
 
-            {# --- VISÃO DE MOBILE (LISTA DE CARDS APRIMORADA) --- #}
+            {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
             <div class="d-lg-none p-2">
                 {% for professor in aulas_por_professor %}
                     <div class="card shadow-sm mb-2">
@@ -250,25 +290,37 @@
                                     <h6 class="mb-0"><i class="bi bi-person-circle me-2 text-secondary"></i>{{ professor.username|title }}</h6>
                                 </div>
                                 <div class="col-auto">
-                                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
+                                    <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        Detalhes <i class="bi bi-chevron-right"></i>
+                                    </a>
                                 </div>
                             </div>
                             <hr class="my-2">
                             <div class="row text-center">
-                                <div class="col"><small class="text-muted d-block">Atribuídas</small><span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span></div>
-                                <div class="col"><small class="text-muted d-block">Realizadas</small><span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span></div>
+                                <div class="col">
+                                    <small class="text-muted d-block">Atribuídas</small>
+                                    <span class="badge bg-secondary fs-6">{{ professor.total_atribuidas }}</span>
+                                </div>
+                                <div class="col">
+                                    <small class="text-muted d-block">Realizadas</small>
+                                    <span class="badge bg-success fs-6">{{ professor.total_realizadas }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 {% empty %}
-                    <div class="text-center text-muted p-4"><i class="bi bi-people fs-2"></i><p class="mt-2 mb-0">Nenhum dado de professor para exibir.</p></div>
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-people fs-2"></i>
+                        <p class="mt-2 mb-0">Nenhum dado de professor para exibir.</p>
+                    </div>
                 {% endfor %}
             </div>
         </div>
     </div>
+
     <div class="col-lg-6 mb-4">
-        <div class="card shadow-sm">
-            <div class="card-header"><h5>Aulas por Categoria</h5></div>
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h5 class="mb-0">Aulas por Categoria</h5></div>
             
             {# --- VISÃO DE DESKTOP (TABELA) --- #}
             <div class="d-none d-lg-block table-responsive">
@@ -285,7 +337,7 @@
                         <tr>
                             <td class="align-top">
                                 {% if item.modalidade__id %}
-                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold">
+                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="fw-bold text-decoration-none">
                                         <i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}
                                     </a>
                                 {% else %}
@@ -296,15 +348,20 @@
                             <td class="text-center"><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="3" class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p></td></tr>
+                        <tr>
+                            <td colspan="3" class="text-center text-muted p-4">
+                                <i class="bi bi-music-note-list fs-2"></i>
+                                <p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
 
-            {# --- VISÃO DE MOBILE (LISTA DE CARDS APRIMORADA) --- #}
+            {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
             <div class="d-lg-none p-2">
-                 {% for item in aulas_por_modalidade %}
+                {% for item in aulas_por_modalidade %}
                     <div class="card shadow-sm mb-2">
                         <div class="card-body">
                             <div class="row align-items-center g-2">
@@ -312,23 +369,35 @@
                                     <h6 class="mb-0"><i class="bi bi-music-note-beamed me-2 text-secondary"></i>{{ item.modalidade__nome|title }}</h6>
                                 </div>
                                 <div class="col-auto">
-                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="btn btn-sm btn-outline-secondary">Detalhes <i class="bi bi-chevron-right"></i></a>
+                                    <a href="{% url 'scheduler:modalidade_detalhe' item.modalidade__id %}" class="btn btn-sm btn-outline-secondary">
+                                        Detalhes <i class="bi bi-chevron-right"></i>
+                                    </a>
                                 </div>
                             </div>
                             <hr class="my-2">
                             <div class="row text-center">
-                                <div class="col"><small class="text-muted d-block">Total de Aulas</small><span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span></div>
-                                <div class="col"><small class="text-muted d-block">Realizadas</small><span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span></div>
+                                <div class="col">
+                                    <small class="text-muted d-block">Total de Aulas</small>
+                                    <span class="badge bg-secondary fs-6">{{ item.total_aulas }}</span>
+                                </div>
+                                <div class="col">
+                                    <small class="text-muted d-block">Realizadas</small>
+                                    <span class="badge bg-success fs-6">{{ item.aulas_realizadas }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 {% empty %}
-                    <div class="text-center text-muted p-4"><i class="bi bi-music-note-list fs-2"></i><p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p></div>
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-music-note-list fs-2"></i>
+                        <p class="mt-2 mb-0">Nenhum dado de categoria para exibir.</p>
+                    </div>
                 {% endfor %}
             </div>
         </div>
     </div>
 </div>
+
 
 {% endblock %}
 

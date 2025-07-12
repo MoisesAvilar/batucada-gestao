@@ -11,7 +11,12 @@
     <div class="col-md-auto">
         <div class="d-flex gap-2 justify-content-center">
             <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
-            <a href="{% url 'scheduler:modalidade_excluir' modalidade.pk %}" class="btn btn-danger"><i class="bi bi-trash me-1"></i> Excluir</a>
+            <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#confirmDeleteModal"
+                    data-delete-url="{% url 'scheduler:modalidade_excluir' modalidade.pk %}">
+                Excluir
+            </button>
         </div>
     </div>
     {% endif %}
@@ -89,6 +94,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 // Script para renderizar o gráfico de atividade mensal
 document.addEventListener('DOMContentLoaded', function() {

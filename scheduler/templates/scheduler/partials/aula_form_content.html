@@ -1,94 +1,256 @@
-{% comment %} NOVO ARQUIVO: scheduler/templates/scheduler/partials/aula_form_content.html {% endcomment %}
-
 <form method="post" action="{{ form_action }}">
   {% csrf_token %}
   
-  {# Div para exibir erros de validação do AJAX #}
   <div id="modal-errors" class="alert alert-danger" style="display: none;"></div>
 
   <div class="row">
-    <div class="col-md-4 mb-3"><label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold">Categoria</label>{{ form.modalidade }}</div>
-    <div class="col-md-4 mb-3"><label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold">Data e Horário</label>{{ form.data_hora }}</div>
-    <div class="col-md-4 mb-3"><label for="{{ form.status.id_for_label }}" class="form-label fw-bold">Status</label>{{ form.status }}</div>
+    <div class="col-md-4 mb-3">
+      <label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold">Categoria</label>
+      {{ form.modalidade }}
+    </div>
+    <div class="col-md-4 mb-3">
+      <label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold">Data e Horário</label>
+      {{ form.data_hora }}
+    </div>
+    <div class="col-md-4 mb-3">
+      <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">Status</label>
+      {{ form.status }}
+    </div>
   </div>
-  <div class="mb-3 form-check">
-      {{ form.recorrente_mensal }}
-      <label class="form-check-label" for="{{ form.recorrente_mensal.id_for_label }}">{{ form.recorrente_mensal.label }}</label>
+  
+  <div class="mb-3 form-check form-switch">
+    {{ form.recorrente_mensal }}
+    <label class="form-check-label" for="{{ form.recorrente_mensal.id_for_label }}">
+      {{ form.recorrente_mensal.label }}
+    </label>
   </div>
-  <hr>
+  
+  <hr class="my-4">
 
-<div id="aluno-formset-container" class="formset-container mb-4">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-    <h5 class="mb-2 mb-md-0">Alunos</h5>
-    <button type="button" id="add-aluno-form" class="btn btn-sm btn-outline-success">
-      <i class="bi bi-plus-circle"></i> Adicionar Aluno
-    </button>
-  </div>
-  {{ aluno_formset.management_form }}
-  
-  <div id="aluno-forms">
-    {% for form in aluno_formset %}
-      <div class="row align-items-center mb-2 formset-row">
-        <div class="col-md-10 col-8">{{ form.aluno }}</div>
-        <div class="col-md-2 col-4 text-end">
-          {% if form.initial %}
-            <div class="form-check form-check-inline">
-              <input type="checkbox" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}">
-              <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
-            </div>
-          {% endif %}
+  <!-- Alunos Formset -->
+  <div id="alunos-formset-container" class="mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+      <h5 class="mb-2 mb-md-0">
+        <i class="bi bi-people-fill me-2 text-primary"></i>
+        Alunos
+      </h5>
+      <button type="button" id="add-aluno-form" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-circle me-1"></i> Adicionar Aluno
+      </button>
+    </div>
+    
+    {{ aluno_formset.management_form }}
+    <div id="aluno-forms">
+      {% for form in aluno_formset %}
+        <div class="row align-items-center mb-3 formset-row">
+          <div class="col-md-10 col-8">
+            {{ form.aluno }}
+          </div>
+          <div class="col-md-2 col-4 text-end">
+            {% if form.initial %}
+              <div class="form-check form-check-inline">
+                {{ form.DELETE }}
+                <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">
+                  Remover
+                </label>
+              </div>
+            {% endif %}
+          </div>
+          {{ form.id }}
         </div>
-        {{ form.id }}
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
-</div>
 
-<div id="professor-formset-container" class="formset-container mb-4">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-    <h5 class="mb-2 mb-md-0">Professores</h5>
-    <button type="button" id="add-professor-form" class="btn btn-sm btn-outline-success">
-      <i class="bi bi-plus-circle"></i> Adicionar Professor
-    </button>
-  </div>
-  {{ professor_formset.management_form }}
-  
-  <div id="professor-forms">
-    {% for form in professor_formset %}
-      <div class="row align-items-center mb-2 formset-row">
-        <div class="col-md-10 col-8">{{ form.professor }}</div>
-        <div class="col-md-2 col-4 text-end">
-          {% if form.initial %}
-            <div class="form-check form-check-inline">
-              <input type="checkbox" name="{{ form.DELETE.html_name }}" id="{{ form.DELETE.id_for_label }}">
-              <label class="form-check-label small" for="{{ form.DELETE.id_for_label }}">Remover</label>
-            </div>
-          {% endif %}
+  <!-- Professores Formset -->
+  <div id="professores-formset-container" class="mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+      <h5 class="mb-2 mb-md-0">
+        <i class="bi bi-person-badge-fill me-2 text-primary"></i>
+        Professores
+      </h5>
+      <button type="button" id="add-professor-form" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-circle me-1"></i> Adicionar Professor
+      </button>
+    </div>
+    
+    {{ professor_formset.management_form }}
+    <div id="professor-forms">
+      {% for form in professor_formset %}
+        <div class="row align-items-center mb-3 formset-row">
+          <div class="col-md-10 col-8">
+            {{ form.professor }}
+          </div>
+          <div class="col-md-2 col-4 text-end">
+            {% if form.initial %}
+              <div class="form-check form-check-inline">
+                {{ form.DELETE }}
+                <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">
+                  Remover
+                </label>
+              </div>
+            {% endif %}
+          </div>
+          {{ form.id }}
         </div>
-        {{ form.id }}
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
-</div>
-  
-  <div class="mt-4 border-top pt-3 text-end">
-    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-    <button type="submit" class="btn btn-primary">Agendar Aula</button>
+
+  <div class="mt-4 pt-3 border-top text-end">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+      <i class="bi bi-x-circle me-1"></i>
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check-circle me-1"></i>
+      Agendar Aula
+    </button>
   </div>
 </form>
 
-{# Templates vazios para o JavaScript clonar #}
+<!-- Templates for empty forms -->
 <template id="empty-form-alunos">
-  <div class="row align-items-center mb-2 formset-row">
-    <div class="col-md-10 col-12">{{ aluno_formset.empty_form.aluno }}</div>
+  <div class="row align-items-center mb-3 formset-row">
+    <div class="col-md-10 col-12">
+      {{ aluno_formset.empty_form.aluno }}
+    </div>
     <div class="col-md-2"></div>
     {{ aluno_formset.empty_form.id }}
   </div>
 </template>
+
 <template id="empty-form-professores">
-  <div class="row align-items-center mb-2 formset-row">
-    <div class="col-md-10 col-12">{{ professor_formset.empty_form.professor }}</div>
+  <div class="row align-items-center mb-3 formset-row">
+    <div class="col-md-10 col-12">
+      {{ professor_formset.empty_form.professor }}
+    </div>
     <div class="col-md-2"></div>
     {{ professor_formset.empty_form.id }}
   </div>
 </template>
+
+<script>
+function updateSelectOptions() {
+    // Função auxiliar para processar um tipo de select (aluno ou professor)
+    const processSelects = (selector, selectedSet) => {
+        // Itera em cada select para encontrar as opções
+        document.querySelectorAll(selector).forEach(select => {
+            // Itera sobre cada <option> dentro do select atual
+            Array.from(select.options).forEach(option => {
+                // 1. Armazena o texto original da opção se ainda não o fez.
+                // Isso garante que não adicionemos "(Selecionado)" múltiplas vezes.
+                if (!option.dataset.originalText) {
+                    option.dataset.originalText = option.text;
+                }
+
+                // Verifica se a opção tem um valor e se já foi selecionada em algum outro campo
+                const isSelectedElsewhere = option.value && selectedSet.has(option.value);
+                // Verifica se a opção é a que está atualmente selecionada NESTE campo
+                const isCurrentSelection = select.value === option.value;
+
+                if (isSelectedElsewhere && !isCurrentSelection) {
+                    // 2. Se foi selecionada em outro lugar (e não é a seleção deste campo):
+                    // Desabilita a opção e adiciona o feedback visual no texto.
+                    option.disabled = true;
+                    option.text = `✓ ${option.dataset.originalText} (Selecionado)`;
+                } else {
+                    // 3. Caso contrário (não foi selecionada ou é a seleção atual):
+                    // Garante que a opção esteja habilitada e com seu texto original.
+                    option.disabled = false;
+                    option.text = option.dataset.originalText;
+                }
+            });
+        });
+    };
+
+    // --- Lógica Principal ---
+
+    // Coleta todos os alunos já selecionados
+    const selectedAlunos = new Set();
+    document.querySelectorAll('[id^="id_alunos-"][id$="-aluno"] select').forEach(select => {
+        if (select.value) selectedAlunos.add(select.value);
+    });
+    // Processa a atualização visual para os selects de aluno
+    processSelects('[id^="id_alunos-"][id$="-aluno"] select', selectedAlunos);
+
+    // Coleta todos os professores já selecionados
+    const selectedProfessores = new Set();
+    document.querySelectorAll('[id^="id_professores-"][id$="-professor"] select').forEach(select => {
+        if (select.value) selectedProfessores.add(select.value);
+    });
+    // Processa a atualização visual para os selects de professor
+    processSelects('[id^="id_professores-"][id$="-professor"] select', selectedProfessores);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Atualiza as opções ao carregar o modal
+    updateSelectOptions();
+    
+    // Configura listeners para mudanças nos selects
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.addEventListener('change', function(e) {
+            if (e.target.matches('[id^="id_alunos-"][id$="-aluno"] select, [id^="id_professores-"][id$="-professor"] select')) {
+                updateSelectOptions();
+            }
+        });
+    }
+
+    // Configura a adição de novos forms para atualizar as opções (versão modal)
+    function setupModalFormset(buttonId, containerId, templateId, prefix) {
+        const addButton = document.getElementById(buttonId);
+        if (!addButton) return;
+        const formContainer = document.getElementById(containerId);
+        const template = document.getElementById(templateId);
+        const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+
+        addButton.addEventListener('click', function() {
+            const currentFormCount = parseInt(totalFormsInput.value);
+            const newFormHtml = template.innerHTML.replace(/__prefix__/g, currentFormCount);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newFormHtml;
+            formContainer.appendChild(tempDiv.firstElementChild);
+            totalFormsInput.value = currentFormCount + 1;
+            
+            // Atualiza as opções após adicionar novo form
+            updateSelectOptions();
+            
+            // Inicializa o Select2 no novo campo
+            const newSelect = $(tempDiv).find('select');
+            if (newSelect.length) {
+                newSelect.select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: 'Selecione...'
+                });
+            }
+        });
+    }
+
+    // Configura os formsets no modal
+    setupModalFormset('add-aluno-form', 'aluno-forms', 'empty-form-alunos', 'alunos');
+    setupModalFormset('add-professor-form', 'professor-forms', 'empty-form-professores', 'professores');
+
+    // Configura o toggle dos formsets baseado na modalidade (versão modal)
+    const modalidadeSelectEl = document.getElementById('id_modalidade');
+    if (modalidadeSelectEl) {
+        modalidadeSelectEl.addEventListener('change', function() {
+            const alunosContainer = document.getElementById('alunos-formset-container');
+            const professoresContainer = document.getElementById('professores-formset-container');
+            const selectedOptionText = this.options[this.selectedIndex].text.toLowerCase();
+            
+            if (selectedOptionText.includes('atividade complementar')) {
+                alunosContainer.style.display = 'none';
+                professoresContainer.style.display = 'block';
+            } else {
+                alunosContainer.style.display = 'block';
+                professoresContainer.style.display = 'block';
+            }
+        });
+        
+        // Dispara o evento change para configurar o estado inicial
+        modalidadeSelectEl.dispatchEvent(new Event('change'));
+    }
+});
+</script>

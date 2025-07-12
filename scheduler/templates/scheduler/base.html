@@ -1,89 +1,188 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-bs-theme="light">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Studio Batucada - Gestão</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de gestão de aulas do Studio Batucada">
     
-    {# --- Favicon --- #}
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-music-note-beamed' viewBox='0 0 16 16'><path d='M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z'/><path fill-rule='evenodd' d='M14 11V2h1v9h-1zM6 3v10H5V3h1z'/><path d='M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z'/></svg>">
-    
+    {# --- Título e Favicon --- #}
+    <title>{% block title %}Studio Batucada - Gestão{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='currentColor' class='bi bi-music-note-beamed' viewBox='0 0 16 16'><path d='M6 13c0 1.105-1.12 2-2.5 2S1 14.105 1 13c0-1.104 1.12-2 2.5-2s2.5.896 2.5 2zm9-2c0 1.105-1.12 2-2.5 2s-2.5-.895-2.5-2 1.12-2 2.5-2 2.5.895 2.5 2z'/><path fill-rule='evenodd' d='M14 11V2h1v9h-1zM6 3v10H5V3h1z'/><path d='M5 2.905a1 1 0 0 1 .9-.995l8-.8a1 1 0 0 1 1.1.995V3L5 4V2.905z'/></svg>">
+
     {# --- Fontes --- #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    
-    {# --- Bibliotecas CSS --- #}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    {# --- CSS Libraries --- #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css' rel='stylesheet' />
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css' rel='stylesheet'>
 
-    {# --- Script de Tema --- #}
-    <script>
-        const getStoredTheme = () => localStorage.getItem('theme');
-        const setStoredTheme = theme => localStorage.setItem('theme', theme);
-
-        const getPreferredTheme = () => {
-            const storedTheme = getStoredTheme();
-            if (storedTheme) return storedTheme;
-            return 'light'; // Tema padrão sempre claro
-        };
-
-        const setTheme = theme => {
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        };
-
-        const showActiveThemeIcon = (theme) => {
-            const lightIcon = document.querySelector('#theme-icon-light');
-            const darkIcon = document.querySelector('#theme-icon-dark');
-            if (!lightIcon || !darkIcon) return;
-
-            theme === 'dark' 
-                ? (lightIcon.classList.add('d-none'), darkIcon.classList.remove('d-none'))
-                : (lightIcon.classList.remove('d-none'), darkIcon.classList.add('d-none'));
-        };
-
-        // Aplica tema ao carregar
-        setTheme(getPreferredTheme());
-        showActiveThemeIcon(getPreferredTheme());
-
-        // Configura botão de alternância
-        const themeToggler = document.getElementById('theme-toggle-btn');
-        if (themeToggler) {
-            themeToggler.addEventListener('click', () => {
-                const currentTheme = getStoredTheme() || getPreferredTheme();
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                setStoredTheme(newTheme);
-                setTheme(newTheme);
-                showActiveThemeIcon(newTheme);
-            });
-        }
-        
-        // Responde a mudanças no tema do SO
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            if (!getStoredTheme()) {
-                const newTheme = getPreferredTheme();
-                setTheme(newTheme);
-                showActiveThemeIcon(newTheme);
-            }
-        });
-    </script>
-    
-    {# --- Estilos Customizados --- #}
+    {# --- Custom CSS --- #}
     <style>
-        /* Estilos básicos */
-        label.required::after {
-            content: " *";
-            color: red;
-        }
         
+        /* Adicione isso na sua seção de Custom CSS */
+        [data-bs-theme="dark"] #theme-toggle-btn {
+            color: var(--bs-light);
+        }
+
+        [data-bs-theme="light"] #theme-toggle-btn {
+            color: var(--bs-dark);
+        }
+
+        #theme-toggle-btn:hover {
+            opacity: 0.8;
+        }
+
+        #theme-toggle-btn .bi {
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+        }
+        /* Adicione isso na seção de estilos existente */
+        [data-bs-theme="dark"] .accordion-item {
+            background-color: var(--bs-dark-bg-subtle);
+            border-color: var(--bs-border-color);
+        }
+
+        [data-bs-theme="dark"] .accordion-button:not(.collapsed) {
+            background-color: var(--bs-dark-bg-subtle);
+            color: var(--bs-body-color);
+        }
+
+        [data-bs-theme="dark"] .accordion-body {
+            background-color: var(--bs-dark-bg-subtle);
+        }
+
+        [data-bs-theme="dark"] .list-group-item-light {
+            background-color: var(--bs-dark-border-subtle);
+            color: var(--bs-body-color);
+        }
+
+        [data-bs-theme="dark"] .accordion-open-content {
+            background: var(--bs-dark-bg-subtle);
+        }
+        :root {
+            --bs-body-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --header-height: 60px;
+            --sidebar-width: 250px;
+            --transition-base: all 0.2s ease-in-out;
+        }
+
         body {
-            font-family: 'Nunito Sans', sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: var(--bs-body-bg);
         }
-        
+
+        /* Navbar */
+        .navbar {
+            height: var(--header-height);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            background-color: var(--bs-body-bg) !important;
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding-top: 1.5rem;
+            padding-bottom: 2rem;
+        }
+
+        /* Alerts */
+        .alert {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Cards */
+        .card {
+            border: none;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: var(--transition-base);
+        }
+
+        .card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.825rem;
+        }
+
+        /* Forms */
+        .form-control, .form-select {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .form-label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-bottom: 0.35rem;
+        }
+
+        /* User avatar */
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: var(--bs-gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--bs-gray-700);
+        }
+
+        /* Theme switcher */
+        .theme-switcher {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: var(--transition-base);
+        }
+
+        .theme-switcher:hover {
+            background-color: var(--bs-gray-200);
+        }
+
+        /* Modal */
+        .modal-content {
+            border: none;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* FullCalendar adjustments */
+        .fc-event {
+            border: none;
+            font-size: 0.8em;
+            padding: 2px 4px;
+        }
+
         /* Estilos para calendário */
         .flatpickr-day.has-class-day {
             background-color: #d4edda;
@@ -185,132 +284,158 @@
             border: none;
             margin-bottom: 0.5rem;
         }
+
+        .navbar-collapse {
+            z-index: 1020; /* Valor maior que os cards */
+        }
+
+        select option:disabled {
+            color: #ccc;
+            background-color: #f8f9fa;
+        }
+
+        select option[value=""] {
+            color: #6c757d; /* Cor para a opção vazia/default */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 991.98px) {
+            .navbar-collapse {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background-color: var(--bs-body-bg);
+                padding: 1rem;
+                box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+                margin-top: 0;
+                border-radius: 0 0 0.5rem 0.5rem;
+                z-index: 1050; /* Garante que fique acima de tudo */
+            }
+        }
     </style>
 </head>
 
 <body>
-    {# --- Barra de Navegação --- #}
-    <nav class="navbar navbar-expand-lg bg-body-tertiary mb-4 shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'scheduler:dashboard' %}">Studio Batucada</a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    {# --- Navbar --- #}
+    <header class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'scheduler:dashboard' %}">
+                <i class="bi bi-music-note-beamed me-2"></i>
+                <span>Studio Batucada</span>
+            </a>
+
+            {# Mobile Toggle #}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+            {# Navigation Menu #}
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
-                        {# Links comuns para todos os usuários #}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'scheduler:dashboard' %}">Dashboard</a>
+                            <a class="nav-link" href="{% url 'scheduler:dashboard' %}">
+                                <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                            </a>
                         </li>
                         
-                        {% if user.tipo != 'admin' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Minhas Aulas</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:aluno_listar' %}">Alunos</a>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">Aulas</a>
-                            </li>
-                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'scheduler:aula_listar' %}">
+                                <i class="bi bi-calendar3 me-1"></i> 
+                                {% if user.tipo != 'admin' %}Minhas {% endif %}Aulas
+                            </a>
+                        </li>
                         
-                        {# Links específicos para admin #}
                         {% if user.tipo == 'admin' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:aula_agendar' %}">Agendar Aula</a>
+                                <a class="nav-link" href="{% url 'scheduler:aula_agendar' %}">
+                                    <i class="bi bi-plus-circle me-1"></i> Agendar
+                                </a>
                             </li>
                             
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                    Gerenciamento
+                                    <i class="bi bi-gear me-1"></i> Gerenciar
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="{% url 'scheduler:aluno_listar' %}">Alunos</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'scheduler:professor_listar' %}">Professores</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'scheduler:modalidade_listar' %}">Categorias</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:aluno_listar' %}"><i class="bi bi-people me-2"></i>Alunos</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:professor_listar' %}"><i class="bi bi-person-video3 me-2"></i>Professores</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:modalidade_listar' %}"><i class="bi bi-tags me-2"></i>Categorias</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'scheduler:relatorios_aulas' %}"><i class="bi bi-graph-up me-2"></i>Relatórios</a></li>
                                 </ul>
                             </li>
-                            
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:relatorios_aulas' %}">Relatórios</a>
-                            </li>
-                        
-                        {# Links específicos para professores #}
                         {% elif user.tipo == 'professor' %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'scheduler:aulas_para_substituir' %}">
-                                    <i class="bi bi-person-plus"></i> Aulas para Substituir
+                                    <i class="bi bi-person-plus me-1"></i> Substituições
                                 </a>
                             </li>
                         {% endif %}
                     {% endif %}
                 </ul>
-                
-                <ul class="navbar-nav">
-                    {# Botão de alternância de tema #}
-                    <div class="ms-auto">
-                        <button type="button" class="btn btn-outline-secondary" id="theme-toggle-btn">
-                            <i class="bi bi-sun-fill" id="theme-icon-light"></i>
-                            <i class="bi bi-moon-stars-fill d-none" id="theme-icon-dark"></i>
+
+                {# Right Side Controls #}
+                <ul class="navbar-nav ms-auto">
+                    {# Theme Switcher - Versão melhorada #}
+                    <li class="nav-item">
+                        <button class="btn btn-link nav-link py-2 px-2" id="theme-toggle-btn" title="Alternar tema">
+                            <span class="d-flex align-items-center">
+                                <i class="bi bi-sun-fill d-none" id="theme-icon-light"></i>
+                                <i class="bi bi-moon-fill" id="theme-icon-dark"></i>
+                                <span class="ms-1 d-none d-sm-inline">Tema</span>
+                            </span>
                         </button>
-                    </div>
+                    </li>
                     
-                    {# Menu do usuário #}
+                    {# User Menu #}
                     {% if user.is_authenticated %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
                                 {% if user.profile_picture_url %}
-                                    <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                                    <img src="{{ user.profile_picture_url }}" class="user-avatar me-2" alt="Profile">
                                 {% else %}
-                                    {% if user.first_name and user.last_name %}
-                                        {% with first_initial=user.first_name|slice:"0:1"|upper last_initial=user.last_name|slice:"0:1"|upper %}
-                                            <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold;" title="{{ user.get_full_name|default:user.username }}">
-                                                {{ first_initial|add:last_initial }}
-                                            </div>
-                                        {% endwith %}
-                                    {% elif user.username %}
-                                        <div class="rounded-circle text-white d-inline-flex align-items-center justify-content-center me-2" style="background-color:#6c757d; width:30px; height:30px; font-size:0.8em; font-weight:bold;" title="{{ user.get_full_name|default:user.username }}">
-                                            {{ user.username|slice:"0:1"|upper }}
-                                        </div>
-                                    {% endif %}
+                                    <div class="user-avatar me-2">
+                                        {% if user.first_name and user.last_name %}
+                                            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                                        {% else %}
+                                            {{ user.username|first|upper }}
+                                        {% endif %}
+                                    </div>
                                 {% endif %}
-                                {{ user.username|title }}
+                                <span class="d-none d-lg-inline">{{ user.first_name|default:user.username }}</span>
                             </a>
                             
                             <ul class="dropdown-menu dropdown-menu-end">
                                 {% if user.tipo == 'professor' or user.tipo == 'admin' %}
                                     <li>
                                         <a class="dropdown-item" href="{% url 'scheduler:professor_detalhe' user.pk %}">
-                                            <i class="bi bi-person-circle me-2"></i>Meu Perfil
+                                            <i class="bi bi-person me-2"></i> Perfil
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="{% url 'scheduler:perfil_usuario' %}">
-                                            <i class="bi bi-gear me-2"></i>Dados Pessoais
+                                            <i class="bi bi-gear me-2"></i> Configurações
                                         </a>
                                     </li>
+                                    <li><hr class="dropdown-divider"></li>
                                 {% endif %}
                                 
                                 {% if user.is_staff %}
                                     <li>
                                         <a class="dropdown-item" href="/admin/" target="_blank">
-                                            <i class="bi bi-shield-lock me-2"></i>Painel de Admin
+                                            <i class="bi bi-shield-lock me-2"></i> Admin
                                         </a>
                                     </li>
+                                    <li><hr class="dropdown-divider"></li>
                                 {% endif %}
-                                
-                                <li><hr class="dropdown-divider"></li>
                                 
                                 <li>
                                     <form id="logout-form" action="{% url 'accounts:logout' %}" method="post" class="d-inline">
                                         {% csrf_token %}
-                                        <button type="submit" class="dropdown-item text-danger">
-                                            <i class="bi bi-box-arrow-right me-2"></i>Sair
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bi bi-box-arrow-right me-2"></i> Sair
                                         </button>
                                     </form>
                                 </li>
@@ -318,41 +443,73 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login' %}">Entrar</a>
+                            <a class="nav-link" href="{% url 'accounts:login' %}">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                            </a>
                         </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
-    </nav>
+    </header>
 
-    {# --- Conteúdo Principal --- #}
-    <main class="container mt-4">
+    {# --- Main Content --- #}
+    <main class="container">
+        {# Messages #}
         {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert">
+                        <div class="d-flex align-items-center">
+                            {% if message.tags == 'success' %}
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                            {% elif message.tags == 'error' %}
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            {% elif message.tags == 'warning' %}
+                                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                            {% endif %}
+                            <div>{{ message }}</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
         {% endif %}
         
+        {# Page Content #}
         {% block content %}{% endblock %}
     </main>
 
-    {# --- Bibliotecas JavaScript --- #}
+    {# --- Footer --- #}
+    <footer class="bg-body-tertiary py-3 mt-auto border-top">
+        <div class="container-fluid">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <div class="mb-2 mb-md-0">
+                    <span class="text-muted small">&copy; {% now "Y" %} Studio Batucada. Todos os direitos reservados.</span>
+                </div>
+                <div class="d-flex gap-3">
+                    <a href="#" class="text-muted small">Termos</a>
+                    <a href="#" class="text-muted small">Privacidade</a>
+                    <a href="#" class="text-muted small">Ajuda</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    {# --- JavaScript Libraries --- #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
-    
-    {# --- JavaScript Customizado --- #}
-    {% block extra_js %}
+
+    {# --- Theme Management --- #}
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Gerenciamento de tema
+        // Theme management
         const getStoredTheme = () => localStorage.getItem('theme');
         const setStoredTheme = theme => localStorage.setItem('theme', theme);
         
@@ -367,106 +524,101 @@
             document.documentElement.style.colorScheme = theme;
         };
         
-        const showActiveThemeIcon = (theme) => {
+        const showActiveTheme = (theme) => {
             const lightIcon = document.querySelector('#theme-icon-light');
             const darkIcon = document.querySelector('#theme-icon-dark');
-            if (!lightIcon || !darkIcon) return;
             
-            theme === 'dark' 
-                ? (lightIcon.classList.add('d-none'), darkIcon.classList.remove('d-none'))
-                : (lightIcon.classList.remove('d-none'), darkIcon.classList.add('d-none'));
+            if (theme === 'dark') {
+                lightIcon.classList.remove('d-none');
+                darkIcon.classList.add('d-none');
+            } else {
+                lightIcon.classList.add('d-none');
+                darkIcon.classList.remove('d-none');
+            }
         };
         
-        // Aplica tema inicial
+        // Initialize theme
         setTheme(getPreferredTheme());
-        showActiveThemeIcon(getPreferredTheme());
+        showActiveTheme(getPreferredTheme());
         
-        // Configura botão de alternância de tema
-        const themeToggler = document.getElementById('theme-toggle-btn');
-        if (themeToggler) {
-            themeToggler.addEventListener('click', () => {
-                const currentTheme = getStoredTheme() || getPreferredTheme();
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                setStoredTheme(newTheme);
-                setTheme(newTheme);
-                showActiveThemeIcon(newTheme);
-                
-                if (typeof Calendar !== 'undefined') {
-                    Calendar.render();
-                }
-            });
-        }
+        // Theme toggle button
+        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+            const currentTheme = getStoredTheme() || getPreferredTheme();
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            setStoredTheme(newTheme);
+            setTheme(newTheme);
+            showActiveTheme(newTheme);
+        });
         
-        // Responde a mudanças no tema do SO
+        // Respond to system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             if (!getStoredTheme()) {
                 const newTheme = getPreferredTheme();
                 setTheme(newTheme);
-                showActiveThemeIcon(newTheme);
+                showActiveTheme(newTheme);
             }
         });
-        
-        // Configura TomSelect para filtro de alunos
-        const alunoSelect = document.getElementById('id_aluno_filtro');
-        if (alunoSelect) {
-            new TomSelect(alunoSelect, {
-                plugins: ['remove_button'],
-                create: false,
-                placeholder: 'Selecione um ou mais alunos...',
+    </script>
+
+    {# --- Extra JavaScript --- #}
+    {% block extra_js %}
+    <script>
+        // Initialize Select2 for multi-select inputs
+        $(document).ready(function() {
+            $('select[multiple]').select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Selecione...',
+                closeOnSelect: false
             });
-        }
-        
-        // Configura modal de confirmação de exclusão
-        const confirmDeleteModal = document.getElementById('confirmDeleteModal');
-        if (confirmDeleteModal) {
-            confirmDeleteModal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const url = button.getAttribute('data-delete-url');
-                const deleteForm = confirmDeleteModal.querySelector('#delete-form');
-                deleteForm.setAttribute('action', url);
+            
+            // Initialize tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
             });
-        }
-    });
+        });
     </script>
     {% endblock %}
 
-    {# --- Modal de Confirmação de Exclusão --- #}
-    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    {# --- Delete Confirmation Modal --- #}
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg">
-                <div class="modal-header border-0 bg-gradient bg-danger text-white rounded-top">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-exclamation-octagon-fill me-2 fs-4"></i>
-                        <h5 class="modal-title mb-0" id="confirmDeleteModalLabel">Confirmar Exclusão</h5>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Exclusão
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                
-                <div class="modal-body py-4">
-                    <div class="d-flex align-items-start">
-                        <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-4 mt-1"></i>
-                        <div>
-                            <h6 class="fw-bold mb-2">Você está prestes a excluir este item permanentemente!</h6>
-                            <p class="mb-0 text-muted">Esta ação não pode ser desfeita. Tem certeza de que deseja continuar?</p>
-                        </div>
-                    </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.</p>
                 </div>
-                
-                <div class="modal-footer border-0 bg-light rounded-bottom">
-                    <form method="post" id="delete-form" action="" class="w-100">
+                <div class="modal-footer border-0">
+                    <form method="post" id="delete-form" action="">
                         {% csrf_token %}
-                        <div class="d-flex justify-content-between w-100">
-                            <button type="button" class="btn btn-outline-secondary flex-grow-1 me-2" data-bs-dismiss="modal">
-                                <i class="bi bi-x-circle me-1"></i> Cancelar
-                            </button>
-                            <button type="submit" class="btn btn-danger flex-grow-1 ms-2">
-                                <i class="bi bi-trash3 me-1"></i> Confirmar Exclusão
-                            </button>
-                        </div>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Excluir</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+
+    {# Delete Modal Handler #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const deleteModal = document.getElementById('confirmDeleteModal');
+            if (deleteModal) {
+                deleteModal.addEventListener('show.bs.modal', function(event) {
+                    const button = event.relatedTarget;
+                    const url = button.getAttribute('data-delete-url');
+                    const form = deleteModal.querySelector('#delete-form');
+                    form.setAttribute('action', url);
+                });
+            }
+        });
+    </script>
 </body>
 </html>
