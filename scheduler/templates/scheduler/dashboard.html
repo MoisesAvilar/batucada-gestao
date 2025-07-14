@@ -4,446 +4,249 @@
 {# --- CABEÇALHO --- #}
 <div class="text-center mb-4">
     <h1 class="mb-1">{{ titulo }}</h1>
-    {% if user.tipo == 'admin' %}
-        <p class="text-muted mb-0">Visão geral do sistema e atalhos rápidos.</p>
-    {% else %}
-        <p class="text-muted mb-0">Resumo das suas atividades e agenda.</p>
-    {% endif %}
+    <p class="text-muted mb-0">
+        {% if user.tipo == 'admin' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}
+    </p>
 </div>
+
+<div id="page-overlay"></div>
 {% if user.tipo == 'admin' %}
-<div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
-    <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
-    <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
-</div>
+    <div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
+        <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
+        <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
+    </div>
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-info shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-3 col-md-6 mb-4"><a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="text-decoration-none"><div class="card text-bg-success shadow h-100 hover-scale"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col me-2"><div class="text-xs fw-bold text-uppercase mb-1">Novos Alunos (Mês)</div><div class="h5 mb-0 fw-bold">{{ novos_alunos_mes }}</div></div><div class="col-auto"><i class="bi bi-person-plus-fill fs-2 text-white-50"></i></div></div></div></div></a></div>
+    </div>
+{% else %} {# PROFESSOR #}
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-info shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Minhas Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Minhas Aulas Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
+        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-danger shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Pendentes Validação</div><div class="h3 mb-0 fw-bold">{{ aulas_pendentes_count }}</div></div><div class="col-auto"><i class="bi bi-exclamation-triangle-fill fs-1 opacity-75"></i></div></div></div></div></div>
+    </div>
+    {% if aulas_pendentes_validacao %}
+    <div class="card shadow-sm mb-4 border-danger"><div class="card-header bg-danger text-white"><h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Ação Necessária: Aulas Pendentes</h5></div><div class="card-body"><p class="text-muted small">Aulas que ocorreram mas não tiveram o relatório preenchido.</p><div class="list-group">{% for aula in aulas_pendentes_validacao %}<a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action"><div class="d-flex justify-content-between"><div><strong>{{ aula.modalidade.nome|title }}</strong><div class="text-muted small">{{ aula.data_hora|date:"d/m/Y H:i" }} • {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% endfor %}</div></div><span class="badge bg-danger">Pendente</span></div></a>{% endfor %}</div></div></div>
+    {% endif %}
 {% endif %}
 
-{# --- VISÃO DO ADMINISTRADOR --- #}
-{% if user.tipo == 'admin' %}
-    {# Cards de Resumo #}
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-info shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="text-decoration-none"><div class="card text-bg-success shadow h-100 card-hover"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col me-2"><div class="text-xs fw-bold text-uppercase mb-1">Novos Alunos (Este Mês)</div><div class="h5 mb-0 fw-bold">{{ novos_alunos_mes }}</div></div><div class="col-auto"><i class="bi bi-person-plus-fill fs-2 text-white-50"></i></div></div></div></div></a></div>
-    </div>
-    
-    {# Calendário do Admin #}
-    <div class="card shadow-sm mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5>Visão Geral da Agenda</h5>
-            <div class="ms-auto"><select id="professor_calendario_filtro" class="form-select form-select-sm"><option value="">Todos os Professores</option>{% for prof in professores_list %}<option value="{{ prof.id }}">{{ prof.username|title }}</option>{% endfor %}</select></div>
+<div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center bg-light">
+        <h5 class="mb-0">{% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}</h5>
+        {% if user.tipo == 'admin' %}
+        <div class="ms-auto">
+            <select id="professor_calendario_filtro" class="form-select form-select-sm" style="width: 200px;">
+                <option value="">Todos os Professores</option>
+                {% for prof in professores_list %}
+                <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="card-body"><div id='fullcalendar'></div></div>
-    </div>
-    
-    {# Seção de Aulas de Hoje para o Admin #}
-    {# --- SEÇÃO "AULAS DE HOJE" CORRIGIDA PARA ADMIN --- #}
-<div class="card shadow-sm mt-4">
-    <div class="card-header text-center py-3">
-        <h5 class="mb-0">
-            Aulas de Hoje
-            <span class="badge bg-primary rounded-pill align-middle ms-1">{{ aulas_hoje_count }}</span>
-        </h5>
-        <small class="text-muted">
-            {{ today|date:"l, d \d\e F"|capfirst }}
-        </small>
-    </div>
-    <div class="card-body p-0">
-        {% if aulas_do_dia %}
-            {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
-        {% else %}
-            <div class="text-center text-muted p-4">Nenhuma aula agendada para hoje no sistema.</div>
         {% endif %}
     </div>
+    <div class="card-body p-2" id="calendario-wrapper">
+        {% include 'scheduler/partials/calendario_content.html' %}
+    </div>
 </div>
 
-{# --- VISÃO DO PROFESSOR --- #}
-{% else %}
-    {# Cards de Resumo do Professor #}
-    <div class="row">
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card text-bg-info shadow h-100">
-                <div class="card-body">
-                    <div class="row g-0 align-items-center">
-                        <div class="col">
-                            {# --- CORRIGIDO AQUI --- #}
-                            <div class="small fw-bold text-uppercase mb-1">Minhas Aulas Hoje</div>
-                            <div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div>
-                        </div>
-                        <div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card text-bg-primary shadow h-100">
-                <div class="card-body">
-                    <div class="row g-0 align-items-center">
-                        <div class="col">
-                            <div class="small fw-bold text-uppercase mb-1">Minhas Aulas na Semana</div>
-                            <div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div>
-                        </div>
-                        <div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-4 col-md-6 mb-4">
-            <div class="card text-bg-danger shadow h-100">
-                <div class="card-body">
-                    <div class="row g-0 align-items-center">
-                        <div class="col">
-                            <div class="small fw-bold text-uppercase mb-1">Pendentes de Validação</div>
-                            <div class="h3 mb-0 fw-bold">{{ aulas_pendentes_count }}</div>
-                        </div>
-                        <div class="col-auto"><i class="bi bi-exclamation-triangle-fill fs-1 opacity-75"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {# Aulas Pendentes de Validação #}
-    {% if aulas_pendentes_validacao %}
-    <div class="card shadow-sm mb-4 border-danger">
-        <div class="card-header bg-danger text-white"><h5><i class="bi bi-exclamation-triangle-fill"></i> Ação Necessária: Aulas Pendentes de Validação</h5></div>
-        <div class="card-body">
-            <p class="text-muted small">As aulas abaixo já ocorreram mas ainda não tiveram o relatório preenchido.</p>
-            {% include 'scheduler/partials/aula_table.html' with aulas=aulas_pendentes_validacao %}
-        </div>
-    </div>
-    {% endif %}
-
-    {# Calendário do Professor #}
-    <div class="card shadow-sm mb-4">
-        <div class="card-header"><h5>Minha Agenda</h5></div>
-        <div class="card-body"><div id='fullcalendar'></div></div>
-    </div>
-    
-    {# Seção de Aulas de Hoje para o Professor #}
-     <div class="card shadow-sm mb-4">
-        <div class="card-header text-center py-3">
-            <h5 class="mb-0">
-                Minhas Aulas de Hoje
-                <span class="badge bg-primary rounded-pill align-middle ms-1">{{ aulas_hoje_count }}</span>
-            </h5>
-            <small class="text-muted">
-                {{ today|date:"l, d \d\e F"|capfirst }}
-            </small>
-        </div>
-        <div class="card-body p-0">
-            {% if aulas_do_dia %}
-                {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_dia %}
-            {% else %}
-                <div class="text-center text-muted p-4">Você não tem aulas agendadas para hoje.</div>
-            {% endif %}
-        </div>
-    </div>
-{% endif %}
 {% if user.tipo == 'admin' %}
-    <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+<div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="agendamentoModalLabel">Agendar Nova Aula</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            {# Inclui o nosso novo formulário parcial #}
-            {% include 'scheduler/partials/aula_form_content.html' with form=aula_form_modal aluno_formset=aluno_formset_modal professor_formset=professor_formset_modal form_action=form_action_modal %}
-          </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="agendamentoModalLabel">Agendar Nova Aula</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% include 'scheduler/partials/aula_form_content.html' with form=aula_form_modal aluno_formset=aluno_formset_modal professor_formset=professor_formset_modal form_action=form_action_modal %}
+            </div>
         </div>
-      </div>
     </div>
-    {% endif %}
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
-<!-- SCRIPTS NECESSÁRIOS -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.min.js"></script>
+<style>
+    /* Seus estilos CSS permanecem os mesmos, não precisam de alteração. */
+    .calendario-customizado { max-width: 100%; margin: auto; }
+    .calendario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .calendario-dias-semana, .calendario-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .calendario-dias-semana div { text-align: center; font-weight: bold; padding: 0.5rem 0; font-size: 0.9em; }
+    .dia-celula { border: 1px solid #e9ecef; background-color: #fff; min-height: 120px; padding: 5px; transition: background-color 0.2s; cursor: pointer; }
+    .dia-celula:hover { background-color: #f8f9fa; }
+    .dia-celula.fora-do-mes { background-color: #f8f9fa; color: #ccc; pointer-events: none; }
+    .dia-celula.hoje { border: 2px solid var(--bs-primary); }
+    .numero-dia { font-size: 0.8rem; font-weight: bold; }
+    .eventos-dia { margin-top: 5px; }
+    .evento-marcador { display: block; font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; margin-bottom: 3px; color: white; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .status-agendada { background-color: var(--bs-info); }
+    .status-realizada { background-color: var(--bs-success); }
+    .status-cancelada { background-color: var(--bs-danger); }
+    .status-aluno-ausente { background-color: var(--bs-warning); color: #000 !important; }
+    .hover-scale { transition: transform 0.2s ease; }
+    .hover-scale:hover { transform: scale(1.02); }
+    .calendario-dias-semana-mini, .calendario-grid-mini { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+    .calendario-dias-semana-mini div { font-size: 0.8rem; font-weight: bold; color: #6c757d; }
+    .dia-celula-mini { padding: 8px 4px; border-radius: 50%; transition: background-color 0.2s; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
+    .dia-celula-mini.hoje .numero-dia-mini { background-color: var(--bs-primary); color: white; }
+    .dia-celula-mini.dia-ativo { background-color: var(--bs-primary-bg-subtle) !important; border: 1px solid var(--bs-primary); }
+    .dia-celula-mini.fora-do-mes { visibility: hidden; }
+    .numero-dia-mini { font-size: 0.9rem; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; justify-content: center; align-items: center; }
+    .eventos-dia-mini { display: flex; justify-content: center; gap: 3px; height: 5px; margin-top: 2px; }
+    .evento-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .agenda-scroll-container { max-height: 45vh; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; position: relative; }
+    .agenda-data-header { background-color: #f8f9fa; font-weight: bold; color: var(--bs-primary); position: sticky; top: 0; z-index: 10; }
+    .agenda-item { padding-left: 15px; border-left: 5px solid transparent; }
+    .hora-badge { color: white; padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: bold; min-width: 55px; text-align: center; }
+    .popover-header { font-weight: bold; }
+    .popover-body ul { padding-left: 0; list-style: none; margin-bottom: 0; }
+    .popover-body li { display: flex; align-items: center; margin-bottom: 4px; }
+    .popover-event-link:hover { background-color: var(--bs-tertiary-bg); border-radius: 0.3rem; }
+    #page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 1060; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
+    #page-overlay.is-visible { opacity: 1; }
+</style>
+
+{{ request.user.tipo|json_script:"user-type-data" }}
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const calendarEl = document.getElementById('fullcalendar');
-    if (!calendarEl) return;
+document.addEventListener('DOMContentLoaded', function() {
+    // --- 1. DEFINIÇÃO DE CONSTANTES ---
+    const userType = JSON.parse(document.getElementById('user-type-data').textContent);
+    const calendarioWrapper = document.getElementById('calendario-wrapper');
+    const overlay = document.getElementById('page-overlay');
+    const professorFiltro = document.getElementById('professor_calendario_filtro'); // Será null para professores
+    const modalEl = document.getElementById('agendamentoModal'); // Será null para professores
+    
+    if (!calendarioWrapper) return;
 
-    const isMobile = window.innerWidth < 768;
+    let dataAtual = new Date('{{ mes_atual.isoformat }}Z');
 
-    const statusColorMap = {
-        'Realizada': 'success',
-        'Agendada': 'info',
-        'Cancelada': 'danger',
-        'Aluno Ausente': 'warning'
-    };
+    // --- 2. FUNÇÕES DO CALENDÁRIO (COMUNS A AMBOS OS USUÁRIOS) ---
+    
+    function handleDateClick(e) {
+        const diaClicado = e.target.closest('.js-day-cell');
+        if (!diaClicado || e.target.closest('a') || diaClicado.classList.contains('fora-do-mes')) return;
 
-    const toTitleCase = (str) => {
-        if (!str) return '';
-        return str.toLowerCase().split(' ').map(word =>
-            word.charAt(0).toUpperCase() + word.slice(1)
-        ).join(' ');
-    };
+        const data = diaClicado.dataset.date;
+        if (!data) return;
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        themeSystem: 'bootstrap5',
-        initialView: isMobile ? 'listWeek' : 'dayGridMonth',
-        headerToolbar: isMobile
-            ? { left: 'title', center: '', right: 'listWeek,dayGridMonth prev,next' }
-            : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
-
-        views: {
-            dayGridMonth: { titleFormat: { year: 'numeric', month: 'long' } },
-            timeGridWeek: { titleFormat: { day: 'numeric', month: 'short' } },
-            listWeek: { titleFormat: { day: 'numeric', month: 'short' } },
-        },
-
-        locale: 'pt-br',
-        height: 'auto',
-        buttonText: {
-            today: 'Hoje',
-            month: 'Mês',
-            week: 'Semana',
-            day: 'Dia',
-            listWeek: 'Lista'
-        },
-        noEventsContent: "📭 Nenhuma aula encontrada para este período.",
-        allDayText: 'Dia Inteiro',
-
-        eventMouseEnter: function (info) {
-            const status = info.event.extendedProps.status;
-            const badgeClass = statusColorMap[status] || 'secondary';
-            const textColorClass = ['warning', 'info'].includes(badgeClass) ? 'text-dark' : '';
-
-            try {
-                const popover = new bootstrap.Popover(info.el, {
-                    title: toTitleCase(info.event.extendedProps.modalidade || ''),
-                    content: `
-                        <strong>Aluno:</strong> ${toTitleCase(info.event.extendedProps.aluno || '')}<br>
-                        <strong>Status:</strong> <span class="badge ${textColorClass} bg-${badgeClass}">${status}</span><br>
-                        <strong>Prof. Atribuído:</strong> ${toTitleCase(info.event.extendedProps.professor_atribuido || '')}
-                    `,
-                    placement: 'top',
-                    html: true,
-                    container: 'body'
-                });
-                info.el.bsPopover = popover;
-                popover.show();
-            } catch (err) {
-                console.warn("Erro ao exibir popover:", err);
-            }
-        },
-
-        eventMouseLeave: function (info) {
-            try {
-                if (info.el.bsPopover) {
-                    info.el.bsPopover.dispose();
-                    info.el.bsPopover = null;
-                }
-            } catch (err) {
-                console.warn("Erro ao remover popover:", err);
-            }
-        },
-
-        eventClick: function (info) {
-            if (info.event.url) {
-                info.jsEvent.preventDefault();
-                window.location.href = info.event.url;
-            }
-        },
-
-        dateClick: function (info) {
-            {% if user.tipo == 'admin' %}
-            const modalEl = document.getElementById('agendamentoModal');
-            const form = modalEl?.querySelector('form');
-            const inputDataHora = form?.querySelector('#id_data_hora');
-            if (modalEl && form && inputDataHora) {
-                inputDataHora.value = info.dateStr + "T08:00";
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
-            }
-            {% endif %}
-        },
-
-        eventSources: [{
-            url: "{% url 'scheduler:get_eventos_calendario' %}",
-            extraParams: function () {
-                const filtroEl = document.getElementById('professor_calendario_filtro');
-                return { professor_filtro_id: filtroEl?.value || "" };
-            },
-            failure: function () {
-                alert("Erro ao carregar eventos do calendário.");
-            }
-        }]
-    });
-
-    calendar.render();
-
-    // Recarrega eventos ao trocar o filtro (admin)
-    const profFiltroEl = document.getElementById('professor_calendario_filtro');
-    if (profFiltroEl) {
-        profFiltroEl.addEventListener('change', () => calendar.refetchEvents());
-    }
-
-    // MODAL DE AGENDAMENTO E FORMSETS
-    const modalEl = document.getElementById('agendamentoModal');
-    if (modalEl) {
-        const form = modalEl.querySelector('form');
-
-        function resetModalForm() {
-            if (!form) return;
-
-            // 1. Reseta os campos principais (categoria, data, status) para seus valores padrão
-            form.reset();
-
-            // 2. Função interna para limpar e resetar um formset específico
-            function cleanAndResetFormset(containerSelector, templateId, totalFormsSelector) {
-                const container = form.querySelector(containerSelector);
-                const template = document.getElementById(templateId);
-                const totalFormsInput = form.querySelector(totalFormsSelector);
-                if (!container || !template || !totalFormsInput) return;
-
-                // Limpa todas as linhas de formulário que foram adicionadas
-                container.innerHTML = '';
-
-                // Adiciona uma única linha nova e vazia a partir do template
-                const newFormHtml = template.innerHTML.replace(/__prefix__/g, 0);
-                container.insertAdjacentHTML('beforeend', newFormHtml);
-                
-                // Reseta a contagem de formulários para 1
-                totalFormsInput.value = 1;
-            }
-
-            // 3. Executa a limpeza para alunos e professores
-            cleanAndResetFormset('#aluno-forms', 'empty-form-alunos', '#id_alunos-TOTAL_FORMS');
-            cleanAndResetFormset('#professor-forms', 'empty-form-professores', '#id_professores-TOTAL_FORMS');
-
-            // 4. Reavalia a visibilidade dos formsets (para o caso de "Atividade Complementar")
-            toggleFormsetsInModal();
-
-            // 5. Limpa qualquer mensagem de erro que tenha ficado
-            const errorDiv = form.querySelector('#modal-errors');
-            if (errorDiv) {
-                errorDiv.innerHTML = '';
-                errorDiv.style.display = 'none';
-            }
+        // Se o dia tem um popover, o trigger 'focus' do Bootstrap já cuida disso
+        if (diaClicado.hasAttribute('data-bs-toggle')) {
+            diaClicado.focus();
+            return;
         }
 
-        const errorDiv = modalEl.querySelector('#modal-errors');
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        // Se é um dia VAZIO, a ação depende do tipo de usuário
+        if (userType === 'admin' && modalEl) {
+            const inputDataHora = modalEl.querySelector('#id_data_hora');
+            if (inputDataHora) {
+                inputDataHora.value = data + "T09:00";
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+        }
+        // Se for professor, nada acontece ao clicar em um dia vazio, como solicitado.
+    }
 
-        if (form) {
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
+    function inicializarPopovers() {
+        [...calendarioWrapper.querySelectorAll('[data-bs-toggle="popover"]')].forEach(el => {
+            const instance = bootstrap.Popover.getInstance(el);
+            if (instance) instance.dispose();
+            new bootstrap.Popover(el, { html: true, sanitize: false, content: () => el.querySelector('.popover-content')?.innerHTML || '', trigger: 'focus' });
+        });
+    }
+    
+    function setupCalendarInteractions() {
+        inicializarPopovers();
+        calendarioWrapper.removeEventListener('click', handleDateClick); 
+        calendarioWrapper.addEventListener('click', handleDateClick);
+    }
+
+    function carregarCalendario(ano, mes) {
+        calendarioWrapper.style.opacity = '0.5';
+        const professorId = (userType === 'admin' && professorFiltro) ? professorFiltro.value : '';
+        const url = `{% url 'scheduler:get_calendario_html' %}?year=${ano}&month=${mes}&professor_filtro_id=${professorId}`;
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                calendarioWrapper.innerHTML = html;
+                calendarioWrapper.style.opacity = '1';
+                associarEventosNavegacao(); 
+                setupCalendarInteractions();
+            });
+    }
+
+    function associarEventosNavegacao() {
+        const acaoNavegacao = (deslocamento) => {
+            const popoverAberto = document.querySelector('.popover');
+            if(popoverAberto) bootstrap.Popover.getInstance(document.querySelector('[aria-describedby="' + popoverAberto.id + '"]')).hide();
+            dataAtual.setMonth(dataAtual.getMonth() + deslocamento);
+            carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+        };
+        calendarioWrapper.querySelector('#cal-prev')?.addEventListener('click', () => acaoNavegacao(-1));
+        calendarioWrapper.querySelector('#cal-next')?.addEventListener('click', () => acaoNavegacao(1));
+        calendarioWrapper.querySelector('#cal-prev-mobile')?.addEventListener('click', () => acaoNavegacao(-1));
+        calendarioWrapper.querySelector('#cal-next-mobile')?.addEventListener('click', () => acaoNavegacao(1));
+    }
+
+        // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO ---
+        function setupModalInteractions() {
+            if (!modalEl) return;
+            const form = modalEl.querySelector('form');
+            if (!form) return;
+
+            function setupFormset(buttonId, containerId, templateId, prefix) {
+                const addButton = modalEl.querySelector(`#${buttonId}`);
+                addButton?.addEventListener('click', function() {
+                    const container = modalEl.querySelector(`#${containerId}`);
+                    const template = document.getElementById(templateId);
+                    const totalFormsInput = modalEl.querySelector(`#id_${prefix}-TOTAL_FORMS`);
+                    if (!container || !template || !totalFormsInput) return;
+                    const count = parseInt(totalFormsInput.value);
+                    container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__prefix__/g, count));
+                    totalFormsInput.value = count + 1;
+                });
+            }
+            setupFormset('add-aluno-form', 'aluno-forms', 'empty-form-alunos', 'alunos');
+            setupFormset('add-professor-form', 'professor-forms', 'empty-form-professores', 'professores');
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
                 const formData = new FormData(form);
                 const errorDiv = form.querySelector('#modal-errors');
-
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
+                errorDiv.innerHTML = ''; errorDiv.style.display = 'none';
+                fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        modal.hide(); // Esconde o modal
-                        calendar.refetchEvents();
-                    } else if (data.errors && errorDiv) {
-                        errorDiv.innerHTML = data.errors.map(err => `
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                              ${err}
-                              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `).join('');
+                        bootstrap.Modal.getInstance(modalEl).hide();
+                        carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+                    } else {
+                        errorDiv.innerHTML = data.errors.map(err => `<div class="alert alert-danger mb-2 p-2">${err}</div>`).join('');
+                        errorDiv.style.display = 'block';
                     }
-                })
-                .catch(err => {
-                    if (errorDiv) {
-                        errorDiv.innerHTML = `<div class="alert alert-danger">Erro ao enviar o formulário.</div>`;
-                    }
-                    console.error("Erro AJAX:", err);
                 });
             });
-
-            // ----- FORMSETS -----
-            function setupFormset(buttonId, containerId, totalFormsId, emptyFormId, prefix) {
-                const addButton = document.getElementById(buttonId);
-                const container = document.getElementById(containerId);
-                const totalForms = document.getElementById(totalFormsId);
-                const emptyFormTemplate = document.getElementById(emptyFormId);
-
-                if (!addButton || !container || !totalForms || !emptyFormTemplate) return;
-
-                addButton.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const formIndex = parseInt(totalForms.value);
-                    const newFormHtml = emptyFormTemplate.innerHTML.replace(/__prefix__/g, formIndex);
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = newFormHtml;
-                    container.appendChild(tempDiv.firstElementChild);
-                    totalForms.value = formIndex + 1;
-                });
-            }
-
-            function toggleFormsets() {
-                const checkRecorrente = document.getElementById('id_recorrente_mensal');
-                const avisoRecorrente = document.getElementById('aviso-recorrente');
-                if (checkRecorrente && avisoRecorrente) {
-                    checkRecorrente.addEventListener('change', function () {
-                        avisoRecorrente.classList.toggle('d-none', !this.checked);
-                    });
-                }
-            }
-
-            setupFormset('add-aluno-form', 'aluno-formset-container', 'id_alunos-TOTAL_FORMS', 'empty-form-alunos', 'alunos');
-            setupFormset('add-professor-form', 'professor-formset-container', 'id_professores-TOTAL_FORMS', 'empty-form-professores', 'professores');
-            
-
-            // Função para habilitar/desabilitar um container de formset
-        function setContainerEnabled(container, isEnabled) {
-            if (!container) return;
-            container.style.display = isEnabled ? 'block' : 'none';
-            // Desabilita/habilita os inputs para que não sejam enviados com o form
-            container.querySelectorAll('select, input[type="checkbox"]').forEach(input => {
-                input.disabled = !isEnabled;
-            });
+            modalEl.addEventListener('hidden.bs.modal', () => form.reset());
         }
 
-        // Função para mostrar/esconder os formsets baseado na categoria
-        function toggleFormsetsInModal() {
-            // Seleciona os elementos DENTRO do modal
-            const modalidadeSelect = modalEl.querySelector('#id_modalidade');
-            if (!modalidadeSelect) return;
-            
-            const alunosContainer = modalEl.querySelector('#aluno-formset-container');
-            const professoresContainer = modalEl.querySelector('#professor-formset-container');
-            
-            // Pega o texto da opção selecionada para a verificação
-            const selectedOptionText = modalidadeSelect.options[modalidadeSelect.selectedIndex].text.toLowerCase();
-            
-            if (selectedOptionText.includes('atividade complementar')) {
-                setContainerEnabled(alunosContainer, false); // Esconde e desabilita alunos
-                setContainerEnabled(professoresContainer, true);
-            } else {
-                setContainerEnabled(alunosContainer, true); // Mostra e habilita alunos para outras categorias
-                setContainerEnabled(professoresContainer, true);
-            }
-        }
+        // --- 4. INICIALIZAÇÃO GERAL ---
+    associarEventosNavegacao();
+    setupCalendarInteractions();
 
-        // Adiciona o 'escutador' de eventos ao select de modalidade
-        const modalidadeSelectEl = modalEl.querySelector('#id_modalidade');
-        if (modalidadeSelectEl) {
-            modalidadeSelectEl.addEventListener('change', toggleFormsetsInModal);
-        }
-
-        // Garante que o estado correto seja exibido sempre que o modal for aberto
-        modalEl.addEventListener('show.bs.modal', function () {
-            toggleFormsetsInModal();
+    if (userType === 'admin') {
+        setupModalInteractions();
+        professorFiltro?.addEventListener('change', () => {
+             carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
         });
-
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            resetModalForm();
-        });
-        }
+    }
+    
+    if (overlay) {
+        calendarioWrapper.addEventListener('show.bs.popover', () => overlay.classList.add('is-visible'));
+        calendarioWrapper.addEventListener('hide.bs.popover', () => overlay.classList.remove('is-visible'));
     }
 });
 </script>

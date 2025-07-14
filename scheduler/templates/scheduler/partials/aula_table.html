@@ -1,10 +1,10 @@
-{% comment %} scheduler/templates/scheduler/partials/aula_table.html (VERSÃO FINAL) {% endcomment %}
+{% comment %} scheduler/templates/scheduler/partials/aula_table.html (VERSÃO SUPER TURBINADA) {% endcomment %}
 
 {% if not aulas %}
     <div class="text-center text-muted p-4">Nenhuma aula encontrada.</div>
 {% else %}
 
-{# --- 1. VISÃO DE DESKTOP: A Tabela Tradicional --- #}
+{# --- 1. VISÃO DE DESKTOP --- #}
 <div class="d-none d-lg-block">
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -13,54 +13,153 @@
                     <th scope="col">Aluno(s)</th>
                     <th scope="col">Categoria</th>
                     <th scope="col">Prof. Atribuído(s)</th>
-                    <th scope="col">Prof. Realizou</th>
+                    <th scope="col">Status</th>
                     <th scope="col">Data e Hora</th>
-                    <th scope="col" class="text-center">Status</th>
-                    <th scope="col" class="text-end">Ações</th>
+                    <th scope="col" class="text-center">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for aula in aulas %}
-                <tr>
-                    <td>{% for aluno in aula.alunos.all %}<a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="fw-bold">{{ aluno.nome_completo|title }}</a>{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted">--</span>{% endfor %}</td>
-                    <td>{{ aula.modalidade.nome|title }}</td>
+                <tr class="{% if aula.status == 'Cancelada' %}table-secondary{% elif aula.status == 'Aluno Ausente' %}table-warning{% endif %}">
                     <td>
-                        {% for professor in aula.professores.all %}
-                            {% if professor == request.user %}<span class="fw-bold">Eu</span>{% else %}{% if user.tipo == 'admin' %}<a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>{% else %}{{ professor.username|title }}{% endif %}{% endif %}{% if not forloop.last %}<br>{% endif %}
+                        {% for aluno in aula.alunos.all %}
+                            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="fw-bold d-inline-flex align-items-center">
+                                {{ aluno.nome_completo|title }}
+                                {% if aula.status == 'Aluno Ausente' %}
+                                    <i class="bi bi-exclamation-triangle-fill text-warning ms-2" data-bs-toggle="tooltip" title="Aluno ausente"></i>
+                                {% endif %}
+                            </a>
+                            {% if not forloop.last %}<br>{% endif %}
                         {% empty %}
-                            <span class="text-muted small">Não Atribuído</span>
+                            <span class="text-muted">--</span>
                         {% endfor %}
                     </td>
-                    <td>
-                        {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
-                            {% with professor_realizou=aula.relatorioaula.professor_que_validou %}
-                                {% if professor_realizou == request.user %}<span class="fw-bold">Eu</span>{% else %}{% if user.tipo == 'admin' %}<a href="{% url 'scheduler:professor_detalhe' professor_realizou.pk %}">{{ professor_realizou.username|title }}</a>{% else %}{{ professor_realizou.username|title }}{% endif %}{% endif %}
-                            {% endwith %}
+                    
+                    <td>{{ aula.modalidade.nome|title }}</td>
+                    
+                    <td class="align-top">
+                        {# --- LÓGICA AVANÇADA DE EXIBIÇÃO --- #}
+                        {% if "atividade complementar" in aula.modalidade.nome|lower %}
+                            {# Para ACs - Versão com tooltips e badges #}
+                            <div class="d-flex flex-column gap-1">
+                                {% for presenca in aula.presencas_professores.all %}
+                                    <div class="d-flex align-items-center">
+                                        {% if presenca.status == 'ausente' %}
+                                            <span class="badge text-bg-light border border-warning text-warning d-inline-flex align-items-center py-1 hover-grow"
+                                                  data-bs-toggle="tooltip" title="Professor ausente">
+                                                <i class="bi bi-person-x-fill me-1"></i>
+                                                <span class="text-decoration-line-through">{{ presenca.professor.username|title }}</span>
+                                            </span>
+                                        {% else %}
+                                            {% if user.tipo == 'admin' %}
+                                                <a href="{% url 'scheduler:professor_detalhe' presenca.professor.pk %}" 
+                                                   class="badge text-bg-light border border-success text-success d-inline-flex align-items-center py-1 hover-grow"
+                                                   data-bs-toggle="tooltip" title="Professor presente">
+                                                    <i class="bi bi-person-check-fill me-1"></i>
+                                                    {{ presenca.professor.username|title }}
+                                                </a>
+                                            {% else %}
+                                                <span class="badge text-bg-light border border-success text-success d-inline-flex align-items-center py-1">
+                                                    <i class="bi bi-person-check-fill me-1"></i>
+                                                    {{ presenca.professor.username|title }}
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <span class="text-muted small">Nenhum participante</span>
+                                {% endfor %}
+                            </div>
                         {% else %}
-                            <span class="text-muted small">Aguardando</span>
+                            {# Aulas normais - Versão turbinada #}
+                            <div class="d-flex flex-column gap-1">
+                                {% for prof in aula.professores.all %}
+                                    {% if user.tipo == 'admin' %}
+                                        <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" 
+                                           class="badge text-bg-secondary opacity-75 hover-grow d-inline-flex align-items-center py-1"
+                                           data-bs-toggle="tooltip" title="Professor designado">
+                                            <i class="bi bi-person-fill me-1"></i>
+                                            {{ prof.username|title }}
+                                        </a>
+                                    {% else %}
+                                        <span class="badge text-bg-secondary opacity-75 d-inline-flex align-items-center py-1">
+                                            <i class="bi bi-person-fill me-1"></i>
+                                            {{ prof.username|title }}
+                                        </span>
+                                    {% endif %}
+                                {% empty %}
+                                    <span class="text-muted small">Não Atribuído</span>
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </td>
+                    
+                    {# --- COLUNA DE STATUS UNIFICADA (com realização/substituição) --- #}
+                    <td class="align-middle">
+                        <div class="d-flex flex-column gap-2">
+                            {# Badge de Status Principal #}
+                            {% if aula.status == 'Realizada' %}
+                                {% if aula.foi_substituida %}
+                                    <span class="badge text-bg-secondary shake-on-hover"
+                                          data-bs-toggle="tooltip" title="Aula realizada por substituto">
+                                        <i class="bi bi-arrow-repeat me-1"></i>
+                                        Substituído
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-success pulse-once"
+                                          data-bs-toggle="tooltip" title="Aula concluída conforme planejado">
+                                        <i class="bi bi-check-circle-fill me-1"></i>
+                                        Realizada
+                                    </span>
+                                {% endif %}
+                            {% elif aula.status == 'Agendada' %}
+                                <span class="badge text-bg-info pulse-slow"
+                                      data-bs-toggle="tooltip" title="Aula agendada">
+                                    <i class="bi bi-clock-history me-1"></i>
+                                    Agendada
+                                </span>
+                            {% elif aula.status == 'Cancelada' %}
+                                <span class="badge text-bg-danger"
+                                      data-bs-toggle="tooltip" title="Aula cancelada">
+                                    <i class="bi bi-x-circle-fill me-1"></i>
+                                    Cancelada
+                                </span>
+                            {% elif aula.status == 'Aluno Ausente' %}
+                                <span class="badge text-bg-warning"
+                                      data-bs-toggle="tooltip" title="Aluno não compareceu">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    Aluno Ausente
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">{{ aula.status }}</span>
+                            {% endif %}
+                            
+                            {# Info de Realização (quando aplicável) #}
+                            {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
+                                <div class="d-flex align-items-center gap-1">
+                                    <small class="text-muted">Por:</small>
+                                    {% if aula.relatorioaula.professor_que_validou in aula.professores.all %}
+                                        <span class="badge text-bg-success">
+                                            {{ aula.relatorioaula.professor_que_validou.username|title }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge text-bg-secondary">
+                                            {{ aula.relatorioaula.professor_que_validou.username|title }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% elif aula.status != 'Cancelada' and aula.status != 'Aluno Ausente' and not aula.relatorioaula.professor_que_validou %}
+                                <span class="badge text-bg-info pulse-slow">
+                                    <i class="bi bi-hourglass-split me-1"></i>
+                                    Aguardando
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    
                     <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
                     
-                    {# --- LÓGICA DE STATUS CORRIGIDA E SIMPLIFICADA --- #}
-                    <td class="text-center">
-                        {% if aula.status == 'Realizada' %}
-                            {% if aula.foi_substituida %}
-                                <span class="badge bg-light border text-dark" title="Realizada por um substituto">Substituído</span>
-                            {% else %}
-                                <span class="badge bg-success">Realizada</span>
-                            {% endif %}
-                        {% elif aula.status == 'Agendada' %}
-                            <span class="badge bg-info text-dark">Agendada</span>
-                        {% elif aula.status == 'Cancelada' %}
-                            <span class="badge bg-danger">Cancelada</span>
-                        {% elif aula.status == 'Aluno Ausente' %}
-                            <span class="badge bg-warning text-dark">Aluno Ausente</span>
-                        {% else %}
-                            <span class="badge bg-secondary">{{ aula.status }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-end">{% include 'scheduler/partials/aula_actions.html' with aula=aula %}</td>
+                    <td class="text-center">{% include 'scheduler/partials/aula_actions.html' with aula=aula %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -68,41 +167,153 @@
     </div>
 </div>
 
-{# --- 2. VISÃO DE MOBILE: Lista de Cards --- #}
+{# --- 2. VISÃO DE MOBILE --- #}
 <div class="d-lg-none">
     {% for aula in aulas %}
-        <div class="card shadow-sm mb-3">
+        <div class="card shadow-sm mb-3 border-start border-5 
+                    {% if aula.status == 'Realizada' %}border-success
+                    {% elif aula.status == 'Cancelada' %}border-danger
+                    {% elif aula.status == 'Aluno Ausente' %}border-warning
+                    {% elif aula.status == 'Agendada' %}border-info
+                    {% else %}border-secondary{% endif %}">
+            
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="mb-0">{{ aula.modalidade.nome|title }}</h5>
+                    <h5 class="mb-1">
+                        {% for aluno in aula.alunos.all %}
+                            {{ aluno.nome_completo|title }}
+                            {% if aula.status == 'Aluno Ausente' %}
+                                <i class="bi bi-exclamation-triangle-fill text-warning ms-1"></i>
+                            {% endif %}
+                            {% if not forloop.last %}, {% endif %}
+                        {% empty %}
+                            {{ aula.modalidade.nome|title }}
+                        {% endfor %}
+                    </h5>
                     <small class="text-muted">{{ aula.data_hora|date:"d/m/Y, H:i" }}</small>
                 </div>
-                {# --- LÓGICA DE STATUS CORRIGIDA E SIMPLIFICADA (MOBILE) --- #}
+                
+                {# Badge de Status #}
                 {% if aula.status == 'Realizada' %}
                     {% if aula.foi_substituida %}
-                        <span class="badge bg-light border text-dark">Substituído</span>
+                        <span class="badge text-bg-warning shake-on-hover">
+                            <i class="bi bi-arrow-repeat me-1"></i>
+                            Substituído
+                        </span>
                     {% else %}
-                        <span class="badge bg-success">Realizada</span>
+                        <span class="badge text-bg-success pulse-once">
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            Realizada
+                        </span>
                     {% endif %}
                 {% elif aula.status == 'Agendada' %}
-                    <span class="badge bg-info text-dark">Agendada</span>
+                    <span class="badge text-bg-info pulse-slow">
+                        <i class="bi bi-clock-history me-1"></i>
+                        Agendada
+                    </span>
                 {% elif aula.status == 'Cancelada' %}
-                    <span class="badge bg-danger">Cancelada</span>
+                    <span class="badge text-bg-danger">
+                        <i class="bi bi-x-circle-fill me-1"></i>
+                        Cancelada
+                    </span>
                 {% elif aula.status == 'Aluno Ausente' %}
-                    <span class="badge bg-warning text-dark">Aluno Ausente</span>
+                    <span class="badge text-bg-warning">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        Aluno Ausente
+                    </span>
                 {% else %}
-                    <span class="badge bg-secondary">{{ aula.status }}</span>
+                    <span class="badge text-bg-secondary">{{ aula.status }}</span>
                 {% endif %}
             </div>
+            
             <div class="card-body small">
-                <p class="mb-2"><strong>Aluno(s):</strong> {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">N/A</span>{% endfor %}</p>
-                <p class="mb-2"><strong>Atribuído a:</strong> {% for prof in aula.professores.all %}{% if prof == request.user %}Eu{% else %}{{ prof.username|title }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">N/A</span>{% endfor %}</p>
-                {% if aula.status == 'Realizada' %}
-                <p class="mb-0"><strong>Realizado por:</strong> {% if aula.relatorioaula.professor_que_validou %}{% if aula.relatorioaula.professor_que_validou == request.user %}Eu{% else %}{{ aula.relatorioaula.professor_que_validou.username|title }}{% endif %}{% else %}<span class="text-muted">N/A</span>{% endif %}</p>
+                <p class="mb-2"><strong>Categoria:</strong> {{ aula.modalidade.nome|title }}</p>
+                
+                {# Professores - Versão Mobile #}
+                <div class="mb-2">
+                    <strong>Atribuído a:</strong>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        {% for prof in aula.professores.all %}
+                            <span class="badge text-bg-secondary opacity-75">
+                                <i class="bi bi-person-fill me-1"></i>
+                                {{ prof.username|title }}
+                            </span>
+                        {% empty %}
+                            <span class="text-muted small">N/A</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                {# Status Detalhado #}
+                {% if aula.status == 'Realizada' and aula.relatorioaula.professor_que_validou %}
+                    <p class="mb-1"><strong>Realizado por:</strong> 
+                        {% if aula.relatorioaula.professor_que_validou in aula.professores.all %}
+                            <span class="badge text-bg-success">
+                                {{ aula.relatorioaula.professor_que_validou.username|title }}
+                            </span>
+                        {% else %}
+                            <span class="badge text-bg-warning">
+                                {{ aula.relatorioaula.professor_que_validou.username|title }}
+                            </span>
+                        {% endif %}
+                    </p>
+                {% elif aula.status != 'Cancelada' and aula.status != 'Aluno Ausente' %}
+                    <p class="mb-0"><strong>Status:</strong> 
+                        <span class="badge text-bg-info pulse-slow">
+                            <i class="bi bi-hourglass-split me-1"></i>
+                            Aguardando
+                        </span>
+                    </p>
                 {% endif %}
             </div>
-            <div class="card-footer text-end">{% include 'scheduler/partials/aula_actions.html' with aula=aula %}</div>
+            
+            <div class="card-footer text-end">
+                {% include 'scheduler/partials/aula_actions.html' with aula=aula %}
+            </div>
         </div>
     {% endfor %}
 </div>
+
+{# CSS e JavaScript necessários #}
+<style>
+    .hover-grow {
+        transition: transform 0.2s ease;
+    }
+    .hover-grow:hover {
+        transform: scale(1.05);
+    }
+    .pulse-once {
+        animation: pulse 1s ease-in-out;
+    }
+    .pulse-slow {
+        animation: pulse 2s infinite;
+    }
+    .shake-on-hover:hover {
+        animation: shake 0.5s;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+    }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-3px); }
+        40%, 80% { transform: translateX(3px); }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializa tooltips
+    const tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(el => new bootstrap.Tooltip(el));
+    
+    // Efeito de atualização
+    document.querySelectorAll('.status-updated').forEach(el => {
+        el.classList.add('status-updated-highlight');
+        setTimeout(() => el.classList.remove('status-updated-highlight'), 1000);
+    });
+});
+</script>
 {% endif %}

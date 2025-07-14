@@ -68,7 +68,7 @@
     <div class="col-lg col-md-4 mb-4">
         <div class="card text-bg-warning shadow h-100">
             <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Ausências</div><div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
+                <div class="small fw-bold text-uppercase mb-1">Ausências de Alunos</div><div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
             </div><div class="col-auto"><i class="bi bi-person-x fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
@@ -86,6 +86,12 @@
             </div><div class="col-auto"><i class="bi bi-person-dash fs-1 opacity-75"></i></div></div></div>
         </div>
     </div>
+    <div class="col-lg col-md-6 mb-4">
+        <div class="card text-bg-secondary shadow h-100">
+            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
+                <div class="small fw-bold text-uppercase mb-1">Ausências do Professor</div><div class="h4 mb-0 fw-bold">{{ total_ausencias_professor }}</div>
+            </div><div class="col-auto"><i class="bi bi-journal-text fs-1 opacity-75"></i></div></div></div>
+        </div>
 </div>
 
 <div class="row mb-4">
@@ -153,40 +159,31 @@
 
 {% block extra_js %}
 {{ block.super }}
+
+{{ chart_labels|json_script:"chart-labels-data" }}
+{{ chart_data|json_script:"chart-data-data" }}
+
 <script>
 // Script para renderizar o gráfico de status de aulas
 document.addEventListener('DOMContentLoaded', function() {
+    const labels = JSON.parse(document.getElementById('chart-labels-data').textContent);
+    const data = JSON.parse(document.getElementById('chart-data-data').textContent);
+
     const ctx = document.getElementById('statusChart');
     if (ctx) {
         new Chart(ctx, {
             type: 'bar',
             data: {
-                // --- ATUALIZAÇÃO DOS LABELS ---
-                labels: ['Realizadas por Mim', 'Agendadas', 'Ausências', 'Canceladas', 'Substituído'],
+                labels: labels, // Usa a variável JS segura
                 datasets: [{
                     label: 'Total de Aulas',
-                    // --- ATUALIZAÇÃO DOS DADOS ---
-                    data: [
-                        {{ total_realizadas }}, 
-                        {{ total_agendadas }},
-                        {{ total_aluno_ausente }},
-                        {{ total_canceladas }},
-                        {{ total_substituido }} // <-- Novo dado
-                    ],
-                    // --- ATUALIZAÇÃO DAS CORES ---
+                    data: data, // Usa a variável JS segura
                     backgroundColor: [
-                        'rgba(25, 135, 84, 0.7)',  // Verde
-                        'rgba(13, 202, 240, 0.7)',  // Azul
-                        'rgba(255, 193, 7, 0.7)',   // Amarelo
-                        'rgba(220, 53, 69, 0.7)',    // Vermelho
-                        'rgba(211, 211, 211, 0.7)'     // Cinza claro para 'Substituído'
-                    ],
-                    borderColor: [
-                        'rgba(25, 135, 84, 1)',
-                        'rgba(13, 202, 240, 1)',
-                        'rgba(255, 193, 7, 1)',
-                        'rgba(220, 53, 69, 1)',
-                        'rgba(170, 170, 170, 1)' // Borda cinza
+                        'rgba(25, 135, 84, 0.7)',
+                        'rgba(13, 202, 240, 0.7)',
+                        'rgba(255, 193, 7, 0.7)',
+                        'rgba(220, 53, 69, 0.7)',
+                        'rgba(108, 117, 125, 0.7)' // Cinza para 'Substituído'
                     ],
                     borderWidth: 1
                 }]
@@ -195,17 +192,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false // Esconde a legenda, pois as cores são autoexplicativas
-                    }
+                    legend: { display: false }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        ticks: {
-                            // Garante que o eixo Y só mostre números inteiros
-                            stepSize: 1 
-                        }
+                        ticks: { stepSize: 1 }
                     }
                 }
             }

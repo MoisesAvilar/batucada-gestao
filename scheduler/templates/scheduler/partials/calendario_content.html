@@ -1,0 +1,148 @@
+<div class="calendario-customizado d-none d-lg-block">
+    <div class="calendario-header">
+        <button id="cal-prev" class="btn btn-outline-secondary">&lt;</button>
+        <h4 id="cal-month-year">{{ mes_atual|date:"F Y"|capfirst }}</h4>
+        <button id="cal-next" class="btn btn-outline-secondary">&gt;</button>
+    </div>
+    <div class="calendario-dias-semana">
+        <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+    </div>
+    <div class="calendario-grid">
+        {% for semana in calendario_mes %}
+            {% for dia_info in semana %}
+                {% with dia=dia_info.dia aulas=dia_info.aulas %}
+                    <div class="dia-celula js-day-cell {% if dia == 0 %}fora-do-mes{% endif %} {% if dia == today.day and mes_atual.month == today.month and mes_atual.year == today.year %}hoje{% endif %}"
+                         {% if dia != 0 %}data-date="{{ mes_atual|date:'Y-m-' }}{{ dia|stringformat:'02d' }}"{% endif %}
+                         {% if aulas %}
+                             role="button"
+                             tabindex="0"
+                             data-bs-toggle="popover" 
+                             data-bs-title="Aulas dia {{ dia }}"
+                         {% endif %}>
+                        
+                        {% if dia != 0 %}
+                            <div class="numero-dia">{{ dia }}</div>
+                            <div class="eventos-dia">
+                                {% for aula in dia_info.aulas %}
+                                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="evento-marcador status-{{ aula.status|slugify }}" title="{{ aula.modalidade.nome }} com {{ aula.alunos.first.nome_completo|default:'N/A' }}">
+                                        {{ aula.modalidade.nome|slice:":10" }}
+                                    </a>
+                                {% endfor %}
+                            </div>
+
+                            {% if aulas %}
+                            <div class="popover-content d-none">
+                                <ul class="list-unstyled mb-0">
+                                    {% for aula in aulas %}
+                                        <li>
+                                            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset w-100 p-1 popover-event-link">
+                                                <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
+                                                <span class="ms-2">
+                                                {% if aula.alunos.all|length == 1 %}{{ aula.alunos.first.nome_completo|truncatewords:2 }}
+                                                {% elif aula.alunos.all|length > 1 %}Grupo: {{ aula.alunos.all|length }} alunos
+                                                {% else %}{{ aula.modalidade.nome }}{% endif %}
+                                                </span>
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                {% endwith %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+<div class="calendario-hibrido-mobile d-lg-none">
+    <div class="calendario-header">
+        <button id="cal-prev-mobile" class="btn btn-outline-secondary">&lt;</button>
+        <h4 id="cal-month-year-mobile">{{ mes_atual|date:"F Y"|capfirst }}</h4>
+        <button id="cal-next-mobile" class="btn btn-outline-secondary">&gt;</button>
+    </div>
+
+    <div class="mini-grid mt-3">
+        <div class="calendario-dias-semana-mini">
+            <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+        </div>
+        <div class="calendario-grid-mini">
+            {% for semana in calendario_mes %}
+                {% for dia_info in semana %}
+                    {% with dia=dia_info.dia aulas=dia_info.aulas %}
+                        <div 
+                            class="dia-celula-mini js-day-cell {% if dia == 0 %}fora-do-mes{% endif %} {% if dia == today.day and mes_atual.month == today.month and mes_atual.year == today.year %}hoje{% endif %}"
+                            {% if dia != 0 %}data-date="{{ mes_atual|date:'Y-m-' }}{{ dia|stringformat:'02d' }}"{% endif %}
+                            {% if aulas %}
+                                tabindex="0"
+                                role="button"
+                                data-bs-toggle="popover" 
+                                data-bs-title="Aulas dia {{ dia }}"
+                            {% endif %}>
+                            
+                            {% if dia != 0 %}
+                                <span class="numero-dia-mini">{{ dia }}</span>
+                                <div class="eventos-dia-mini">
+                                    {% for aula in aulas|slice:":3" %}
+                                        <div class="evento-dot status-{{ aula.status|slugify }}"></div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if aulas %}
+                                <div class="popover-content d-none">
+                                    <ul class="list-unstyled mb-0">
+                                        {% for aula in aulas %}
+                                            <li>
+                                                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset w-100 p-1 popover-event-link">
+                                                    <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
+                                                    <span class="ms-2">
+                                                    {% if aula.alunos.all|length == 1 %}{{ aula.alunos.first.nome_completo|truncatewords:2 }}
+                                                    {% elif aula.alunos.all|length > 1 %}Grupo: {{ aula.alunos.all|length }} alunos
+                                                    {% else %}{{ aula.modalidade.nome }}{% endif %}
+                                                    </span>
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% endwith %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="agenda-scroll-container mt-3">
+        <div class="list-group list-group-flush" id="agenda-mobile-container">
+            {% for aula in aulas_do_mes_lista %}
+                {% ifchanged aula.data_hora.date %}
+                    <div class="list-group-item agenda-data-header" id="agenda-{{ aula.data_hora|date:'Y-m-d' }}">
+                        {{ aula.data_hora|date:"l, d \d\e F"|capfirst }}
+                    </div>
+                {% endifchanged %}
+                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action agenda-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
+                            <span class="ms-2">
+                                {% if aula.alunos.all|length == 1 %}{{ aula.alunos.first.nome_completo|truncatewords:2 }}
+                                {% elif aula.alunos.all|length > 1 %}Grupo: {{ aula.alunos.all|length }} alunos
+                                {% else %}{{ aula.modalidade.nome }}{% endif %}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            {% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                        </small>
+                    </div>
+                </a>
+            {% empty %}
+                <div class="list-group-item text-center text-muted p-4">
+                    Nenhuma aula encontrada para este mês.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

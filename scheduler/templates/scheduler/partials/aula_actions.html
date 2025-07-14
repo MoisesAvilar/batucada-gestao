@@ -8,11 +8,11 @@
     <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
         <i class="bi bi-file-earmark-text"></i>
     </a>
-    <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
+    <button type="button" class="btn btn-sm btn-outline-danger delete-button" title="Excluir Aula"
             data-bs-toggle="modal" 
             data-bs-target="#confirmDeleteModal"
             data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
-        Excluir
+        <i class="bi bi-trash"></i>
     </button>
 
 {# Lógica para o usuário PROFESSOR #}

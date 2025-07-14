@@ -11,7 +11,8 @@ from .models import (
     ItemRudimento,
     ItemRitmo,
     ItemVirada,
-    PresencaAluno
+    PresencaAluno,
+    PresencaProfessor
 )
 
 
@@ -262,11 +263,8 @@ class PresencaAlunoForm(forms.ModelForm):
     """ Formulário para um único registro de presença de aluno. """
     class Meta:
         model = PresencaAluno
-        fields = ['aluno', 'status']
+        fields = ['status']
         widgets = {
-            # Oculta o campo do aluno, pois já vamos exibi-lo como texto
-            'aluno': forms.HiddenInput(),
-            # Usa botões de rádio para uma melhor UX
             'status': forms.RadioSelect(attrs={'class': 'form-check-input'}),
         }
 
@@ -276,5 +274,22 @@ PresencaAlunoFormSet = modelformset_factory(
     PresencaAluno,
     form=PresencaAlunoForm,
     extra=0, # Não mostra formulários em branco por padrão
+    can_delete=False
+)
+
+
+class PresencaProfessorForm(forms.ModelForm):
+    """ Formulário para um único registro de presença de professor. """
+    class Meta:
+        model = PresencaProfessor
+        fields = ['status']
+        widgets = {
+            'status': forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        }
+
+PresencaProfessorFormSet = modelformset_factory(
+    PresencaProfessor,
+    form=PresencaProfessorForm,
+    extra=0,
     can_delete=False
 )

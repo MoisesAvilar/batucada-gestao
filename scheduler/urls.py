@@ -6,6 +6,7 @@ app_name = 'scheduler'
 urlpatterns = [
     # Página inicial/dashboard que será diferente para admin e professor
     path('', views.dashboard, name='dashboard'),
+    path("get_calendario_html/", views.get_calendario_html, name="get_calendario_html"),
 
     # --- URLs para Gestão de Aulas ---
     path('aulas/', views.listar_aulas, name='aula_listar'),

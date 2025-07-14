@@ -89,8 +89,13 @@ class Aula(models.Model):
     def foi_substituida(self):
         """
         Verifica se a aula foi realizada por um professor que não estava
-        na lista original de professores atribuídos.
+        na lista original de professores atribuídos. IGNORA Atividades Complementares.
         """
+        # --- NOVA VERIFICAÇÃO ---
+        # Se for uma AC, nunca é uma substituição.
+        if "atividade complementar" in self.modalidade.nome.lower():
+            return False
+            
         # Se a aula não foi 'Realizada' ou não tem relatório, não pode ter sido substituída.
         if self.status != 'Realizada' or not hasattr(self, 'relatorioaula'):
             return False
@@ -197,3 +202,23 @@ class PresencaAluno(models.Model):
 
     def __str__(self):
         return f"{self.aluno.nome_completo} - {self.get_status_display()} em {self.aula}"
+
+
+class PresencaProfessor(models.Model):
+    STATUS_CHOICES = (
+        ('presente', 'Presente'),
+        ('ausente', 'Ausente'),
+    )
+    aula = models.ForeignKey(Aula, on_delete=models.CASCADE, related_name="presencas_professores")
+    professor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE,
+        related_name='presencas_registradas' # Nome explícito para a relação
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='presente')
+
+    class Meta:
+        unique_together = ('aula', 'professor')
+
+    def __str__(self):
+        return f"{self.professor.username} - {self.get_status_display()} em {self.aula}"
