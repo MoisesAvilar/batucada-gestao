@@ -1,0 +1,9 @@
+<h4 class="mb-4">Repertório e Observações Finais</h4>
+
+<h6 class="text-muted">Músicas do Repertório</h6>
+<p>{{ relatorio.repertorio_musicas|default:"Nenhuma música informada."|linebreaksbr }}</p>
+{% if relatorio.observacoes_repertorio %}<p class="small text-muted fst-italic report-notes p-2 rounded"><b>Obs:</b> {{ relatorio.observacoes_repertorio }}</p>{% endif %}
+<hr class="my-4">
+
+<h6 class="text-muted">Observações Gerais sobre a Aula</h6>
+<p>{{ relatorio.observacoes_gerais|default:"Nenhuma observação geral informada."|linebreaksbr }}</p>

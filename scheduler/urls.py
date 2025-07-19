@@ -49,6 +49,7 @@ urlpatterns = [
     path('professores/<int:pk>/', views.detalhe_professor, name='professor_detalhe'),
     path('professores/<int:pk>/editar/', views.editar_professor, name='professor_editar'),
     path('professores/<int:pk>/excluir/', views.excluir_professor, name='professor_excluir'),
+    path('professor/<int:pk>/filtrar-aulas/', views.filtrar_aulas_professor_ajax, name='filtrar_aulas_professor_ajax'),
 
     # --- URLs para Relatórios ---
     path('relatorios/', views.relatorios_aulas, name='relatorios_aulas'),

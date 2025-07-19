@@ -1,0 +1,29 @@
+{% if is_ac %}
+    <h5 class="mb-3">1. Presença de Professores</h5>
+    {{ presenca_formset.management_form }}
+    {% for presenca_form in presenca_formset %}
+        <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+            {{ presenca_form.id }}
+            <div class="col-md-6 fw-medium"><i class="bi bi-person-video3 me-2"></i>{{ presenca_form.instance.professor.username|title }}</div>
+            <div class="col-md-6"><div class="d-flex justify-content-start justify-content-md-end">
+                {% for radio in presenca_form.status %}<div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
+            </div></div>
+        </div>
+    {% endfor %}
+{% else %}
+    {% if aula.alunos.all %}
+        <h5 class="mb-3">1. Lista de Presença</h5>
+        {{ presenca_formset.management_form }}
+        {% for presenca_form in presenca_formset %}
+            <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                {{ presenca_form.id }}
+                <div class="col-md-6 fw-medium"><i class="bi bi-person me-2"></i>{{ presenca_form.instance.aluno.nome_completo|title }}</div>
+                <div class="col-md-6"><div class="d-flex justify-content-start justify-content-md-end">
+                    {% for radio in presenca_form.status %}<div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
+                </div></div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-secondary text-center">Esta aula não possui alunos associados.</div>
+    {% endif %}
+{% endif %}

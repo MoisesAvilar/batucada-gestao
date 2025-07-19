@@ -1,301 +1,294 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO APRIMORADO --- #}
-<div class="row align-items-center mb-3 g-3">
-    <div class="col-md">
-        <h1 class="mb-0 text-center text-md-start">{{ titulo|title }}</h1>
-        <p class="text-muted mb-0 text-center text-md-start">Informações e histórico de aulas do aluno.</p>
-    </div>
-    {% if user.tipo == 'admin' %}
-    <div class="col-md-auto">
-        <div class="d-flex gap-2 justify-content-center">
-            <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
-            <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#confirmDeleteModal"
-                    data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">
-                Excluir
-            </button>
-</div>
-    </div>
-    {% endif %}
-</div>
 
+{# ★★★ CSS APRIMORADO COM VARIÁVEIS PARA LIGHT/DARK MODE ★★★ #}
+<style>
+    body {
+        background-color: var(--bs-body-bg);
+    }
+    .initials-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-emphasis-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+    .content-block {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+    }
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1rem;
+    }
+    .kpi-card .icon {
+        font-size: 1.75rem;
+    }
+    .kpi-card .value {
+        font-size: 1.75rem;
+        font-weight: 700;
+    }
+    .list-group-item {
+        background-color: transparent;
+        border-color: var(--bs-border-color-translucent);
+    }
+    .progress {
+        height: 10px;
+    }
+    
+    @media (min-width: 992px) {
+        .sticky-lg-top {
+            position: sticky;
+            top: 1.5rem;
+            z-index: 1010;
+        }
+    }
+</style>
 
-{# --- SEÇÃO DE CARDS ATUALIZADA COM FUNDO COLORIDO --- #}
-<div class="row">
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-success shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Aulas Realizadas</div><div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
-            </div><div class="col-auto"><i class="bi bi-check2-circle fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-warning shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Ausências</div><div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
-            </div><div class="col-auto"><i class="bi bi-person-x fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-danger shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Canceladas</div><div class="h4 mb-0 fw-bold">{{ total_canceladas }}</div>
-            </div><div class="col-auto"><i class="bi bi-x-octagon fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-secondary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Total de Aulas</div><div class="h4 mb-0 fw-bold">{{ total_aulas }}</div>
-            </div><div class="col-auto"><i class="bi bi-journal-bookmark fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header"><h5>Resumo do Aluno</h5></div>
-            <div class="card-body">
-                <strong>Taxa de Presença:</strong>
-                <div class="progress my-2" style="height: 25px;">
-                    <div class="progress-bar bg-success fw-bold" role="progressbar" style="width: {{ taxa_presenca|floatformat:0 }}%;" aria-valuenow="{{ taxa_presenca|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ taxa_presenca|floatformat:"-1" }}%
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="vstack gap-4">
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="icon text-success-emphasis"><i class="bi bi-check2-circle"></i></div>
+                        <div class="value mt-2">{{ total_realizadas }}</div>
+                        <div class="text-muted small">Realizadas</div>
                     </div>
                 </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="icon text-warning-emphasis"><i class="bi bi-person-x"></i></div>
+                        <div class="value mt-2">{{ total_aluno_ausente }}</div>
+                        <div class="text-muted small">Ausências</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="icon text-danger-emphasis"><i class="bi bi-x-octagon"></i></div>
+                        <div class="value mt-2">{{ total_canceladas }}</div>
+                        <div class="text-muted small">Canceladas</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="icon text-secondary-emphasis"><i class="bi bi-journal-bookmark"></i></div>
+                        <div class="value mt-2">{{ total_aulas }}</div>
+                        <div class="text-muted small">Total</div>
+                    </div>
+                </div>
+            </div>
 
-                <h6 class="mt-4">Top Professores:</h6>
-                <ul class="list-group list-group-flush">
-                    {# --- CORREÇÃO APLICADA AQUI --- #}
-                    {% for prof in top_professores %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                {% if user.tipo == 'admin' %}
-                                    <a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="fw-bold">{{ prof.professores__username|title }}</a>
-                                {% else %}
-                                    <span class="fw-bold">{{ prof.professores__username|title }}</span>
-                                {% endif %}
-                            </div>
-                            <span class="badge bg-secondary rounded-pill">{{ prof.contagem }} aulas</span>
-                        </li>
-                    {% empty %}
-                        <li class="list-group-item text-muted">Nenhum professor encontrado.</li>
-                    {% endfor %}
-                </ul>
+            <div class="content-block">
+                <h5 class="mb-0">Evolução de BPM por Exercício</h5>
+                 {% if evolucao_chart_datasets %}
+                    <p class="text-muted small">Baseado em {{ evolucao_total_aulas }} aula{{ evolucao_total_aulas|pluralize:"s" }} com prática registrada.</p>
+                    <div class="mt-3" style="height: 350px;"><canvas id="studentEvolutionChart"></canvas></div>
+                {% else %}
+                    <div class="text-center text-muted p-5">Nenhum dado de evolução encontrado.</div>
+                {% endif %}
+            </div>
 
-                <h6 class="mt-4">Top Categorias:</h6>
-                <ul class="list-group list-group-flush">
-                    {% for modalidade in top_modalidades %}
-                        <li class="list-group-item">{{ modalidade.modalidade__nome|title }} <span class="badge bg-secondary float-end">{{ modalidade.contagem }} aulas</span></li>
-                    {% empty %}
-                         <li class="list-group-item text-muted">Nenhuma categoria recorrente.</li>
-                    {% endfor %}
-                </ul>
+            <div class="content-block">
+                <h5 class="mb-3">Histórico de Aulas</h5>
+                {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_aluno %}
             </div>
         </div>
     </div>
 
-    <div class="col-md-8">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5>Distribuição de Status das Aulas</h5>
-            </div>
-            <div class="card-body d-flex align-items-center justify-content-center">
-                <canvas id="statusChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-{# --- HISTÓRICO DE AULAS COM LAYOUT RESPONSIVO --- #}
-<h3 class="mt-5 mb-3">Histórico de Aulas ({{ total_aulas }} no total)</h3>
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        {% if not aulas_do_aluno %}
-            <div class="text-center text-muted p-4">Nenhum histórico de aulas encontrado.</div>
-        {% else %}
-            {# --- 1. VISÃO DE DESKTOP (TABELA) --- #}
-            <div class="d-none d-lg-block table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Categoria</th>
-                            <th>Data e Hora</th>
-                            <th class="text-center">Meu Status</th>
-                            <th class="text-end">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for aula in aulas_do_aluno %}
-                        <tr>
-                            <td>{{ aula.modalidade.nome|title }}</td>
-                            <td>{{ aula.data_hora|date:"d/m/Y, H:i" }}</td>
-                            <td class="text-center">
-                                {% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">Agendada</span>
-                                {% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">Cancelada</span>
-                                {% elif aula.status_presenca_aluno == 'presente' %}<span class="badge bg-success">Realizada</span>
-                                {% elif aula.status_presenca_aluno == 'ausente' %}<span class="badge bg-warning text-dark">Ausente</span>
-                                {% else %}<span class="badge bg-secondary">Pendente</span>{% endif %}
-                            </td>
-                            <td class="text-end">
-                                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório"><i class="bi bi-file-earmark-text"></i></a>
-                                {% if user.tipo == 'admin' %}
-                                    <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula"><i class="bi bi-pencil-square"></i></a>
-                                    <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger" title="Excluir Aula"><i class="bi bi-trash"></i></a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <div class="col-lg-4">
+        <div class="sticky-lg-top">
+            <div class="vstack gap-4">
+                <div class="content-block">
+                    <div class="text-center">
+                        <div class="initials-avatar mx-auto mb-3">{{ aluno.nome_completo|first|upper }}</div>
+                        <h2 class="h4 mb-1">{{ aluno.nome_completo|title }}</h2>
+                        {% if aluno.email %}
+                         <p class="text-muted">{{ aluno.email }}</p>
+                        {% else %}
+                         <p class="text-muted">Email não informado</p>
+                        {% endif %}
+                    </div>
 
-            {# --- 2. VISÃO DE MOBILE (LISTA DE CARDS) --- #}
-            <div class="d-lg-none p-2">
-                {% for aula in aulas_do_aluno %}
-                    <div class="card shadow-sm mb-2">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-0">{{ aula.modalidade.nome|title }}</h6>
-                                    <small class="text-muted">{{ aula.data_hora|date:"d/m/Y, H:i" }}</small>
-                                </div>
-                                {% if aula.status == 'Agendada' %}<span class="badge bg-info text-dark">Agendada</span>
-                                {% elif aula.status == 'Cancelada' %}<span class="badge bg-danger">Cancelada</span>
-                                {% elif aula.status_presenca_aluno == 'presente' %}<span class="badge bg-success">Realizada</span>
-                                {% elif aula.status_presenca_aluno == 'ausente' %}<span class="badge bg-warning text-dark">Ausente</span>
-                                {% else %}<span class="badge bg-secondary">Pendente</span>{% endif %}
-                            </div>
-                            <div class="text-end mt-2">
-                                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info">Relatório</a>
-                                {% if user.tipo == 'admin' %}
-                                    <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                                    <a href="{% url 'scheduler:aula_excluir' aula.pk %}" class="btn btn-sm btn-outline-danger">Excluir</a>
-                                {% endif %}
-                            </div>
+                    <hr>
+                    
+                    <div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="small fw-bold">Taxa de Presença</span>
+                            <span class="small fw-bold text-success">{{ taxa_presenca|floatformat:1 }}%</span>
+                        </div>
+                        <div class="progress" title="{{ taxa_presenca|floatformat:1 }}%">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ taxa_presenca|floatformat:0 }}%;" aria-valuenow="{{ taxa_presenca|floatformat:0 }}"></div>
                         </div>
                     </div>
-                {% endfor %}
+
+                    {% if user.tipo == 'admin' %}
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Aluno</a>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">Excluir</button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="content-block">
+                    <h6 class="mb-3">Distribuição de Status</h6>
+                    <div style="height: 250px;"><canvas id="statusChart"></canvas></div>
+                </div>
+
+                <div class="content-block">
+                    <h6 class="mb-3">Top Professores</h6>
+                    <ul class="list-group list-group-flush">
+                        {% for prof in top_professores %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="text-decoration-none text-body">{{ prof.professores__username|title }}</a>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ prof.contagem }}</span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item px-0 text-muted small">Nenhum professor recorrente.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div class="content-block">
+                    <h6 class="mb-3">Top Categorias</h6>
+                     <ul class="list-group list-group-flush">
+                        {% for modalidade in top_modalidades %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span>{{ modalidade.modalidade__nome|title }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ modalidade.contagem }}</span>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item px-0 text-muted small">Nenhuma categoria recorrente.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
             </div>
-        {% endif %}
+        </div>
     </div>
 </div>
-
-{# --- SEÇÃO DE ANÁLISE DE EVOLUÇÃO DO ALUNO --- #}
-<div class="card shadow-sm mb-4" id="evolucao-aluno-secao">
-    <div class="card-header">
-        <h5 class="m-0 fw-bold text-primary">
-            <i class="bi bi-graph-up-arrow me-2"></i>Evolução de BPM por Exercício
-        </h5>
-    </div>
-    <div class="card-body">
-        {% if evolucao_chart_datasets %}
-            <p class="text-center text-muted small mb-3">
-                <i class="bi bi-info-circle"></i> Gráfico com base em <strong>{{ evolucao_total_aulas }}</strong> 
-                aula{{ evolucao_total_aulas|pluralize:"s" }} com prática registrada.
-            </p>
-            <div class="chart-area position-relative" style="height: 350px;">
-                <canvas id="studentEvolutionChart"></canvas>
-            </div>
-        {% else %}
-            <div class="text-center py-4">
-                <i class="bi bi-emoji-frown fs-1 text-muted mb-3"></i>
-                <p class="text-muted">Não há registros de BPM suficientes para exibir a evolução.</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-
-
 {% endblock %}
+
 
 {% block extra_js %}
 {{ block.super }}
 
-{# Passando TODOS os dados para o HTML de forma segura #}
+{# Passando dados para o JavaScript de forma segura #}
 {{ chart_labels|json_script:"status-chart-labels-data" }}
 {{ chart_data|json_script:"status-chart-data-data" }}
-{{ evolucao_chart_labels|json_script:"evolucao-labels-data" }}
 {{ evolucao_chart_datasets|json_script:"evolucao-datasets-data" }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Lendo os dados JSON para ambos os gráficos
-    const statusLabels = JSON.parse(document.getElementById('status-chart-labels-data').textContent);
-    const statusData = JSON.parse(document.getElementById('status-chart-data-data').textContent);
-    const evolucaoLabels = JSON.parse(document.getElementById('evolucao-labels-data').textContent);
-    const datasets = JSON.parse(document.getElementById('evolucao-datasets-data').textContent);
+    // ★★★ INÍCIO DO SCRIPT DE GRÁFICOS COM TEMA INTELIGENTE E REATIVO ★★★
+    let statusChartInstance = null;
+    let evolutionChartInstance = null;
 
-    // Gráfico de Pizza: Distribuição de Status (AGORA USANDO A FORMA SEGURA)
-    const statusCtx = document.getElementById('statusChart');
-    if (statusCtx) {
-        new Chart(statusCtx, {
-            type: 'pie',
-            data: {
-                labels: statusLabels, // Usa a variável JS segura
-                datasets: [{
-                    label: 'Total de Aulas',
-                    data: statusData, // Usa a variável JS segura
-                    backgroundColor: [
-                        'rgba(25, 135, 84, 0.8)',   // Verde (Success)
-                        'rgba(255, 193, 7, 0.8)',   // Amarelo (Warning)
-                        'rgba(220, 53, 69, 0.8)',   // Vermelho (Danger)
-                        'rgba(13, 202, 240, 0.8)',  // Azul (Info)
-                    ],
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-            }
-        });
+    function getChartThemeColors() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const theme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+        const isDark = theme === 'dark';
+
+        return {
+            fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
+            gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
+            pieColors: isDark 
+                ? ['#198754', '#ffc107', '#dc3545', '#0dcaf0'] // Cores mais saturadas para dark
+                : ['#198754', '#ffc107', '#dc3545', '#0dcaf0']  // Cores padrão para light
+        };
     }
 
-    // Gráfico de Linha: Evolução do Aluno (código já estava correto)
-    const evolutionCtx = document.getElementById('studentEvolutionChart');
+    function renderOrUpdateCharts() {
+        if (statusChartInstance) statusChartInstance.destroy();
+        if (evolutionChartInstance) evolutionChartInstance.destroy();
 
-    if (evolutionCtx && datasets.length > 0) {
-        new Chart(evolutionCtx, {
-            type: 'line',
-            data: {
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                parsing: false,
-                scales: {
-                    x: {
-                        type: 'category',
-                        title: {
-                            display: true,
-                            text: 'Data da Aula'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'BPM (Batidas por Minuto)'
-                        }
-                    }
+        const themeColors = getChartThemeColors();
+        Chart.defaults.color = themeColors.fontColor;
+        
+        // Gráfico de Pizza (Status)
+        const statusLabels = JSON.parse(document.getElementById('status-chart-labels-data').textContent);
+        const statusData = JSON.parse(document.getElementById('status-chart-data-data').textContent);
+        const statusCtx = document.getElementById('statusChart');
+        if (statusCtx && statusData.some(d => d > 0)) {
+            statusChartInstance = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: themeColors.pieColors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
                 },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'bottom'
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'bottom', labels: {boxWidth: 12} } }
+                }
+            });
+        }
+
+        // Gráfico de Linha (Evolução)
+        const datasets = JSON.parse(document.getElementById('evolucao-datasets-data').textContent);
+        const evolutionCtx = document.getElementById('studentEvolutionChart');
+        if (evolutionCtx && datasets.length > 0) {
+            Chart.defaults.borderColor = themeColors.gridColor; // Aplicar cor da grade para este gráfico
+            evolutionChartInstance = new Chart(evolutionCtx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time', // <-- MUITO IMPORTANTE: Altera o tipo do eixo para 'time'
+                            time: {
+                                unit: 'day', // Agrupa visualmente por dia, mas mantém os pontos individuais
+                                tooltipFormat: 'dd/MM/yyyy HH:mm', // Formato para o tooltip ao passar o mouse
+                                displayFormats: {
+                                    day: 'dd/MM/yy' // Formato para a etiqueta do eixo X
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Data da Aula'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'BPM (Batidas por Minuto)'
+                            }
+                        }
                     },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
+                    plugins: {
+                        legend: { display: true, position: 'bottom' },
+                        tooltip: { mode: 'index', intersect: false }
                     }
                 }
-            }
-        });
+            });
+        }
     }
+
+    renderOrUpdateCharts();
+
+    const themeObserver = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
+                renderOrUpdateCharts();
+            }
+        }
+    });
+    themeObserver.observe(document.documentElement, { attributes: true });
 });
 </script>
 {% endblock %}

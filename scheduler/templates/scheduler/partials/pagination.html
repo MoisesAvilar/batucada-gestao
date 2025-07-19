@@ -1,21 +1,58 @@
-{% if aulas.has_other_pages %}
-    <nav aria-label="Navegação de Páginas das Aulas">
-      {# Se a ordenação estiver ativa, mantém os parâmetros #}
-      {% if show_sorting_headers %}
-        {% with base_query_params="&order_by="|add:order_by|add:"&direction="|add:direction|add:"&q="|add:search_query|add:"&data_inicial="|add:data_inicial|add:"&data_final="|add:data_final|add:"&professor_filtro="|add:professor_filtro|add:"&modalidade_filtro="|add:modalidade_filtro|add:"&status_filtro="|add:status_filtro %}
-          <ul class="pagination justify-content-center">
-            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}{{ base_query_params }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
-            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}{{ base_query_params }}">{{ i }}</a></li>{% endif %}{% endfor %}
-            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}{{ base_query_params }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
-          </ul>
-        {% endwith %}
-      {# Senão, usa uma paginação simples #}
-      {% else %}
-        <ul class="pagination justify-content-center">
-            {% if aulas.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ aulas.previous_page_number }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
-            {% for i in aulas.paginator.page_range %}{% if aulas.number == i %}<li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>{% endif %}{% endfor %}
-            {% if aulas.has_next %}<li class="page-item"><a class="page-link" href="?page={{ aulas.next_page_number }}">Próximo</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próximo</span></li>{% endif %}
-        </ul>
+{% comment %}
+Este template renderiza controles de paginação inteligentes (com reticências),
+garantindo que a barra de navegação não fique excessivamente longa.
+Ele continua preservando os parâmetros de filtro na URL.
+{% endcomment %}
+
+{% if page_obj.has_other_pages %}
+<nav aria-label="Navegação das páginas" class="mt-4">
+  <ul class="pagination justify-content-center flex-wrap">
+
+    {# Botão 'Anterior' #}
+    {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Anterior">&laquo;</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&laquo;</span>
+      </li>
+    {% endif %}
+
+    {# ★★★ INÍCIO DA LÓGICA INTELIGENTE ★★★ #}
+    {% for i in page_obj.paginator.page_range %}
+
+      {% comment %} Condição 1: A página atual {% endcomment %}
+      {% if page_obj.number == i %}
+        <li class="page-item active" aria-current="page">
+          <span class="page-link">{{ i }}</span>
+        </li>
+      
+      {% comment %} Condição 2: Páginas próximas da atual (ex: 2 antes e 2 depois) {% endcomment %}
+      {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+        </li>
+
+      {% comment %} Condição 3: As reticências (...) para os números ocultos {% endcomment %}
+      {% elif i == page_obj.number|add:'-3' or i == page_obj.number|add:'3' %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+
       {% endif %}
-    </nav>
-  {% endif %}
+    {% endfor %}
+    {# ★★★ FIM DA LÓGICA INTELIGENTE ★★★ #}
+
+    {# Botão 'Próximo' #}
+    {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Próximo">&raquo;</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&raquo;</span>
+      </li>
+    {% endif %}
+
+  </ul>
+</nav>
+{% endif %}

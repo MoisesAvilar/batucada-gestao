@@ -66,7 +66,8 @@ class AlunoChoiceForm(forms.Form):
     aluno = TitlecaseModelChoiceField(
         queryset=Aluno.objects.all().order_by('nome_completo'),
         label="Aluno",
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label="Selecione..."
     )
 
 
@@ -78,7 +79,8 @@ class ProfessorChoiceForm(forms.Form):
     professor = TitlecaseModelChoiceField(
         queryset=CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by('username'),
         label="Professor",
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        empty_label="Selecione..."
     )
 
 
