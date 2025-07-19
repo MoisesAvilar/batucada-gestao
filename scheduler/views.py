@@ -20,8 +20,9 @@ from .forms import (
 )
 from django.contrib import messages
 import calendar
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
 from django.db.models.functions import TruncMonth
 from django.core.paginator import Paginator
@@ -64,6 +65,16 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
 def dashboard(request):
     now = timezone.now()
     today = now.date()
+
+    # ★★★ INÍCIO DA ALTERAÇÃO: PREPARAÇÃO DAS DATAS PARA OS LINKS ★★★
+    # Formata a data de hoje no padrão ISO (YYYY-MM-DD) que o input[type=date] aceita
+    today_iso = today.strftime('%Y-%m-%d')
+    # Calcula o início da semana (domingo) e o fim (sábado)
+    start_of_week = today - timedelta(days=today.weekday() + 1) # +1 para semana começando no Domingo
+    end_of_week = start_of_week + timedelta(days=6)
+    week_start_iso = start_of_week.strftime('%Y-%m-%d')
+    week_end_iso = end_of_week.strftime('%Y-%m-%d')
+    # ★★★ FIM DA ALTERAÇÃO ★★★
     
     # --- PREPARAÇÃO DOS DADOS DO CALENDÁRIO ---
     try:
@@ -112,7 +123,7 @@ def dashboard(request):
         ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
         
         contexto = {
-            "titulo": "Dashboard do Administrador",
+            "titulo": "Painel de Controle - Admin",
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
             "aulas_agendadas_total": aulas_agendadas_total,
@@ -133,7 +144,7 @@ def dashboard(request):
         aulas_pendentes_count = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).count()
         aulas_pendentes_validacao = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).order_by('data_hora')
         contexto = {
-            "titulo": "Meu Dashboard",
+            "titulo": "Painel de Controle",
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
             "aulas_pendentes_count": aulas_pendentes_count,
@@ -146,6 +157,9 @@ def dashboard(request):
         "mes_atual": date(year, month, 1),
         "calendario_mes": calendario_final,
         "aulas_do_mes_lista": aulas_do_mes,
+        "today_iso": today_iso,
+        "week_start_iso": week_start_iso,
+        "week_end_iso": week_end_iso,
     })
 
     return render(request, "scheduler/dashboard.html", contexto)
@@ -195,16 +209,12 @@ def get_calendario_html(request):
     }
 
     html = render_to_string('scheduler/partials/calendario_content.html', contexto, request=request)
-    return HttpResponse(html)
+    return HttpResponse(html)    
 
 
 # --- Views de Aulas (agendar_aula, editar_aula, excluir_aula) ---
 @user_passes_test(is_admin)
 def agendar_aula(request):
-    """
-    View para agendar novas aulas. Suporta agendamento simples, recorrente
-    e envio de formulário via AJAX a partir de um modal.
-    """
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     AlunoFormSet = formset_factory(AlunoChoiceForm, extra=1, can_delete=True)
     ProfessorFormSet = formset_factory(ProfessorChoiceForm, extra=1, can_delete=True)
@@ -214,16 +224,35 @@ def agendar_aula(request):
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
         professor_formset = ProfessorFormSet(request.POST, prefix='professores')
 
-        # Verifica a validade de todos os formulários e formsets
         if form.is_valid() and aluno_formset.is_valid() and professor_formset.is_valid():
             modalidade = form.cleaned_data.get('modalidade')
-            status = form.cleaned_data.get('status')
             alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
             professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
             data_hora_inicial = form.cleaned_data.get('data_hora')
             is_recorrente = form.cleaned_data.get('recorrente_mensal')
+            # LINHA CORRIGIDA: A variável 'status' agora é extraída do formulário.
+            status = form.cleaned_data.get('status')
 
-            # Lógica para calcular as datas de agendamento
+            is_ac = 'atividade complementar' in modalidade.nome.lower()
+
+            if is_ac and not professores_ids:
+                error_message = "Para Atividade Complementar, é obrigatório selecionar pelo menos um professor."
+                if is_ajax:
+                    return JsonResponse({'success': False, 'errors': [error_message]}, status=400)
+                else:
+                    messages.error(request, error_message)
+                    contexto = { 'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset, 'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar') }
+                    return render(request, 'scheduler/aula_form.html', contexto)
+            
+            elif not is_ac and (not alunos_ids or not professores_ids):
+                error_message = "Para aulas normais, é obrigatório selecionar pelo menos um aluno E um professor."
+                if is_ajax:
+                    return JsonResponse({'success': False, 'errors': [error_message]}, status=400)
+                else:
+                    messages.error(request, error_message)
+                    contexto = { 'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset, 'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar') }
+                    return render(request, 'scheduler/aula_form.html', contexto)
+
             datas_para_agendar = []
             if is_recorrente:
                 dia_semana = data_hora_inicial.weekday()
@@ -235,7 +264,6 @@ def agendar_aula(request):
             else:
                 datas_para_agendar.append(data_hora_inicial)
 
-            # Validação de conflitos
             conflitos_encontrados = []
             for data_agendamento in datas_para_agendar:
                 conflito_info = _check_conflito_aula(list(professores_ids), data_agendamento)
@@ -249,7 +277,6 @@ def agendar_aula(request):
                 for erro in conflitos_encontrados:
                     messages.error(request, erro)
             else:
-                # Se não houver conflitos, salva as aulas
                 aulas_criadas_count = 0
                 for data_agendamento in datas_para_agendar:
                     nova_aula = Aula.objects.create(modalidade=modalidade, data_hora=data_agendamento, status=status)
@@ -264,7 +291,6 @@ def agendar_aula(request):
                 messages.success(request, message_text)
                 return redirect('scheduler:dashboard')
         else:
-            # --- SE O FORMULÁRIO FOR INVÁLIDO ---
             if is_ajax:
                 error_list = []
                 for field, errors in form.errors.items():
@@ -278,19 +304,14 @@ def agendar_aula(request):
                     error_list.append("Por favor, verifique os dados inseridos.")
                 return JsonResponse({'success': False, 'errors': error_list}, status=400)
             
-            # Para POST normal, exibe a mensagem de erro e re-renderiza a página
             messages.error(request, 'Erro ao agendar a aula. Verifique os campos marcados.')
 
-    # Lógica para requisições GET ou para renderizar a página com erros de um POST normal
     form = AulaForm()
     aluno_formset = AlunoFormSet(prefix='alunos')
     professor_formset = ProfessorFormSet(prefix='professores')
     contexto = {
-        'form': form,
-        'aluno_formset': aluno_formset,
-        'professor_formset': professor_formset,
-        'titulo': 'Agendar Nova Aula',
-        'form_action': reverse('scheduler:aula_agendar')
+        'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset,
+        'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar')
     }
     return render(request, 'scheduler/aula_form.html', contexto)
 
@@ -522,102 +543,107 @@ def excluir_aluno(request, pk):
 
 @login_required
 def detalhe_aluno(request, pk):
+    """
+    Exibe o perfil detalhado de um aluno, com KPIs, gráficos de evolução e histórico de aulas.
+    A lógica foi corrigida para basear todos os cálculos na presença individual do aluno.
+    """
     aluno = get_object_or_404(Aluno, pk=pk)
     
-    # Todas as aulas do aluno
-    aulas_do_aluno = Aula.objects.filter(alunos=aluno)
+    # 1. Busca todas as aulas em que o aluno está inscrito, otimizando a consulta.
+    aulas_do_aluno = Aula.objects.filter(alunos=aluno).select_related(
+        'modalidade', 'relatorioaula__professor_que_validou'
+    ).prefetch_related('professores')
 
-    # Status individual de presença por aula
+    # 2. Anota o status de presença individual do aluno em cada aula.
+    #    Isso é crucial e resolve a maioria dos bugs.
     presenca_status_subquery = PresencaAluno.objects.filter(
         aula=OuterRef('pk'),
         aluno=aluno
     ).values('status')[:1]
-    aulas_do_aluno = aulas_do_aluno.annotate(
+    aulas_com_presenca = aulas_do_aluno.annotate(
         status_presenca_aluno=Subquery(presenca_status_subquery)
     )
 
-    # KPIs
+    # 3. Calcula os KPIs com base na presença individual.
+    #    - Uma aula é "Realizada" para o aluno apenas se ele esteve PRESENTE.
+    #    - Uma aula é "Ausência" para o aluno apenas se ele esteve AUSENTE.
+    total_realizadas = aulas_com_presenca.filter(
+        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente'
+    ).count()
+    total_ausencias = aulas_com_presenca.filter(
+        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente'
+    ).count()
+    total_canceladas = aulas_com_presenca.filter(status="Cancelada").count()
+    total_agendadas = aulas_com_presenca.filter(status="Agendada").count()
     total_aulas = aulas_do_aluno.count()
-    total_canceladas = aulas_do_aluno.filter(status="Cancelada").count()
-    total_agendadas = aulas_do_aluno.filter(status="Agendada").count()
-    total_realizadas = aulas_do_aluno.filter(
-        status='Realizada', status_presenca_aluno='presente'
-    ).count()
     
-    total_aluno_ausente = aulas_do_aluno.filter(
-        status='Realizada', status_presenca_aluno='ausente'
-    ).count()
-    taxa_presenca = (
-        (total_realizadas / (total_realizadas + total_aluno_ausente) * 100)
-        if (total_realizadas + total_aluno_ausente) > 0 else 0
-    )
+    aulas_contabilizadas_para_presenca = total_realizadas + total_ausencias
+    taxa_presenca = (total_realizadas / aulas_contabilizadas_para_presenca * 100) if aulas_contabilizadas_para_presenca > 0 else 0
 
-    aulas_presente = aulas_do_aluno.filter(status_presenca_aluno='presente')
-
-    # CORRIGIDO: Agora baseado apenas em aulas com presença.
+    # 4. Calcula os "Top Professores" e "Top Categorias" baseados apenas nas aulas com presença.
+    aulas_presente = aulas_com_presenca.filter(status_presenca_aluno='presente')
     top_professores = aulas_presente.filter(professores__isnull=False).values(
         "professores__pk", "professores__username"
     ).annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
-
-    # CORRIGIDO: Agora baseado apenas em aulas com presença.
     top_modalidades = aulas_presente.values("modalidade__nome").annotate(
         contagem=Count("modalidade")
     ).order_by("-contagem")[:3]
 
-    # Paginação
-    aulas_do_aluno_paginated = Paginator(aulas_do_aluno.order_by("-data_hora"), 10).get_page(request.GET.get("page"))
+    # 5. Busca dados para o gráfico de evolução APENAS de relatórios de aulas em que o aluno esteve presente.
+    relatorios_de_aulas_presente_ids = aulas_presente.filter(
+        relatorioaula__isnull=False
+    ).values_list('relatorioaula__pk', flat=True)
 
-    # Gráfico de status
-    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
-    chart_data = [total_realizadas, total_aluno_ausente, total_canceladas, total_agendadas]
-
-    # Gráfico de evolução por rudimentos
     dados_evolucao = ItemRudimento.objects.filter(
-        relatorio__aula__alunos=aluno,
-        relatorio__aula__presencas__aluno=aluno,
-        relatorio__aula__presencas__status='presente',
+        relatorio_id__in=list(relatorios_de_aulas_presente_ids),
         bpm__isnull=False
     ).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
 
+    # 6. Prepara os dados para os gráficos.
+    # Gráfico de pizza de status
+    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
+    chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
+
+    # Gráfico de linha de evolução de BPM
     evolucao_dataset = defaultdict(list)
     evolucao_datas = set()
     rudimento_cores = {}
-
     def cor_random():
         return f"rgba({random.randint(40, 220)}, {random.randint(40, 220)}, {random.randint(40, 220)}, 0.8)"
 
     for item in dados_evolucao:
         try:
             bpm = int(str(item.bpm).strip().replace('bpm', ''))
-            data = item.relatorio.aula.data_hora.strftime('%d/%m')
+            data = item.relatorio.aula.data_hora.isoformat()
             descricao = item.descricao.strip().title()
             evolucao_dataset[descricao].append({'x': data, 'y': bpm})
             evolucao_datas.add(data)
             if descricao not in rudimento_cores:
                 rudimento_cores[descricao] = cor_random()
-        except Exception:
+        except (ValueError, AttributeError):
             continue
-
+    
     evolucao_chart_datasets = [
         {
-            'label': nome,
-            'data': pontos,
-            'borderColor': rudimento_cores[nome],
+            'label': nome, 'data': pontos, 'borderColor': rudimento_cores[nome],
             'backgroundColor': rudimento_cores[nome].replace('0.8', '0.2'),
-            'fill': False,
-            'tension': 0.2
-        }
-        for nome, pontos in evolucao_dataset.items()
+            'fill': False, 'tension': 0.2
+        } for nome, pontos in evolucao_dataset.items()
     ]
+    
+    # 7. Paginação do histórico de aulas.
+    paginator = Paginator(aulas_com_presenca.order_by("-data_hora"), 10)
+    page_obj = paginator.get_page(request.GET.get("page"))
 
+    # 8. Montagem do contexto final para o template.
     contexto = {
         "aluno": aluno,
-        "aulas_do_aluno": aulas_do_aluno_paginated,
+        "aulas_do_aluno": page_obj,
         "titulo": f"Perfil do Aluno: {aluno.nome_completo}",
         "total_aulas": total_aulas,
         "total_realizadas": total_realizadas,
         "total_canceladas": total_canceladas,
-        "total_aluno_ausente": total_aluno_ausente,
+        "total_aluno_ausente": total_ausencias,
         "total_agendadas": total_agendadas,
         "taxa_presenca": taxa_presenca,
         "top_professores": top_professores,
@@ -640,7 +666,7 @@ def listar_aulas(request):
     status_filtro = request.GET.get("status_filtro", "")
     aluno_filtro_ids = request.GET.getlist("aluno_filtro")
     
-    # --- 2. DEFINIÇÃO DO QUERYSET BASE (DE ACORDO COM O USUÁRIO) ---
+    # --- 2. DEFINIÇÃO DO QUERYSET BASE ---
     if request.user.tipo == "admin":
         aulas_queryset = Aula.objects.all()
         contexto_titulo = "Histórico Geral de Aulas"
@@ -650,7 +676,7 @@ def listar_aulas(request):
         ).distinct()
         contexto_titulo = "Meu Histórico de Aulas"
 
-    # --- 3. APLICAÇÃO DOS FILTROS GERAIS ---
+    # --- 3. APLICAÇÃO DOS FILTROS GERAIS (DATA, MODALIDADE, ALUNO) ---
     if data_inicial_str:
         try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
         except ValueError: pass
@@ -660,71 +686,41 @@ def listar_aulas(request):
     if modalidade_filtro_id:
         aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
     if aluno_filtro_ids:
-        # Garante que apenas IDs numéricos sejam usados
         aluno_filtro_ids_validos = [int(id) for id in aluno_filtro_ids if id.isdigit()]
         if aluno_filtro_ids_validos:
-            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos)
+            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos).distinct()
 
-    # --- 4. APLICAÇÃO DA LÓGICA DE FILTRO INTELIGENTE PARA STATUS E PROFESSOR ---
+    # ★★★ INÍCIO DO BLOCO DE FILTRO DE STATUS CORRIGIDO E SIMPLIFICADO ★★★
+    
+    # Aplica o filtro de professor primeiro, se ele existir
+    # Isso garante que os filtros de status subsequentes atuem sobre o conjunto correto de aulas
+    if professor_filtro_id:
+        aulas_queryset = aulas_queryset.filter(
+            Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
+        ).distinct()
+
+    # Agora, aplica o filtro de status sobre o queryset já pré-filtrado
     if status_filtro:
-        if status_filtro == 'Realizada':
-            if request.user.tipo == 'admin' and not professor_filtro_id:
-                # ADMIN sem filtro de professor: Mostra todas as aulas com status 'Realizada'.
-                aulas_queryset = aulas_queryset.filter(status='Realizada')
-            else:
-                # Lógica para PROFESSOR ou ADMIN COM FILTRO DE PROFESSOR.
-                user_ou_prof_id = professor_filtro_id if request.user.tipo == 'admin' else request.user.id
-                
-                q_realizadas_por_prof = (
-                    Q(relatorioaula__professor_que_validou_id=user_ou_prof_id) & 
-                    ~Q(modalidade__nome__icontains="atividade complementar")
-                ) | (
-                    Q(modalidade__nome__icontains="atividade complementar") & 
-                    Q(presencas_professores__professor_id=user_ou_prof_id, presencas_professores__status='presente')
-                )
-                aulas_queryset = aulas_queryset.filter(q_realizadas_por_prof, status='Realizada')
+        if status_filtro == 'Substituído':
+            # Mostra aulas em que o professor atribuído é diferente do que validou
+            # O .exclude(professores=None) garante que a aula tinha um professor atribuído
+            aulas_queryset = aulas_queryset.filter(
+                status='Realizada', relatorioaula__professor_que_validou__isnull=False, professores__isnull=False
+            ).exclude(professores=F('relatorioaula__professor_que_validou'))
 
-        elif status_filtro == 'Substituído':
-            # Exclui ACs, pois o conceito de substituição não se aplica a elas.
-            aulas_queryset = aulas_queryset.exclude(modalidade__nome__icontains="atividade complementar")
-            
-            if request.user.tipo == 'admin':
-                if professor_filtro_id:
-                    # Admin com filtro: Mostra aulas em que o PROFESSOR FILTRADO foi substituído.
-                    aulas_queryset = aulas_queryset.filter(
-                        professores__id=professor_filtro_id, status='Realizada'
-                    ).exclude(relatorioaula__professor_que_validou__id=professor_filtro_id)
-                else:
-                    # Admin sem filtro: Mostra TODAS as substituições que ocorreram.
-                    aulas_queryset = aulas_queryset.filter(
-                        status='Realizada', relatorioaula__professor_que_validou__isnull=False
-                    ).exclude(professores=F('relatorioaula__professor_que_validou'))
-            else: # Professor
-                # Professor: Mostra aulas em que ELE PRÓPRIO foi substituído.
-                aulas_queryset = aulas_queryset.filter(
-                    professores=request.user, status='Realizada'
-                ).exclude(relatorioaula__professor_que_validou=request.user)
-        
         elif status_filtro == 'professor_ausente':
-            # Filtro customizado para ACs com professores ausentes.
+            # Filtro específico para ACs onde um professor esteve ausente
             aulas_queryset = aulas_queryset.filter(
                 modalidade__nome__icontains="atividade complementar",
                 presencas_professores__status='ausente'
             )
-            if professor_filtro_id:
-                aulas_queryset = aulas_queryset.filter(presencas_professores__professor_id=professor_filtro_id)
-
-        else: # Para outros status como 'Agendada', 'Cancelada', 'Aluno Ausente'.
+        
+        else:
+            # Para todos os outros status (Agendada, Realizada, Cancelada, etc.), aplica um filtro direto.
+            # Esta é a correção principal que faz os filtros simples voltarem a funcionar.
             aulas_queryset = aulas_queryset.filter(status=status_filtro)
-            # Se for admin e filtrou por professor, aplica o filtro aqui também.
-            if request.user.tipo == 'admin' and professor_filtro_id:
-                aulas_queryset = aulas_queryset.filter(professores__id=professor_filtro_id)
-    
-    # Caso onde apenas o filtro de professor (sem status) é aplicado.
-    elif professor_filtro_id:
-        aulas_queryset = aulas_queryset.filter(
-            Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
-        )
+
+    # ★★★ FIM DO BLOCO DE FILTRO DE STATUS CORRIGIDO ★★★
 
     # --- 5. PREPARAÇÃO FINAL E PAGINAÇÃO ---
     aulas_ordenadas = aulas_queryset.distinct().order_by("-data_hora").prefetch_related(
@@ -737,6 +733,7 @@ def listar_aulas(request):
     # --- 6. MONTAGEM DO CONTEXTO PARA O TEMPLATE ---
     contexto = {
         "aulas": page_obj,
+        "page_obj": page_obj,
         "titulo": contexto_titulo,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
@@ -746,7 +743,9 @@ def listar_aulas(request):
         "aluno_filtro_ids": [int(i) for i in aluno_filtro_ids if i.isdigit()],
         "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
         "modalidades_list": Modalidade.objects.all().order_by("nome"),
+        "alunos_list": Aluno.objects.all().order_by("nome_completo"),
         "status_choices": Aula.STATUS_AULA_CHOICES,
+        "request": request,
     }
     return render(request, "scheduler/aula_listar.html", contexto)
 
@@ -801,45 +800,67 @@ def validar_aula(request, pk):
         form_list = [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]
         
         if all(f.is_valid() for f in form_list):
-            relatorio.professor_que_validou = request.user
-            form.save()
-            presenca_formset.save()
-            rudimentos_formset.save()
-            ritmo_formset.save()
-            viradas_formset.save()
-
-            # Lógica de Status Corrigida
-            if is_ac:
-                aula.status = 'Realizada'
-            else:
-                num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
-                if 'alunos_da_aula' in locals() and alunos_da_aula.exists() and num_presentes == 0:
-                    aula.status = 'Aluno Ausente'
-                else:
-                    aula.status = 'Realizada'
-            aula.save()
-
-            messages.success(request, 'Relatório da aula salvo com sucesso!')
-            return redirect('scheduler:aula_listar')
-        else:
-            print("\n--- ERROS DE VALIDAÇÃO AO SALVAR RELATÓRIO ---")
-            if not form.is_valid():
-                print("FORM:", form.errors)
-            if not presenca_formset.is_valid():
-                print("PRESENÇA:", presenca_formset.errors)
-                print(presenca_formset.non_form_errors())
-            if not rudimentos_formset.is_valid():
-                print("RUDIMENTOS:", rudimentos_formset.errors)
-            if not ritmo_formset.is_valid():
-                print("RITMO:", ritmo_formset.errors)
-            if not viradas_formset.is_valid():
-                print("VIRADAS:", viradas_formset.errors)
-            print("------------------------------------------\n")
             
-            messages.error(request, 'Erro ao salvar o relatório. Verifique os campos marcados.')
-            # A lógica de debug com prints pode ser mantida aqui durante os testes, se necessário
+            # --- VALIDAÇÃO DE CONTEÚDO VAZIO (VERSÃO CORRIGIDA) ---
+            
+            # 1. Verifica se os campos do formulário principal foram preenchidos
+            campos_principais_preenchidos = any([
+                form.cleaned_data.get('conteudo_teorico', '').strip(),
+                form.cleaned_data.get('observacoes_teoria', '').strip(),
+                form.cleaned_data.get('repertorio_musicas', '').strip(),
+                form.cleaned_data.get('observacoes_repertorio', '').strip(),
+                form.cleaned_data.get('observacoes_gerais', '').strip(),
+            ])
 
-    # Lógica de GET
+            # 2. Verifica se algum dos formsets foi alterado pelo usuário
+            itens_adicionados = any([
+                rudimentos_formset.has_changed(),
+                ritmo_formset.has_changed(),
+                viradas_formset.has_changed(),
+            ])
+
+            # 3. Se tudo estiver vazio, exibe o erro e interrompe.
+            if not campos_principais_preenchidos and not itens_adicionados:
+                messages.error(request, "Não é possível salvar um relatório vazio. Preencha pelo menos um campo ou adicione um exercício.")
+                # O fluxo agora vai pular o 'else' e renderizar o formulário novamente no final da view.
+            
+            # 4. Se houver conteúdo, prossegue com o salvamento.
+            else:
+                from django.core.exceptions import ValidationError
+                from django.db import DatabaseError
+
+                try:
+                    with transaction.atomic():
+                        relatorio_salvo = form.save(commit=False)
+                        relatorio_salvo.professor_que_validou = request.user
+                        relatorio_salvo.save()
+
+                        presenca_formset.save()
+                        rudimentos_formset.save()
+                        ritmo_formset.save()
+                        viradas_formset.save()
+
+                        if is_ac:
+                            aula.status = 'Realizada'
+                        else:
+                            num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
+                            if aula.alunos.exists() and num_presentes == 0:
+                                aula.status = 'Aluno Ausente'
+                            else:
+                                aula.status = 'Realizada'
+                        
+                        aula.save()
+
+                    messages.success(request, 'Relatório da aula salvo com sucesso!')
+                    return redirect('scheduler:aula_listar')
+
+                except (ValidationError, DatabaseError, Exception) as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Erro ao salvar relatório da aula {aula.pk}: {e}")
+                    messages.error(request, f"Ocorreu um erro inesperado ao salvar. Nenhuma alteração foi feita. Erro: {e}")
+    
+    # Lógica para GET ou para re-renderizar em caso de erro no POST
     else:
         form = RelatorioAulaForm(instance=relatorio)
         presenca_formset = presenca_formset_class(queryset=presenca_queryset, prefix=presenca_prefix)
@@ -870,7 +891,7 @@ def listar_modalidades(request):
     modalidades_queryset = Modalidade.objects.all()
 
     modalidades_queryset = modalidades_queryset.annotate(
-        total_aulas=Count('aula'),
+        total_aulas=Count('aula', distinct=True),
         # --- CORRIGIDO ---
         # A contagem de alunos ativos agora usa a relação 'aula__alunos'.
         alunos_ativos=Count(
@@ -1106,9 +1127,12 @@ def detalhe_professor(request, pk):
 
     professor = get_object_or_404(CustomUser, pk=pk, tipo__in=['professor', 'admin'])
     
-    # Lógica de filtro por data (sem alterações)
+    # --- 1. LÓGICA DE FILTRO (AGORA INCLUINDO STATUS) ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
+    status_filtro = request.GET.get("status_filtro", "")
+    status_filtro_display = status_filtro.replace('_', ' ') if status_filtro else ""
+    
     data_inicial, data_final = None, None
     if data_inicial_str:
         try: data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
@@ -1117,79 +1141,163 @@ def detalhe_professor(request, pk):
         try: data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
         except ValueError: pass
 
-    # Queryset base para todas as aulas relacionadas ao professor
-    aulas_relacionadas = Aula.objects.filter(
+    # Queryset base para todas as aulas relacionadas ao professor (sem alteração)
+    aulas_relacionadas_base = Aula.objects.filter(
         Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
     ).distinct()
-    if data_inicial:
-        aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__gte=data_inicial)
-    if data_final:
-        aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
     
-    # --- CÁLCULO DE KPIS CORRIGIDO ---
+    # Aplica filtro de data no queryset base (para os KPIs não mudarem)
+    aulas_kpi = aulas_relacionadas_base
+    if data_inicial:
+        aulas_kpi = aulas_kpi.filter(data_hora__date__gte=data_inicial)
+    if data_final:
+        aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
+    
+    # --- CÁLCULO DE KPIS CORRIGIDO (usando o queryset filtrado por data 'aulas_kpi') ---
     # Aulas normais realizadas pelo professor
-    realizadas_normal = aulas_relacionadas.filter(
+    realizadas_normal = aulas_kpi.filter(
         status='Realizada', relatorioaula__professor_que_validou=professor
     ).exclude(modalidade__nome__icontains="atividade complementar").count()
 
     # Atividades Complementares com presença do professor
-    realizadas_ac = aulas_relacionadas.filter(
+    realizadas_ac = aulas_kpi.filter(
         status='Realizada', modalidade__nome__icontains="atividade complementar",
         presencas_professores__professor=professor, presencas_professores__status='presente'
     ).count()
 
     total_realizadas = realizadas_normal + realizadas_ac
 
-    total_ausencias_professor = aulas_relacionadas.filter(
+    total_ausencias_professor = aulas_kpi.filter(
         modalidade__nome__icontains="atividade complementar",
         presencas_professores__professor=professor, 
         presencas_professores__status='ausente'
     ).count()
     
-    # Outros KPIs
-    total_agendadas = aulas_relacionadas.filter(status='Agendada', professores=professor).count()
-    total_canceladas = aulas_relacionadas.filter(status='Cancelada', professores=professor).count()
-    # Contagem de ausência corrigida para o professor que validou
-    total_aluno_ausente = aulas_relacionadas.filter(status='Aluno Ausente', relatorioaula__professor_que_validou=professor).count()
-
-    # Contagem de substituições corrigida
-    total_substituido = aulas_relacionadas.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
+    total_agendadas = aulas_kpi.filter(status='Agendada', professores=professor).count()
+    total_canceladas = aulas_kpi.filter(status='Cancelada', professores=professor).count()
+    total_aluno_ausente = aulas_kpi.filter(status='Aluno Ausente').count() # LINHA CORRIGIDA
+    total_substituido = aulas_kpi.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
+    # --- 2. QUERYSET PARA A TABELA (será filtrado por status) ---
+    aulas_para_tabela = aulas_kpi # Começa com a base já filtrada por data
     
-    # Taxa de presença (sem alterações)
-    aulas_contabilizaveis_presenca = total_realizadas + total_aluno_ausente
-    taxa_presenca = (total_realizadas / aulas_contabilizaveis_presenca * 100) if aulas_contabilizaveis_presenca > 0 else 0
+    # --- NOVA LÓGICA DE FILTRAGEM POR STATUS ---
+    if status_filtro:
+        if status_filtro == 'Realizada':
+            q_realizadas_normal = Q(status='Realizada', relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
+            q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
+            aulas_para_tabela = aulas_para_tabela.filter(q_realizadas_normal | q_realizadas_ac)
+        
+        elif status_filtro == 'Substituído':
+            aulas_para_tabela = aulas_para_tabela.filter(
+                status='Realizada', professores=professor
+            ).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar")
+        
+        elif status_filtro == 'Aluno Ausente':
+            aulas_para_tabela = aulas_para_tabela.filter(status='Aluno Ausente', relatorioaula__professor_que_validou=professor)
 
-    # Top Alunos e Categorias (sem alterações)
-    top_alunos = aulas_relacionadas.filter(alunos__isnull=False).values("alunos__pk", "alunos__nome_completo").annotate(contagem=Count("alunos__pk")).order_by("-contagem")[:3]
-    top_modalidades = aulas_relacionadas.filter(professores=professor).values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
+        elif status_filtro in ['Agendada', 'Cancelada']:
+            aulas_para_tabela = aulas_para_tabela.filter(status=status_filtro, professores=professor)
     
-    # Paginação (sem alterações)
-    aulas_do_professor_paginated = Paginator(aulas_relacionadas.order_by("-data_hora"), 10).get_page(request.GET.get("page"))
+    # Paginação (agora sobre 'aulas_para_tabela')
+    aulas_do_professor_paginated = Paginator(aulas_para_tabela.order_by("-data_hora"), 10).get_page(request.GET.get("page"))
 
-    # --- DADOS PARA O GRÁFICO (preparados de forma segura) ---
-    chart_labels = ['Realizadas por Mim', 'Agendadas', 'Ausências', 'Canceladas', 'Fui Substituído']
+    # Dados para o gráfico (agora com um label mais claro para ausências)
+    chart_labels = ['Realizadas por Mim', 'Agendadas', 'Ausências de Alunos', 'Canceladas', 'Fui Substituído']
     chart_data = [total_realizadas, total_agendadas, total_aluno_ausente, total_canceladas, total_substituido]
     
     contexto = {
         "professor": professor,
         "titulo": f"Dashboard de: {professor.username}",
-        "aulas_do_professor": aulas_do_professor_paginated,
+        "aulas_do_professor": aulas_do_professor_paginated, # Passa o queryset correto
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
+        "status_filtro": status_filtro,
+        "status_filtro_display": status_filtro_display,
         "total_realizadas": total_realizadas,
         "total_agendadas": total_agendadas,
         "total_canceladas": total_canceladas,
         "total_aluno_ausente": total_aluno_ausente,
         "total_substituido": total_substituido,
         "total_ausencias_professor": total_ausencias_professor,
-        "taxa_presenca": taxa_presenca,
-        "top_alunos": top_alunos,
-        "top_modalidades": top_modalidades,
-        # NOVO: Passando dados do gráfico para o template
+        "taxa_presenca": (total_realizadas / (total_realizadas + total_aluno_ausente) * 100) if (total_realizadas + total_aluno_ausente) > 0 else 0,
+        "top_alunos": aulas_kpi.filter(alunos__isnull=False).values("alunos__pk", "alunos__nome_completo").annotate(contagem=Count("alunos__pk")).order_by("-contagem")[:3],
+        "top_modalidades": aulas_kpi.filter(professores=professor).values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3],
         "chart_labels": chart_labels,
         "chart_data": chart_data,
     }
     return render(request, "scheduler/professor_detalhe.html", contexto)
+
+
+@login_required
+def filtrar_aulas_professor_ajax(request, pk):
+    # Lógica de permissão
+    if not (request.user.tipo == "admin" or (request.user.pk == pk and request.user.tipo == 'professor')):
+        return HttpResponse("Acesso negado.", status=403)
+
+    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=['professor', 'admin'])
+    
+    # Pega os parâmetros da requisição AJAX
+    status_filtro = request.GET.get("status", "")
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+
+    # Queryset base (exatamente como na view original)
+    aulas_relacionadas = Aula.objects.filter(
+        Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
+    ).distinct()
+
+    # Aplica filtros de data (exatamente como na view original)
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__gte=data_inicial)
+        except ValueError: pass
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
+        except ValueError: pass
+
+    # --- LÓGICA DE FILTRO POR STATUS (O CORAÇÃO DESTA VIEW) ---
+    if status_filtro:
+        if status_filtro == 'Realizada':
+            # Combina a lógica de aulas normais e ACs que o professor participou
+            q_realizadas_normal = Q(status='Realizada', relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
+            q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
+            aulas_relacionadas = aulas_relacionadas.filter(q_realizadas_normal | q_realizadas_ac)
+        
+        elif status_filtro == 'Substituído':
+            # Lógica para aulas em que o professor foi atribuído, mas outro validou
+            aulas_relacionadas = aulas_relacionadas.filter(
+                status='Realizada', professores=professor
+            ).exclude(
+                relatorioaula__professor_que_validou=professor
+            ).exclude(
+                modalidade__nome__icontains="atividade complementar"
+            )
+        
+        elif status_filtro == 'Aluno Ausente':
+            aulas_relacionadas = aulas_relacionadas.filter(status='Aluno Ausente')
+
+        else: # Para status simples como 'Agendada' e 'Cancelada'
+            aulas_relacionadas = aulas_relacionadas.filter(status=status_filtro, professores=professor)
+
+    # Paginação dos resultados filtrados
+    paginator = Paginator(aulas_relacionadas.order_by("-data_hora"), 10)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Monta o contexto para o template parcial
+    contexto = {
+        'aulas_do_professor': page_obj,
+        'professor': professor,
+        # Passamos os filtros para que a paginação funcione corretamente
+        'request': request,
+        'status_filtro_ativo': status_filtro,
+    }
+    
+    # Renderiza APENAS a porção da página que contém a tabela e a paginação
+    return render(request, 'scheduler/partials/professor_detalhe_table_content.html', contexto)
+
 
 
 # --- NOVA VIEW PARA VERIFICAÇÃO DE CONFLITO VIA AJAX ---
@@ -1308,8 +1416,8 @@ def relatorios_aulas(request):
     total_realizadas = aulas_queryset.filter(status="Realizada").count()
     total_canceladas = aulas_queryset.filter(status="Cancelada").count()
     total_aluno_ausente = aulas_queryset.filter(status="Aluno Ausente").count()
-    aulas_contabilizaveis = total_realizadas + total_aluno_ausente
-    taxa_sucesso = (total_realizadas / aulas_contabilizaveis * 100) if aulas_contabilizaveis > 0 else 0
+    aulas_concluidas = total_realizadas + total_aluno_ausente + total_canceladas
+    taxa_sucesso = (total_realizadas / aulas_concluidas * 100) if aulas_concluidas > 0 else 0
 
     # 3. DADOS PARA GRÁFICOS DE VISÃO GERAL
     cat_chart_data = aulas_queryset.filter(modalidade__isnull=False).values('modalidade__nome').annotate(contagem=Count('id')).order_by('-contagem')
@@ -1857,10 +1965,10 @@ def perfil_usuario(request):
             messages.error(request, 'Erro ao atualizar seu perfil. Verifique os dados.')
     else:
         form = UserProfileForm(instance=user) # Preenche o formulário com os dados do usuário
-    
+
     contexto = {
         'form': form,
-        'user_obj': user, # Passa o objeto usuário para o template (útil para exibir a foto/iniciais)
+        'user_obj': user,
         'titulo': 'Meu Perfil'
     }
     return render(request, 'scheduler/perfil_usuario.html', contexto)

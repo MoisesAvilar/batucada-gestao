@@ -1,0 +1,15 @@
+{% comment %} NOVO ARQUIVO: scheduler/templates/scheduler/partials/formset_row.html {% endcomment %}
+<div class="row g-2 align-items-center">
+    <div class="col">
+        {% if type == 'aluno' %}{{ form.aluno }}{% else %}{{ form.professor }}{% endif %}
+    </div>
+    <div class="col-auto">
+        {% if form.initial %}
+        <div class="form-check">
+            {{ form.DELETE }}
+            <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">Remover</label>
+        </div>
+        {% endif %}
+    </div>
+    {{ form.id }}
+</div>

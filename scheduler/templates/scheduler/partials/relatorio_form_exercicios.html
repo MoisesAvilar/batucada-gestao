@@ -1,0 +1,32 @@
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">3. Rudimentos</h5>
+        <button type="button" id="add-rudimento-form" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle me-1"></i> Adicionar</button>
+    </div>
+    {{ rudimentos_formset.management_form }}
+    <div id="rudimentos-form-container" class="vstack gap-3">
+        {% for form in rudimentos_formset %}{% include 'scheduler/partials/formset_exercicio_row.html' with form=form type='rudimento' %}{% endfor %}
+    </div>
+</div>
+<hr class="my-4">
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">4. Ritmo</h5>
+        <button type="button" id="add-ritmo-form" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle me-1"></i> Adicionar</button>
+    </div>
+    {{ ritmo_formset.management_form }}
+    <div id="ritmo-form-container" class="vstack gap-3">
+        {% for form in ritmo_formset %}{% include 'scheduler/partials/formset_exercicio_row.html' with form=form type='ritmo' %}{% endfor %}
+    </div>
+</div>
+<hr class="my-4">
+<div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">5. Viradas</h5>
+        <button type="button" id="add-virada-form" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-circle me-1"></i> Adicionar</button>
+    </div>
+    {{ viradas_formset.management_form }}
+    <div id="viradas-form-container" class="vstack gap-3">
+        {% for form in viradas_formset %}{% include 'scheduler/partials/formset_exercicio_row.html' with form=form type='virada' %}{% endfor %}
+    </div>
+</div>

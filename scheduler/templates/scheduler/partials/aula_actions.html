@@ -1,43 +1,60 @@
-{% comment %} scheduler/templates/scheduler/partials/aula_actions.html (CORRIGIDO) {% endcomment %}
+{% comment %}
+NOVO ARQUIVO: scheduler/templates/scheduler/partials/aula_actions.html
+Versão totalmente reformulada, com design moderno e tema adaptativo.
+{% endcomment %}
 
-{# Lógica para o usuário ADMIN #}
+{# --- Lógica para o usuário ADMIN --- #}
+{# Usamos um "split button": uma ação principal e as outras em um menu #}
 {% if user.tipo == 'admin' %}
-    <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-outline-primary" title="Editar Aula">
-        <i class="bi bi-pencil-square"></i>
-    </a>
-    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver/Editar Relatório">
+<div class="btn-group">
+    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-file-earmark-text"></i>
+        <span class="d-none d-lg-inline ms-1">Relatório</span>
     </a>
-    <button type="button" class="btn btn-sm btn-outline-danger delete-button" title="Excluir Aula"
-            data-bs-toggle="modal" 
-            data-bs-target="#confirmDeleteModal"
-            data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
-        <i class="bi bi-trash"></i>
+    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="visually-hidden">Mais Ações</span>
     </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+            <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
+                <i class="bi bi-pencil-square me-2"></i>Editar Agendamento
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+            <button type="button" class="dropdown-item text-danger delete-button" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#confirmDeleteModal" 
+                    data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                <i class="bi bi-trash me-2"></i>Excluir Aula
+            </button>
+        </li>
+    </ul>
+</div>
 
-{# Lógica para o usuário PROFESSOR #}
+{# --- Lógica para o usuário PROFESSOR --- #}
 {% else %} 
     {% if aula.status == 'Agendada' %}
-        {# --- CORREÇÃO AQUI --- #}
-        {# Verifica se o professor logado está NA LISTA de professores da aula #}
         {% if request.user in aula.professores.all %}
-            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success" title="Validar Minha Aula">
-                <i class="bi bi-check-circle"></i> Validar Aula
+            {# Se a aula é do professor, o botão principal é "Validar" #}
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-success-subtle text-success-emphasis" title="Validar Minha Aula">
+                <i class="bi bi-check-circle me-1"></i> Validar
             </a>
-        {# Se a aula está agendada para OUTRO professor, ele pode substituir. #}
         {% else %}
-            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning" title="Substituir e Validar">
-                <i class="bi bi-person-replace"></i> Substituir
+            {# Se a aula é de outro, ele pode substituir #}
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-warning-subtle text-warning-emphasis" title="Substituir e Validar">
+                <i class="bi bi-person-replace me-1"></i> Substituir
             </a>
         {% endif %}
 
-    {% elif aula.status == 'Realizada' %}
-        {# Se a aula já foi realizada, qualquer professor pode ver o relatório. #}
-        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-info" title="Ver Relatório">
-            <i class="bi bi-eye"></i> Ver Relatório
+    {% elif aula.status == 'Realizada' or aula.status == 'Aluno Ausente' %}
+        {# Se a aula já foi concluída, o professor pode apenas ver o relatório #}
+        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-sm btn-outline-secondary" title="Ver Relatório">
+            <i class="bi bi-eye me-1"></i> Ver
         </a>
     
-    {% else %} {# Para status 'Cancelada', 'Aluno Ausente', etc. #}
-        <span class="text-muted small">N/A</span>
+    {% else %} 
+        {# Para status 'Cancelada', etc., não há ações disponíveis #}
+        <span class="text-muted small">--</span>
     {% endif %}
 {% endif %}

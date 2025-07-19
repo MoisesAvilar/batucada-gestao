@@ -1,0 +1,26 @@
+{# scheduler/templates/scheduler/partials/professor_detalhe_table_content.html (ATUALIZADO) #}
+
+{# --- NOVO BLOCO DE FEEDBACK VISUAL --- #}
+{% if status_filtro_ativo %}
+    <div class="alert alert-info d-flex justify-content-between align-items-center mb-3 shadow-sm" role="alert">
+        <span>
+            <i class="bi bi-info-circle-fill me-2"></i>
+            Filtrando por status: <strong>{{ status_filtro_ativo|title }}</strong>
+        </span>
+        {# Este botão será controlado pelo nosso JavaScript principal #}
+        <button type="button" class="btn-close" aria-label="Limpar Filtro" id="limpar-filtro-btn" title="Limpar filtro"></button>
+    </div>
+{% endif %}
+
+
+<div class="card shadow-sm">
+  <div class="card-body">
+      {# Reutilizamos o mesmo template de tabela que você já tem #}
+      {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_professor professor_context=professor %}
+  </div>
+</div>
+{# Paginação #}
+<div class="mt-4">
+    {# Usamos um template de paginação que preserva os filtros #}
+    {% include 'scheduler/partials/pagination_ajax.html' with page_obj=aulas_do_professor %}
+</div>

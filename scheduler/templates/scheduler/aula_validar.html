@@ -1,1012 +1,184 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="container py-4">
-    <!-- Container principal com largura limitada em telas grandes -->
-    <div class="mx-auto" style="max-width: 800px;">
-        <!-- Cabeçalho Revisado -->
-        <div class="report-header text-center mb-5">
-            <!-- Título com ícone -->
-            <div class="d-flex align-items-center justify-content-center mb-3">
-                <i class="bi bi-journal-text fs-1 me-3 text-primary"></i>
-                <div>
-                    <h1 class="h2 mb-1 fw-bold">Relatório de Aula</h1>
-                    <div class="text-muted small">
-                        <i class="bi bi-calendar3 me-1"></i>
-                        {{ aula.data_hora|date:"d/m/Y, H:i" }}
-                    </div>
+<style>
+    .content-block { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color-translucent); padding: 1.5rem; border-radius: 0.75rem; }
+    .nav-tabs .nav-link { color: var(--bs-secondary-color); font-weight: 600; }
+    .nav-tabs .nav-link.active { color: var(--bs-primary); border-color: var(--bs-primary); border-bottom-color: transparent; }
+    .report-notes { background-color: var(--bs-body-bg); }
+    #historicoOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+        display: none;
+    }
+    .accordion-item.active-accordion {
+        position: relative;
+        z-index: 1041;
+        border: 1px solid var(--bs-primary);
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+    }
+</style>
+
+<div class="mx-auto" style="max-width: 900px;">
+    <div class="text-center mb-5">
+        <h1 class="h2 mb-1 fw-bold">Relatório de Aula</h1>
+        <p class="text-muted">{{ aula.modalidade.nome|title }} • {{ aula.data_hora|date:"d/m/Y, H:i" }}</p>
+    </div>
+
+    {% if historico_ultima_aula and view_mode != 'visualizar' %}
+    <div class="accordion mb-4" id="accordionHistorico">
+        <div class="accordion-item content-block p-0">
+            <h2 class="accordion-header"><button class="accordion-button collapsed bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico" aria-expanded="false"><i class="bi bi-clock-history me-2"></i>Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})</button></h2>
+            <div id="collapseHistorico" class="accordion-collapse collapse">
+                
+                {# ★★★ INÍCIO DA CORREÇÃO ★★★ #}
+                {# Agora incluímos os parciais de visualização para mostrar o relatório completo #}
+                <div class="accordion-body border-top">
+                    {% with relatorio=historico_ultima_aula %}
+                        {% include 'scheduler/partials/relatorio_view_exercicios.html' %}
+                        <hr class="my-4">
+                        {% include 'scheduler/partials/relatorio_view_repertorio.html' %}
+                    {% endwith %}
                 </div>
-            </div>
-            
-            <!-- Card de Informações Principais - Centralizado com largura controlada -->
-            <div class="card border-0 shadow-sm mb-4 mx-auto" style="max-width: 800px;">
-                <div class="card-body py-3">
-                    <!-- Aluno -->
-                    <div class="student-info mb-3">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <i class="bi bi-person-fill me-2 text-muted"></i>
-                            <div class="text-center">
-                                {% for aluno in aula.alunos.all %}
-                                    <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none fw-medium">
-                                        {{ aluno.nome_completo|title }}
-                                    </a>{% if not forloop.last %}, {% endif %}
-                                {% empty %}
-                                    <span class="text-muted">Nenhum aluno associado</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Status e Professores -->
-                    <div class="teacher-status">
-                        {% if aula.status == 'Realizada' and aula.relatorioaula and aula.relatorioaula.professor_que_validou %}
-                            {% with professor_validou=aula.relatorioaula.professor_que_validou %}
-                                {% if professor_validou not in aula.professores.all %}
-                                    <!-- Caso com substituição -->
-                                    <div class="substitution-notice">
-                                        <div class="badge bg-warning text-white mb-2">
-                                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
-                                            Substituição de Professor
-                                        </div>
-                                        
-                                        <div class="d-flex flex-column gap-2 small">
-                                            <div class="original-teachers">
-                                                <span class="text-muted">Professor original:</span>
-                                                <div class="d-flex flex-wrap justify-content-center gap-1 mt-1">
-                                                    {% for prof in aula.professores.all %}
-                                                        <span class="badge bg-secondary text-muted text-decoration-line-through">
-                                                            {{ prof.username|title }}
-                                                        </span>
-                                                    {% empty %}
-                                                        <span class="badge bg-body-tertiary">Não atribuído</span>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="substitute-teacher">
-                                                <span class="text-muted">Substituto:</span>
-                                                <div class="d-flex justify-content-center mt-1">
-                                                    <span class="badge bg-success text-white">
-                                                        <i class="bi bi-arrow-right me-1"></i>
-                                                        {{ professor_validou.username|title }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <!-- Caso normal -->
-                                    <div class="normal-status">
-                                        <div class="badge bg-success text-white mb-2">
-                                            <i class="bi bi-check-circle-fill me-1"></i>
-                                            Aula Ministrada
-                                        </div>
-                                        
-                                        <div class="teachers-list small">
-                                            <span class="text-muted d-block mb-1">Professor(es):</span>
-                                            <div class="d-flex flex-wrap justify-content-center gap-1">
-                                                <span class="badge bg-success text-white">
-                                                    {{ professor_validou.username|title }}
-                                                </span>
-                                                {% for prof in aula.professores.all %}
-                                                    {% if prof != professor_validou %}
-                                                        <span class="badge bg-primary text-white">
-                                                            {{ prof.username|title }}
-                                                        </span>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            {% endwith %}
-                        {% else %}
-                            <!-- Aula não realizada -->
-                            <div class="pending-status">
-                                <div class="badge bg-secondary text-white mb-2">
-                                    <i class="bi bi-person-fill me-1"></i>
-                                    Professores Atribuídos
-                                </div>
-                                
-                                <div class="teachers-list small">
-                                    <div class="d-flex flex-wrap justify-content-center gap-1">
-                                        {% for prof in aula.professores.all %}
-                                            <span class="badge bg-primary text-white">
-                                                {{ prof.username|title }}
-                                            </span>
-                                        {% empty %}
-                                            <span class="badge bg-body-tertiary text-muted">Não Atribuído</span>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+                {# ★★★ FIM DA CORREÇÃO ★★★ #}
+
             </div>
         </div>
+    </div>
+    {% endif %}
 
-        <!-- Modo Visualização -->
-        {% if view_mode == 'visualizar' or aula.status == 'Realizada' and user.tipo != 'admin' %}
-            <div class="view-mode-alert alert alert-info d-flex align-items-center gap-3 p-3 mb-4 rounded-3 mx-auto" style="max-width: 800px;">
-                <i class="bi bi-info-circle-fill fs-4"></i>
-                <div>
-                    <p class="mb-0">Você está visualizando o relatório.</p>
-                    {% if user.tipo == 'admin' %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="alert-link fw-semibold">
-                            Clique aqui para editar
-                        </a>
-                    {% endif %}
-                </div>
+    <div class="content-block">
+        {% if view_mode == 'visualizar' %}
+            {# --- MODO VISUALIZAÇÃO --- #}
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-view-geral">Geral</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-view-exercicios">Exercícios</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-view-repertorio">Repertório</a></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="tab-view-geral">{% include 'scheduler/partials/relatorio_view_geral.html' %}</div>
+                <div class="tab-pane fade" id="tab-view-exercicios">{% include 'scheduler/partials/relatorio_view_exercicios.html' %}</div>
+                <div class="tab-pane fade" id="tab-view-repertorio">{% include 'scheduler/partials/relatorio_view_repertorio.html' %}</div>
             </div>
-
-            <!-- Container para as seções do relatório -->
-            <div class="report-sections mx-auto" style="max-width: 900px;">
-                <!-- Lista de Presença -->
-                {% if aula.status != 'Cancelada' %}
-                    {% if is_ac %}
-                        <!-- Lista de Presença para Atividade Complementar (Professores) -->
-                        {% if aula.professores.all %}
-                        <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-body-tertiary border-0 pb-0">
-                                <h5 class="fw-semibold mb-0">Lista de Presença de Professores</h5>
-                            </div>
-                            <div class="card-body pt-2">
-                                <ul class="list-group list-group-flush">
-                                    {% for presenca in aula.presencas_professores.all %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2">
-                                            <span>{{ presenca.professor.username|title }}</span>
-                                            {% if presenca.status == 'presente' %}
-                                                <span class="badge bg-success rounded-pill">Presente</span>
-                                            {% else %}
-                                                <span class="badge text-bg-secondary rounded-pill">Ausente</span>
-                                            {% endif %}
-                                        </li>
-                                    {% empty %}
-                                        <li class="list-group-item text-muted border-0 px-0 py-2">
-                                            Nenhum registro de presença de professores encontrado.
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                        {% endif %}
-                    {% else %}
-                        <!-- Lista de Presença para Aula Normal (Alunos) -->
-                        {% if aula.alunos.all %}
-                        <div class="card border-0 shadow-sm mb-4">
-                            <div class="card-header bg-body-tertiary border-0 pb-0">
-                                <h5 class="fw-semibold mb-0">Lista de Presença</h5>
-                            </div>
-                            <div class="card-body pt-2">
-                                <ul class="list-group list-group-flush">
-                                    {% for presenca in aula.presencas.all %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2">
-                                            <span>{{ presenca.aluno.nome_completo|title }}</span>
-                                            {% if presenca.status == 'presente' %}
-                                                <span class="badge bg-success rounded-pill">Presente</span>
-                                            {% else %}
-                                                <span class="badge bg-warning shadow rounded-pill">Ausente</span>
-                                            {% endif %}
-                                        </li>
-                                    {% empty %}
-                                        <li class="list-group-item text-muted border-0 px-0 py-2">
-                                            Nenhum registro de presença encontrado.
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                        {% endif %}
-                    {% endif %}
-                {% endif %}
-                
-                <!-- Seções do relatório com cards estilizados -->
-                {% for section in sections %}
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">{{ section.title }}</h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Conteúdo dinâmico das seções -->
-                        {{ section.content }}
-                    </div>
-                </div>
-                {% endfor %}
-
-                <!-- Teoria -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">1. Teoria</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Conteúdo Teórico Abordado:</strong></p>
-                        <div class="report-content p-3 bg-body-tertiary rounded">
-                            <p class="card-text">{{ relatorio.conteudo_teorico|default:"Não informado."|linebreaksbr }}</p>
-                        </div>
-                        
-                        {% if relatorio.observacoes_teoria %}
-                        <div class="border-top pt-3 mt-3">
-                            <h6 class="small fw-semibold text-muted mb-2">Observações:</h6>
-                            <div class="report-notes p-3 bg-body-tertiary rounded">
-                                <p class="mb-0 small text-muted fst-italic">{{ relatorio.observacoes_teoria|linebreaksbr }}</p>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Rudimentos -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">2. Rudimentos</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if relatorio.itens_rudimentos.all %}
-                            <ul class="list-group list-group-flush">
-                                {% for item in relatorio.itens_rudimentos.all %}
-                                    <li class="list-group-item border-0 px-0 py-2">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-medium">{{ item.descricao }}</span>
-                                            <span class="text-muted small">
-                                                {% if item.bpm %}{{ item.bpm }} BPM{% endif %}
-                                                {% if item.duracao_min %} • {{ item.duracao_min }} min{% endif %}
-                                            </span>
-                                        </div>
-                                        {% if item.observacoes %}
-                                            <div class="mt-2">
-                                                <div class="report-notes p-2 bg-body-tertiary rounded small">
-                                                    <p class="mb-0 text-muted fst-italic">{{ item.observacoes }}</p>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <div class="text-center text-muted p-3">
-                                Nenhum exercício de rudimento informado.
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Ritmo -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">3. Ritmo</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if relatorio.itens_ritmo.all %}
-                            <ul class="list-group list-group-flush">
-                                {% for item in relatorio.itens_ritmo.all %}
-                                    <li class="list-group-item border-0 px-0 py-2">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-medium">{{ item.descricao }}</span>
-                                            <span class="text-muted small">
-                                                {% if item.bpm %}{{ item.bpm }} BPM{% endif %}
-                                                {% if item.duracao_min %} • {{ item.duracao_min }} min{% endif %}
-                                            </span>
-                                        </div>
-                                        {% if item.livro_metodo %}
-                                            <div class="small text-muted mt-1">Livro/Método: {{ item.livro_metodo }}</div>
-                                        {% endif %}
-                                        {% if item.observacoes %}
-                                            <div class="mt-2">
-                                                <div class="report-notes p-2 bg-body-tertiary rounded small">
-                                                    <p class="mb-0 text-muted fst-italic">{{ item.observacoes }}</p>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <div class="text-center text-muted p-3">
-                                Nenhum exercício de ritmo informado.
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Viradas -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">4. Viradas</h5>
-                    </div>
-                    <div class="card-body">
-                        {% if relatorio.itens_viradas.all %}
-                            <ul class="list-group list-group-flush">
-                                {% for item in relatorio.itens_viradas.all %}
-                                    <li class="list-group-item border-0 px-0 py-2">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-medium">{{ item.descricao }}</span>
-                                            <span class="text-muted small">
-                                                {% if item.bpm %}{{ item.bpm }} BPM{% endif %}
-                                                {% if item.duracao_min %} • {{ item.duracao_min }} min{% endif %}
-                                            </span>
-                                        </div>
-                                        {% if item.observacoes %}
-                                            <div class="mt-2">
-                                                <div class="report-notes p-2 bg-body-tertiary rounded small">
-                                                    <p class="mb-0 text-muted fst-italic">{{ item.observacoes }}</p>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <div class="text-center text-muted p-3">
-                                Nenhum exercício de virada informado.
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <!-- Repertório -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">5. Repertório</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Músicas do Repertório:</strong></p>
-                        <div class="report-content p-3 bg-body-tertiary rounded">
-                            <p class="card-text">{{ relatorio.repertorio_musicas|default:"Não informado."|linebreaksbr }}</p>
-                        </div>
-                        
-                        {% if relatorio.observacoes_repertorio %}
-                        <div class="border-top pt-3 mt-3">
-                            <h6 class="small fw-semibold text-muted mb-2">Observações:</h6>
-                            <div class="report-notes p-3 bg-body-tertiary rounded">
-                                <p class="mb-0 small text-muted fst-italic">{{ relatorio.observacoes_repertorio|linebreaksbr }}</p>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Observações Finais -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">6. Observações Finais</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Observações Gerais sobre a Aula:</strong></p>
-                        <div class="report-content p-3 bg-body-tertiary rounded">
-                            <p class="card-text">{{ relatorio.observacoes_gerais|default:"Não informado."|linebreaksbr }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Validação -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-body-tertiary border-0">
-                        <h5 class="fw-semibold mb-0">7. Informações de Validação</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <strong>Professor que Realizou a Aula:</strong>
-                            <span class="ms-2">
-                                {% if relatorio.professor_que_validou %}
-                                    <span class="badge bg-primary">{{ relatorio.professor_que_validou.username|title }}</span>
-                                {% else %}
-                                    <span class="text-muted">Não registrado.</span>
-                                {% endif %}
-                            </span>
-                        </div>
-                        <div>
-                            <strong>Última Atualização:</strong>
-                            <span class="ms-2">{{ relatorio.data_atualizacao|date:"d/m/Y H:i" }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Ações -->
-                <div class="d-flex justify-content-center gap-3 mt-5 mb-5">
-                    {% if user.tipo == 'admin' %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}?mode=editar" class="btn btn-primary px-4">
-                            <i class="bi bi-pencil-fill me-2"></i>
-                            Editar
-                        </a>
-                    {% endif %}
-                    <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-secondary px-4">
-                        <i class="bi bi-arrow-left me-2"></i>
-                        Voltar
-                    </a>
-                </div>
+             <div class="mt-4 pt-4 border-top text-center">
+                {% if user.tipo == 'admin' %}<a href="?mode=editar" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Relatório</a>{% endif %}
+                <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary">Voltar</a>
             </div>
-
         {% else %}
-            <!-- Modo Edição -->
-            <div class="edit-mode-container mx-auto" style="max-width: 900px;">
-                {% if historico_ultima_aula %}
-                <div class="accordion-open-overlay" id="historicoOverlay"></div>
-                <div class="accordion mb-4 sticky-top" 
-                    id="accordionHistorico"
-                    style="top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto;">
-                    
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="headingOne">
-                            <button class="accordion-button collapsed" type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapseHistorico" 
-                                    aria-expanded="false" 
-                                    aria-controls="collapseHistorico">
-                                <i class="bi bi-clock-history me-2"></i> 
-                                Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
-                            </button>
-                        </h2>
-                        
-                        <div id="collapseHistorico" class="accordion-collapse collapse accordion-open-content" 
-                            aria-labelledby="headingOne" 
-                            data-bs-parent="#accordionHistorico">
-                            
-                            <div class="accordion-body">
-                                {% with relatorio=historico_ultima_aula %}
-                                    <p><strong>Conteúdo Teórico:</strong> {{ relatorio.conteudo_teorico|default:"N/A"|linebreaksbr }}</p>
-                                    {% if relatorio.observacoes_teoria %}
-                                        <p class="mt-1 mb-0 text-muted fst-italic"><small><strong>Obs:</strong> {{ relatorio.observacoes_teoria|linebreaksbr }}</small></p>
-                                    {% endif %}
-                                    <hr class="border-secondary">
-                                    <p><strong>Exercícios Aplicados:</strong></p>
-                                    
-                                    <!-- Accordion para Exercícios -->
-                                    <div class="accordion accordion-flush" id="exercisesAccordion">
-                                        
-                                        <!-- Rudimentos -->
-                                        {% if relatorio.itens_rudimentos.all %}
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="headingRudimentos">
-                                                <button class="accordion-button collapsed py-2" type="button" 
-                                                        data-bs-toggle="collapse" 
-                                                        data-bs-target="#collapseRudimentos" 
-                                                        aria-expanded="false" 
-                                                        aria-controls="collapseRudimentos">
-                                                    <i class="bi bi-dot me-2"></i> Rudimentos ({{ relatorio.itens_rudimentos.all|length }})
-                                                </button>
-                                            </h2>
-                                            <div id="collapseRudimentos" class="accordion-collapse collapse" 
-                                                aria-labelledby="headingRudimentos" 
-                                                data-bs-parent="#exercisesAccordion">
-                                                <div class="accordion-body p-0">
-                                                    <ul class="list-group list-group-flush small">
-                                                        {% for item in relatorio.itens_rudimentos.all %}
-                                                            <li class="list-group-item list-group-item-light">
-                                                                <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                                                <span class="text-muted">{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
-                                                                {% if item.observacoes %}
-                                                                    <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
-                                                                {% endif %}
-                                                            </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        
-                                        <!-- Ritmos -->
-                                        {% if relatorio.itens_ritmo.all %}
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="headingRitmos">
-                                                <button class="accordion-button collapsed py-2" type="button" 
-                                                        data-bs-toggle="collapse" 
-                                                        data-bs-target="#collapseRitmos" 
-                                                        aria-expanded="false" 
-                                                        aria-controls="collapseRitmos">
-                                                    <i class="bi bi-dot me-2"></i> Ritmos ({{ relatorio.itens_ritmo.all|length }})
-                                                </button>
-                                            </h2>
-                                            <div id="collapseRitmos" class="accordion-collapse collapse" 
-                                                aria-labelledby="headingRitmos" 
-                                                data-bs-parent="#exercisesAccordion">
-                                                <div class="accordion-body p-0">
-                                                    <ul class="list-group list-group-flush small">
-                                                        {% for item in relatorio.itens_ritmo.all %}
-                                                            <li class="list-group-item list-group-item-light">
-                                                                <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                                                <span class="text-muted">{% if item.livro_metodo %}- <em>{{ item.livro_metodo }}</em> {% endif %}{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
-                                                                {% if item.observacoes %}
-                                                                    <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
-                                                                {% endif %}
-                                                            </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        
-                                        <!-- Viradas -->
-                                        {% if relatorio.itens_viradas.all %}
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="headingViradas">
-                                                <button class="accordion-button collapsed py-2" type="button" 
-                                                        data-bs-toggle="collapse" 
-                                                        data-bs-target="#collapseViradas" 
-                                                        aria-expanded="false" 
-                                                        aria-controls="collapseViradas">
-                                                    <i class="bi bi-dot me-2"></i> Viradas ({{ relatorio.itens_viradas.all|length }})
-                                                </button>
-                                            </h2>
-                                            <div id="collapseViradas" class="accordion-collapse collapse" 
-                                                aria-labelledby="headingViradas" 
-                                                data-bs-parent="#exercisesAccordion">
-                                                <div class="accordion-body p-0">
-                                                    <ul class="list-group list-group-flush small">
-                                                        {% for item in relatorio.itens_viradas.all %}
-                                                            <li class="list-group-item list-group-item-light">
-                                                                <strong>Exercício {{ forloop.counter }}:</strong> {{ item.descricao }}
-                                                                <span class="text-muted">{% if item.bpm %}({{ item.bpm }} BPM){% endif %}</span>
-                                                                {% if item.observacoes %}
-                                                                    <p class="mb-0 mt-1 fst-italic text-muted"><small><strong>Obs:</strong> {{ item.observacoes|linebreaksbr }}</small></p>
-                                                                {% endif %}
-                                                            </li>
-                                                        {% endfor %}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    <hr class="border-secondary">
-                                    <p><strong>Repertório:</strong> {{ relatorio.repertorio_musicas|default:"N/A"|linebreaksbr }}</p>
-                                    {% if relatorio.observacoes_repertorio %}
-                                        <p class="mt-1 mb-0 text-muted fst-italic"><small><strong>Obs:</strong> {{ relatorio.observacoes_repertorio|linebreaksbr }}</small></p>
-                                    {% endif %}
-                                    <hr class="border-secondary">
-                                    <p><strong>Observações Gerais:</strong> {{ relatorio.observacoes_gerais|default:"N/A"|linebreaksbr }}</p>
-                                {% endwith %}
-                            </div>
-                        </div>
-                    </div>
+            {# --- MODO EDIÇÃO --- #}
+            <form method="post" id="relatorio-form">
+                {% csrf_token %}
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-edit-presenca">Presença</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-teoria">Teoria</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-exercicios">Exercícios</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-repertorio">Repertório</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-obs">Observações</a></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="tab-edit-presenca">{% include 'scheduler/partials/relatorio_form_presenca.html' %}</div>
+                    <div class="tab-pane fade" id="tab-edit-teoria">{% include 'scheduler/partials/relatorio_form_teoria.html' %}</div>
+                    <div class="tab-pane fade" id="tab-edit-exercicios">{% include 'scheduler/partials/relatorio_form_exercicios.html' %}</div>
+                    <div class="tab-pane fade" id="tab-edit-repertorio">{% include 'scheduler/partials/relatorio_form_repertorio.html' %}</div>
+                    <div class="tab-pane fade" id="tab-edit-obs">{% include 'scheduler/partials/relatorio_form_observacoes.html' %}</div>
                 </div>
-                {% endif %}
-
-                <form method="post" class="edit-report-form">
-                    {% csrf_token %}
-
-                    <!-- Lista de Presença -->
-                    {% if is_ac %}
-                    {# --- LISTA DE PRESENÇA PARA PROFESSORES (AC) --- #}
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0"><h5 class="fw-semibold mb-0">1. Presença de Professores</h5></div>
-                        <div class="card-body">
-                            {{ presenca_formset.management_form }}
-                            {% for presenca_form in presenca_formset %}
-                                <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                                    {{ presenca_form.id }}
-                                    <div class="col-md-6 fw-medium">
-                                        <i class="bi bi-person-video3 me-2"></i>
-                                        {{ presenca_form.instance.professor.username|title }}
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-start justify-content-md-end">
-                                            {% for radio in presenca_form.status %}
-                                                <div class="form-check form-check-inline">
-                                                    {{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% else %}
-                        {# --- LISTA DE PRESENÇA PARA ALUNOS (Aulas Normais) --- #}
-                        {% if aula.alunos.all %}
-                            <div class="card border-0 shadow-sm mb-4">
-                                <div class="card-header bg-body-tertiary border-0"><h5 class="fw-semibold mb-0">1. Lista de Presença</h5></div>
-                                <div class="card-body">
-                                    {{ presenca_formset.management_form }}
-                                    {% for presenca_form in presenca_formset %}
-                                        <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                                            {{ presenca_form.id }}
-                                            <div class="col-md-6 fw-medium">
-                                                <i class="bi bi-person me-2"></i>
-                                                {{ presenca_form.instance.aluno.nome_completo|title }}
-                                            </div>
-                                            <div class="col-md-6">
-                                                {% for radio in presenca_form.status %}
-                                                    <div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="alert alert-light text-center">Esta aula não possui alunos associados.</div>
-                        {% endif %}
-                    {% endif %}
-                    
-                    <!-- Teoria -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0">
-                            <h5 class="fw-semibold mb-0">2. Teoria</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="{{ form.conteudo_teorico.id_for_label }}" class="form-label fw-medium">
-                                    Conteúdo Teórico Abordado
-                                </label>
-                                {{ form.conteudo_teorico }}
-                            </div>
-                            <div class="mb-3">
-                                <label for="{{ form.observacoes_teoria.id_for_label }}" class="form-label fw-medium">
-                                    Observações
-                                </label>
-                                {{ form.observacoes_teoria }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Rudimentos -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0 d-flex justify-content-between align-items-center">
-                            <h5 class="fw-semibold mb-0">3. Rudimentos</h5>
-                            <button type="button" id="add-rudimento-form" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-plus-circle me-1"></i> Adicionar
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            {{ rudimentos_formset.management_form }}
-                            <div id="rudimentos-form-container">
-                                {% for form in rudimentos_formset %}
-                                    <div class="formset-item mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                                        {{ form.id }}
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-5">
-                                                <label class="form-label small fw-medium">Descrição</label>
-                                                {{ form.descricao }}
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small fw-medium">BPM</label>
-                                                {{ form.bpm }}
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label small fw-medium">Duração (min)</label>
-                                                {{ form.duracao_min }}
-                                            </div>
-                                            <div class="col-md-2 text-end">
-                                                {% if form.instance.pk %}
-                                                    <div class="form-check">
-                                                        {{ form.DELETE }}
-                                                        <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">
-                                                            Remover
-                                                        </label>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-12">
-                                                <label class="form-label small fw-medium">Observações</label>
-                                                {{ form.observacoes }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Ritmo -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0 d-flex justify-content-between align-items-center">
-                            <h5 class="fw-semibold mb-0">4. Ritmo</h5>
-                            <button type="button" id="add-ritmo-form" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-plus-circle me-1"></i> Adicionar
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            {{ ritmo_formset.management_form }}
-                            <div id="ritmo-form-container">
-                                {% for form in ritmo_formset %}
-                                    <div class="formset-item mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                                        {{ form.id }}
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-4">
-                                                <label class="form-label small fw-medium">Descrição</label>
-                                                {{ form.descricao }}
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small fw-medium">Livro/Método</label>
-                                                {{ form.livro_metodo }}
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label small fw-medium">BPM</label>
-                                                {{ form.bpm }}
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label small fw-medium">Duração (min)</label>
-                                                {{ form.duracao_min }}
-                                            </div>
-                                            <div class="col-md-1 text-end">
-                                                {% if form.instance.pk %}
-                                                    <div class="form-check">
-                                                        {{ form.DELETE }}
-                                                        <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">
-                                                            Remover
-                                                        </label>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-12">
-                                                <label class="form-label small fw-medium">Observações</label>
-                                                {{ form.observacoes }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Viradas -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0 d-flex justify-content-between align-items-center">
-                            <h5 class="fw-semibold mb-0">5. Viradas</h5>
-                            <button type="button" id="add-virada-form" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-plus-circle me-1"></i> Adicionar
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            {{ viradas_formset.management_form }}
-                            <div id="viradas-form-container">
-                                {% for form in viradas_formset %}
-                                    <div class="formset-item mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
-                                        {{ form.id }}
-                                        <div class="row g-3 align-items-end">
-                                            <div class="col-md-5">
-                                                <label class="form-label small fw-medium">Descrição</label>
-                                                {{ form.descricao }}
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small fw-medium">BPM</label>
-                                                {{ form.bpm }}
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label small fw-medium">Duração (min)</label>
-                                                {{ form.duracao_min }}
-                                            </div>
-                                            <div class="col-md-2 text-end">
-                                                {% if form.instance.pk %}
-                                                    <div class="form-check">
-                                                        {{ form.DELETE }}
-                                                        <label class="form-check-label small text-danger" for="{{ form.DELETE.id_for_label }}">
-                                                            Remover
-                                                        </label>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-12">
-                                                <label class="form-label small fw-medium">Observações</label>
-                                                {{ form.observacoes }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Repertório -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0">
-                            <h5 class="fw-semibold mb-0">6. Repertório</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="{{ form.repertorio_musicas.id_for_label }}" class="form-label fw-medium">
-                                    Músicas do Repertório
-                                </label>
-                                {{ form.repertorio_musicas }}
-                                {% if form.repertorio_musicas.errors %}
-                                    <div class="text-danger small mt-1">{{ form.repertorio_musicas.errors }}</div>
-                                {% endif %}
-                            </div>
-                            <div class="mb-3">
-                                <label for="{{ form.observacoes_repertorio.id_for_label }}" class="form-label fw-medium">
-                                    Observações
-                                </label>
-                                {{ form.observacoes_repertorio }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Observações Finais -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-body-tertiary border-0">
-                            <h5 class="fw-semibold mb-0">7. Observações Finais</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="{{ form.observacoes_gerais.id_for_label }}" class="form-label fw-medium">
-                                    Observações Gerais sobre a Aula
-                                </label>
-                                {{ form.observacoes_gerais }}
-                                {% if form.observacoes_gerais.errors %}
-                                    <div class="text-danger small mt-1">{{ form.observacoes_gerais.errors }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Botões de Ação -->
-                    <div class="d-flex justify-content-center gap-3 mt-5 mb-5">
-                        <button type="submit" class="btn btn-success px-4 py-2">
-                            <i class="bi bi-check-circle me-2"></i>
-                            Salvar Relatório
-                        </button>
-                        <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary px-4 py-2">
-                            <i class="bi bi-x me-2"></i>
-                            Cancelar
-                        </a>
-                    </div>
-                </form>
-
-                <!-- Templates para Formsets Vazios -->
-                <div id="empty-forms" style="display:none;">
-                    <!-- Rudimentos -->
-                    <div id="rudimento-empty-form">
-                        <div class="formset-item mb-3 pb-3 border-bottom">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-medium">Descrição</label>
-                                    {{ rudimentos_formset.empty_form.descricao }}
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-medium">BPM</label>
-                                    {{ rudimentos_formset.empty_form.bpm }}
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-medium">Duração (min)</label>
-                                    {{ rudimentos_formset.empty_form.duracao_min }}
-                                </div>
-                                <div class="col-md-2 text-end"></div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <label class="form-label small fw-medium">Observações</label>
-                                    {{ rudimentos_formset.empty_form.observacoes }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Ritmo -->
-                    <div id="ritmo-empty-form">
-                        <div class="formset-item mb-3 pb-3 border-bottom">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-medium">Descrição</label>
-                                    {{ ritmo_formset.empty_form.descricao }}
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-medium">Livro/Método</label>
-                                    {{ ritmo_formset.empty_form.livro_metodo }}
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-medium">BPM</label>
-                                    {{ ritmo_formset.empty_form.bpm }}
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-medium">Duração (min)</label>
-                                    {{ ritmo_formset.empty_form.duracao_min }}
-                                </div>
-                                <div class="col-md-1 text-end"></div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <label class="form-label small fw-medium">Observações</label>
-                                    {{ ritmo_formset.empty_form.observacoes }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Viradas -->
-                    <div id="virada-empty-form">
-                        <div class="formset-item mb-3 pb-3 border-bottom">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-medium">Descrição</label>
-                                    {{ viradas_formset.empty_form.descricao }}
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-medium">BPM</label>
-                                    {{ viradas_formset.empty_form.bpm }}
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-medium">Duração (min)</label>
-                                    {{ viradas_formset.empty_form.duracao_min }}
-                                </div>
-                                <div class="col-md-2 text-end"></div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12">
-                                    <label class="form-label small fw-medium">Observações</label>
-                                    {{ viradas_formset.empty_form.observacoes }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="mt-4 pt-4 border-top d-flex justify-content-end gap-2">
+                    <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-circle-fill me-1"></i> Salvar Relatório</button>
                 </div>
-            </div>
+            </form>
         {% endif %}
     </div>
 </div>
 
+<div id="empty-forms" style="display:none;">
+    {% include 'scheduler/partials/relatorio_form_exercicios_empty.html' %}
+</div>
+
+<div id="historicoOverlay"></div>
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    function addFormset(buttonId, containerId, emptyFormId, prefix) {
-        const addButton = document.getElementById(buttonId);
-        if (!addButton) return;
-
-        const formContainer = document.getElementById(containerId);
-        const emptyFormTemplate = document.getElementById(emptyFormId).innerHTML;
-
-        addButton.addEventListener('click', function() {
-            const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-            const currentFormCount = parseInt(totalFormsInput.value);
-            const newFormHtml = emptyFormTemplate.replace(/__prefix__/g, currentFormCount);
-            
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newFormHtml;
-            formContainer.append(tempDiv.firstElementChild); 
-
-            totalFormsInput.value = currentFormCount + 1;
+    // A lógica dos botões de adicionar/remover só se aplica ao formulário de edição
+    const relatorioForm = document.getElementById('relatorio-form');
+    if (relatorioForm) {
+        // Lógica de remoção de exercícios
+        relatorioForm.addEventListener('click', function(e) {
+            const removeButton = e.target.closest('.btn-remove-exercicio-row');
+            if (!removeButton) return;
+            e.preventDefault();
+            const row = removeButton.closest('.p-3.rounded');
+            if (row) {
+                const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
+                if (deleteCheckbox) { deleteCheckbox.checked = true; }
+                row.style.display = 'none';
+            }
         });
+
+        // Lógica para adicionar novas linhas de exercício
+        function addFormset(buttonId, containerId, emptyFormId, prefix) {
+            const addButton = document.getElementById(buttonId);
+            if (!addButton) return;
+            const formContainer = document.getElementById(containerId);
+            const emptyFormTemplateEl = document.getElementById(emptyFormId);
+            if (!formContainer || !emptyFormTemplateEl) return;
+            const emptyFormTemplate = emptyFormTemplateEl.innerHTML;
+            addButton.addEventListener('click', function() {
+                const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
+                const currentFormCount = parseInt(totalFormsInput.value);
+                const newFormHtml = emptyFormTemplate.replace(/__prefix__/g, currentFormCount);
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newFormHtml;
+                formContainer.append(tempDiv.firstElementChild);
+                totalFormsInput.value = currentFormCount + 1;
+            });
+        }
+        addFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
+        addFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
+        addFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
     }
 
-    addFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
-    addFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
-    addFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
-
+    // LÓGICA DO ACORDEÃO (AGORA CORRIGIDA)
     const collapseHistorico = document.getElementById('collapseHistorico');
     const historicoOverlay = document.getElementById('historicoOverlay');
     const accordionButton = document.querySelector('[data-bs-target="#collapseHistorico"]');
     const accordionItem = document.querySelector('#accordionHistorico .accordion-item');
     
     if (collapseHistorico && historicoOverlay && accordionButton && accordionItem) {
-        // Mostrar/ocultar overlay e estilos quando o accordion abre/fecha
-        collapseHistorico.addEventListener('show.bs.collapse', function() {
-            historicoOverlay.style.display = 'block';
-            accordionItem.classList.add('active-accordion');
+        
+        collapseHistorico.addEventListener('show.bs.collapse', (event) => {
+            // ★★★ CORREÇÃO ADICIONADA ★★★
+            // Só executa se o evento for do acordeão principal
+            if (event.target === collapseHistorico) {
+                historicoOverlay.style.display = 'block';
+                accordionItem.classList.add('active-accordion');
+            }
         });
         
-        collapseHistorico.addEventListener('hide.bs.collapse', function() {
-            historicoOverlay.style.display = 'none';
-            accordionItem.classList.remove('active-accordion');
+        collapseHistorico.addEventListener('hide.bs.collapse', (event) => {
+            // ★★★ CORREÇÃO ADICIONADA ★★★
+            // Só executa se o evento for do acordeão principal
+            if (event.target === collapseHistorico) {
+                historicoOverlay.style.display = 'none';
+                accordionItem.classList.remove('active-accordion');
+            }
         });
 
-        // Fechar accordion ao clicar no overlay
-        historicoOverlay.addEventListener('click', function() {
-            const bsCollapse = new bootstrap.Collapse(collapseHistorico, {
-                toggle: false
-            });
-            bsCollapse.hide();
+        historicoOverlay.addEventListener('click', () => {
+            // Acessa a instância do Collapse do Bootstrap para o elemento e chama o método hide
+            const bsCollapse = bootstrap.Collapse.getInstance(collapseHistorico);
+            if (bsCollapse) {
+                bsCollapse.hide();
+            }
         });
-
-        // Impedir que o clique no accordion propague para o overlay
-        const accordionContent = document.querySelector('#collapseHistorico .accordion-body');
-        if (accordionContent) {
-            accordionContent.addEventListener('click', function(e) {
-                e.stopPropagation();
-            });
-        }
     }
 });
 </script>
