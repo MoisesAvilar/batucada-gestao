@@ -217,6 +217,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                                <a class="nav-link {% if 'aluno_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:aluno_listar' %}">
+                                    <i class="bi bi-people"></i> Alunos
+                                </a>
+                            </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if 'aula_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:aula_listar' %}">
                                 <i class="bi bi-calendar3"></i> 
                                 {% if user.tipo != 'admin' %}Minhas {% endif %}Aulas
@@ -239,11 +244,6 @@
                         {# --- Grupo de Links de Gerenciamento (Admin) --- #}
                         {% if user.tipo == 'admin' %}
                             <div class="nav-group-title">Gerenciar</div>
-                            <li class="nav-item">
-                                <a class="nav-link {% if 'aluno_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:aluno_listar' %}">
-                                    <i class="bi bi-people"></i> Alunos
-                                </a>
-                            </li>
                             <li class="nav-item">
                                 <a class="nav-link {% if 'professor_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:professor_listar' %}">
                                     <i class="bi bi-person-video3"></i> Professores
@@ -328,8 +328,8 @@
                 {% block content %}{% endblock %}
             </main>
 
-            <footer class="main-footer mt-auto">
-                 <p class="text-muted small mb-0">&copy; {% now "Y" %} Studio Batucada. Todos os direitos reservados.</p>
+            <footer class="main-footer mt-auto text-center text-muted">
+                 <p class="text-muted small mb-0">&copy; {% now "Y" %} Studio Batucada. <br> Todos os direitos reservados.</p>
             </footer>
         </div>
     </div>

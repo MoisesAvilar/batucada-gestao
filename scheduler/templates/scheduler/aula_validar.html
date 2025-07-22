@@ -55,11 +55,12 @@
     <div class="content-block">
         {% if view_mode == 'visualizar' %}
             {# --- MODO VISUALIZAÇÃO --- #}
-            {# ... (a estrutura de abas de visualização permanece a mesma) ... #}
             <div class="tab-content">
-                <div class="tab-pane fade show active" id="tab-view-geral">{% include 'scheduler/partials/relatorio_view_geral.html' %}</div>
-                <div class="tab-pane fade" id="tab-view-exercicios">{% include 'scheduler/partials/relatorio_view_exercicios.html' %}</div>
-                <div class="tab-pane fade" id="tab-view-repertorio">{% include 'scheduler/partials/relatorio_view_repertorio.html' %}</div>
+                <div class="tab-pane fade show active" id="tab-view-geral">
+                    {% include 'scheduler/partials/relatorio_view_geral.html' %}
+                    {% include 'scheduler/partials/relatorio_view_exercicios.html' %}
+                    {% include 'scheduler/partials/relatorio_view_repertorio.html' %}
+                </div>
             </div>
 
              <div class="mt-4 pt-4 border-top text-center">

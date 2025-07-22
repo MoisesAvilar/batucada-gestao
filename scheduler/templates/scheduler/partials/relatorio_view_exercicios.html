@@ -1,4 +1,4 @@
-<h4 class="mb-4">Exercícios Aplicados</h4>
+<h4 class="mt-4 mb-4">Exercícios Aplicados</h4>
 
 {# A parte de teoria continua como estava, fora do acordeão de exercícios #}
 <h6 class="text-muted">Teoria</h6>
@@ -15,7 +15,7 @@
     {% if relatorio.itens_rudimentos.all %}
     <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRudimentos" aria-expanded="false">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRudimentos">
                 Rudimentos ({{ relatorio.itens_rudimentos.all|length }})
             </button>
         </h2>
@@ -23,7 +23,8 @@
             <div class="accordion-body">
                 <ul class="list-group list-group-flush">
                 {% for item in relatorio.itens_rudimentos.all %}
-                    <li class="list-group-item ps-0">
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
                         <div class="d-flex justify-content-between">
                             <span>{{ item.descricao }}</span>
                             <span class="text-muted small">{% if item.bpm %}{{ item.bpm }} BPM{% endif %}{% if item.duracao_min %} • {{ item.duracao_min }}min{% endif %}</span>
@@ -49,7 +50,8 @@
             <div class="accordion-body">
                 <ul class="list-group list-group-flush">
                 {% for item in relatorio.itens_ritmo.all %}
-                    <li class="list-group-item ps-0">
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
                         <div class="d-flex justify-content-between">
                             <div>
                                 <div>{{ item.descricao }}</div>
@@ -78,7 +80,8 @@
             <div class="accordion-body">
                 <ul class="list-group list-group-flush">
                 {% for item in relatorio.itens_viradas.all %}
-                    <li class="list-group-item ps-0">
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
                         <div class="d-flex justify-content-between">
                             <span>{{ item.descricao }}</span>
                             <span class="text-muted small">{% if item.bpm %}{{ item.bpm }} BPM{% endif %}{% if item.duracao_min %} • {{ item.duracao_min }}min{% endif %}</span>
@@ -93,4 +96,3 @@
     {% endif %}
 
 </div>
-{# ★★★ FIM DA ALTERAÇÃO ★★★ #}
