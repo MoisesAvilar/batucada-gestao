@@ -415,21 +415,69 @@ def excluir_aula(request, pk):
 def aulas_para_substituir(request):
     """
     Mostra uma lista de aulas futuras agendadas para outros professores,
-    disponíveis para substituição.
+    disponíveis para substituição, COM FILTROS AVANÇADOS.
     """
     now = timezone.now()
-    # --- CORRIGIDO: Exclui aulas onde o professor logado está na lista de 'professores' ---
-    aulas_disponiveis = Aula.objects.filter(
+
+    # --- 1. QUERYSET BASE (LÓGICA ORIGINAL MANTIDA) ---
+    aulas_queryset = Aula.objects.filter(
         data_hora__gte=now,
         status='Agendada'
     ).exclude(
         professores=request.user
-    ).order_by('data_hora')
+    )
 
-    paginator = Paginator(aulas_disponiveis, 10)
-    aulas = paginator.get_page(request.GET.get('page'))
+    # --- 2. LEITURA DOS FILTROS DA URL ---
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+    professor_filtro_id = request.GET.get("professor_filtro", "") # Apenas Admins usarão
+    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
+    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
+    
+    # --- 3. APLICAÇÃO DOS FILTROS ADICIONAIS ---
+    if data_inicial_str:
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
+        except ValueError: pass
+    if data_final_str:
+        try: aulas_queryset = aulas_queryset.filter(data_hora__date__lte=datetime.strptime(data_final_str, "%Y-%m-%d").date())
+        except ValueError: pass
+    if modalidade_filtro_id:
+        aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
+    
+    # Filtro de aluno
+    if aluno_filtro_ids:
+        aluno_filtro_ids_validos = [int(id) for id in aluno_filtro_ids if id.isdigit()]
+        if aluno_filtro_ids_validos:
+            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos).distinct()
+            
+    # Filtro de professor (só se aplica se o usuário for admin)
+    if request.user.tipo == 'admin' and professor_filtro_id:
+        aulas_queryset = aulas_queryset.filter(professores__id=professor_filtro_id)
+        
+    # --- 4. ORDENAÇÃO E PAGINAÇÃO ---
+    aulas_ordenadas = aulas_queryset.distinct().order_by('data_hora')
+    paginator = Paginator(aulas_ordenadas, 10)
+    aulas_paginadas = paginator.get_page(request.GET.get('page'))
 
-    contexto = {'titulo': 'Aulas Disponíveis para Substituição', 'aulas': aulas}
+    # --- 5. MONTAGEM DO CONTEXTO COMPLETO PARA O TEMPLATE ---
+    contexto = {
+        'titulo': 'Aulas Disponíveis para Substituição',
+        'aulas': aulas_paginadas, # Para a paginação
+        'page_obj': aulas_paginadas, # Para o componente de paginação
+        
+        # --- Dados para o componente de filtro ---
+        'professores_list': CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
+        'modalidades_list': Modalidade.objects.all().order_by("nome"),
+        'alunos_list': Aluno.objects.all().order_by("nome_completo"),
+        
+        # --- Valores atuais dos filtros para preencher o formulário ---
+        'data_inicial': data_inicial_str,
+        'data_final': data_final_str,
+        'professor_filtro': professor_filtro_id,
+        'modalidade_filtro': modalidade_filtro_id,
+        'aluno_filtro_ids': [int(pk) for pk in aluno_filtro_ids if pk.isdigit()],
+        'request': request,
+    }
     return render(request, 'scheduler/aulas_para_substituir.html', contexto)
 
 
@@ -756,6 +804,35 @@ def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
     relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
 
+    pode_editar = False
+    if request.user.tipo == 'admin':
+        pode_editar = True
+    elif request.user.tipo == 'professor':
+        # Professor pode editar se a aula ainda não foi validada E ele é um dos atribuídos.
+        if aula.status == 'Agendada' and request.user in aula.professores.all():
+            pode_editar = True
+        # Ou se a aula JÁ FOI VALIDADA por ele mesmo (caso de substituição ou aula normal).
+        elif relatorio.professor_que_validou == request.user:
+            pode_editar = True
+        # Ou se a aula foi agendada para ele e ainda não foi validada por ninguém.
+        # (Este caso cobre a substituição onde ele clica para validar pela primeira vez)
+        elif not relatorio.professor_que_validou and request.user in aula.professores.all():
+            pode_editar = True
+        # Adicionado: Permite que o professor que vai substituir possa editar o relatório
+        elif not relatorio.professor_que_validou:
+            pode_editar = True
+
+
+    # 2. Determinar o modo de visualização (editar vs. visualizar).
+    view_mode = 'visualizar'  # O padrão é sempre visualizar.
+    if pode_editar:
+        # Se a aula ainda não tem relatório, o modo padrão é editar.
+        if aula.status == 'Agendada':
+            view_mode = 'editar'
+        # Se já tem relatório, só entra em modo de edição se o parâmetro 'mode' for passado na URL.
+        elif request.GET.get('mode') == 'editar':
+            view_mode = 'editar'
+
     # Verifica se é uma Atividade Complementar para direcionar a lógica
     is_ac = "atividade complementar" in aula.modalidade.nome.lower()
     
@@ -791,6 +868,10 @@ def validar_aula(request, pk):
 
     # Lógica de POST
     if request.method == 'POST':
+        if not pode_editar:
+            messages.error(request, "Você não tem permissão para salvar este relatório.")
+            return redirect('scheduler:aula_validar', pk=aula.pk)
+        
         form = RelatorioAulaForm(request.POST, instance=relatorio)
         presenca_formset = presenca_formset_class(request.POST, queryset=presenca_queryset, prefix=presenca_prefix)
         rudimentos_formset = ItemRudimentoFormSet(request.POST, instance=relatorio, prefix='rudimentos')
@@ -879,6 +960,8 @@ def validar_aula(request, pk):
         'viradas_formset': viradas_formset,
         'view_mode': "editar" if aula.status == "Agendada" else request.GET.get('mode', 'visualizar'),
         'historico_ultima_aula': historico_ultima_aula,
+        'view_mode': view_mode,
+        'pode_editar': pode_editar,
     }
     return render(request, 'scheduler/aula_validar.html', contexto)
 

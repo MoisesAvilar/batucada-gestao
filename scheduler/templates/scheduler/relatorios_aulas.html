@@ -2,46 +2,12 @@
 
 {% block content %}
 
-{# ★★★ CSS APRIMORADO COM VARIÁVEIS PARA LIGHT/DARK MODE ★★★ #}
 <style>
-    .dropdown-menu {
-        z-index: 1100 !important;
-    }
-    body {
-        background-color: var(--bs-body-bg);
-    }
-    .initials-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: var(--bs-primary-bg-subtle);
-        color: var(--bs-emphasis-color);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-    .chart-container, .table-container {
-        background-color: var(--bs-tertiary-bg);
-        border: 1px solid var(--bs-border-color-translucent);
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-    }
-    .kpi-card-wrapper {
-        background-color: var(--bs-tertiary-bg);
-        border: 1px solid var(--bs-border-color-translucent);
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-    }
+    .dropdown-menu { z-index: 1100 !important; }
+    .initials-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bs-primary-bg-subtle); color: var(--bs-emphasis-color); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; }
+    .chart-container, .table-container, .kpi-card-wrapper { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color-translucent); padding: 1.5rem; border-radius: 0.75rem; }
     .kpi-card .h1 { font-weight: 700; }
-    @media (min-width: 992px) {
-        .sticky-lg-top {
-            position: sticky;
-            top: 1.5rem;
-            z-index: 1010;
-        }
-    }
+    @media (min-width: 992px) { .sticky-lg-top { position: sticky; top: 1.5rem; z-index: 1010; } }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -66,73 +32,7 @@
     </div>
 </div>
 
-<div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="filtersOffcanvasLabel"><i class="bi bi-funnel-fill me-2"></i>Filtros Avançados</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body d-flex flex-column">
-        <form method="GET" action="{% url 'scheduler:relatorios_aulas' %}" id="filter-form" class="flex-grow-1">
-            <div class="d-flex flex-wrap gap-2 mb-4">
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-today">Hoje</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-week">Semana</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-month">Mês</button>
-            </div>
-            
-            <div class="mb-3">
-                <label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label>
-                <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
-            </div>
-            <div class="mb-3">
-                <label for="id_data_final" class="form-label small fw-bold">Data Final</label>
-                <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
-            </div>
-            <div class="mb-3">
-                <label for="id_professor_filtro" class="form-label small fw-bold">Professor</label>
-                <select id="id_professor_filtro" name="professor_filtro" class="form-select">
-                    <option value="">Todos</option>
-                    {% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label>
-                <select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select">
-                    <option value="">Todas</option>
-                    {% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label>
-                <select id="id_aluno_filtro" name="aluno_filtro" class="form-select" multiple>
-                    {% for aluno in alunos_list %}<option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>{{ aluno.nome_completo|title }}</option>{% endfor %}
-                </select>
-            </div>
-             <div class="mb-3">
-                <label for="id_status_filtro" class="form-label small fw-bold">Status</label>
-                <select id="id_status_filtro" name="status_filtro" class="form-select">
-                    <option value="">Todos</option>
-                    {% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}
-                    <option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option>
-                    <option value="professor_ausente" {% if 'professor_ausente' == status_filtro %}selected{% endif %}>Professor Ausente (em ACs)</option>
-                </select>
-            </div>
-            
-            <div class="mt-auto pt-3 border-top">
-                 <div class="d-flex gap-2">
-                    <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-secondary w-100">Limpar</a>
-                    <button class="btn btn-primary w-100" type="submit" name="action" value="filter_report">
-                        <i class="bi bi-bar-chart-line me-1"></i> Ver Relatório
-                    </button>
-                </div>
-                <div class="mt-2">
-                     <button class="btn btn-outline-info w-100" type="submit" name="action" value="view_list">
-                        <i class="bi bi-list-ul me-1"></i> Ver Lista Detalhada
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
+{% include 'scheduler/partials/_filter_panel.html' %}
 
 <div class="row g-4">
     <div class="col-lg-8">
@@ -140,7 +40,14 @@
             <div class="chart-container">
                 <h5 class="mb-0">Evolução de Aulas</h5>
                 <p class="text-muted small">Aulas realizadas no período filtrado.</p>
-                <div class="mt-3" style="height: 300px;"><canvas id="monthlyTrendChart"></canvas></div>
+                
+                {# ★★★ INÍCIO DA ALTERAÇÃO 1 ★★★ #}
+                {% if mes_chart_labels %}
+                    <div class="mt-3" style="height: 300px;"><canvas id="monthlyTrendChart"></canvas></div>
+                {% else %}
+                    <div class="text-center text-muted p-5">Nenhum dado de aula realizada encontrado para exibir.</div>
+                {% endif %}
+                {# ★★★ FIM DA ALTERAÇÃO 1 ★★★ #}
             </div>
 
             <div class="table-container">
@@ -220,7 +127,14 @@
                 <div class="chart-container">
                     <h5 class="mb-0">Divisão por Categoria</h5>
                     <p class="text-muted small">Distribuição do total de aulas.</p>
-                    <div class="mt-3" style="height: 300px;"><canvas id="categoryDoughnutChart"></canvas></div>
+                    
+                    {# ★★★ INÍCIO DA ALTERAÇÃO 2 ★★★ #}
+                    {% if cat_chart_labels %}
+                        <div class="mt-3" style="height: 300px;"><canvas id="categoryDoughnutChart"></canvas></div>
+                    {% else %}
+                        <div class="text-center text-muted p-5">Nenhuma aula encontrada para exibir.</div>
+                    {% endif %}
+                    {# ★★★ FIM DA ALTERAÇÃO 2 ★★★ #}
                 </div>
             </div>
         </div>
@@ -231,6 +145,8 @@
 
 {% block extra_js %}
 {{ block.super }}
+
+{# 5. SCRIPTS DOS GRÁFICOS (sem alterações) #}
 {{ mes_chart_labels|json_script:"mes-chart-labels-data" }}
 {{ mes_chart_data|json_script:"mes-chart-data-data" }}
 {{ cat_chart_labels|json_script:"cat-chart-labels-data" }}
@@ -238,6 +154,10 @@
 {{ desempenho_modalidades_labels|json_script:"desempenho-labels-data" }}
 {{ desempenho_modalidades_datasets|json_script:"desempenho-datasets-data" }}
 
+{# 6. INCLUSÃO DO SCRIPT DO FILTRO #}
+{% include 'scheduler/partials/_filter_panel_js.html' %}
+
+{# O script dos gráficos é mantido aqui #}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     let charts = {};

@@ -2,55 +2,20 @@
 
 {% block content %}
 
-{# ★★★ 1. ADICIONADO CSS DO SELECT2 (NECESSÁRIO PARA O FILTRO) ★★★ #}
+{# 1. Dependências de CSS (pode até ir para o base.html se for usar em muitos lugares) #}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
-
 <style>
-    .content-block {
-        background-color: var(--bs-tertiary-bg);
-        border: 1px solid var(--bs-border-color-translucent);
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-    }
-    .initials-avatar {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background-color: var(--bs-primary-bg-subtle);
-        color: var(--bs-emphasis-color);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
-    .date-group-header {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background-color: var(--bs-body-bg);
-        padding-top: 1rem;
-    }
-    .date-group-header h4 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
-        margin-bottom: 0.5rem;
-        border-bottom: 1px solid var(--bs-border-color-translucent);
-        padding-bottom: 0.5rem;
-        padding-left: 0.5rem;
-    }
-    .aula-card-status-badge {
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-    /* Garante que o dropdown do filtro apareça sobre o offcanvas */
-    .select2-container--open {
-        z-index: 1100 !important;
-    }
+    /* Estilos da página (mantidos como antes) */
+    .content-block { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color-translucent); padding: 1.5rem; border-radius: 0.75rem; }
+    .initials-avatar { width: 28px; height: 28px; border-radius: 50%; background-color: var(--bs-primary-bg-subtle); color: var(--bs-emphasis-color); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8rem; }
+    .date-group-header { position: sticky; top: 0; z-index: 10; background-color: var(--bs-body-bg); padding-top: 1rem; }
+    .date-group-header h4 { font-size: 1.25rem; font-weight: 600; color: var(--bs-secondary-color); margin-bottom: 0.5rem; border-bottom: 1px solid var(--bs-border-color-translucent); padding-bottom: 0.5rem; padding-left: 0.5rem; }
+    .aula-card-status-badge { font-size: 0.8rem; font-weight: 600; }
+    .select2-container--open { z-index: 1100 !important; }
 </style>
 
+{# 2. Cabeçalho da página (inalterado) #}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h1 class="h3 mb-0">{{ titulo }}</h1>
@@ -75,31 +40,10 @@
     </div>
 </div>
 
-<div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
-    <div class="offcanvas-header border-bottom">
-        <h5 class="offcanvas-title" id="filtersOffcanvasLabel"><i class="bi bi-funnel-fill me-2"></i>Filtros Avançados</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body d-flex flex-column">
-        <form method="GET" action="{{ request.path }}" id="filter-form" class="flex-grow-1">
-             <div class="d-flex flex-wrap gap-2 mb-4">
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-today">Hoje</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-week">Semana</button>
-                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-month">Mês</button>
-            </div>
-            
-            <div class="mb-3"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}"></div>
-            <div class="mb-3"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}"></div>
-            {% if user.tipo == 'admin' %}<div class="mb-3"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>{% endif %}
-            <div class="mb-3"><label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
-            <div class="mb-3"><label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label><select id="id_aluno_filtro" name="aluno_filtro" class="form-select" multiple>{% for aluno in alunos_list %}<option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>{{ aluno.nome_completo|title }}</option>{% endfor %}</select></div>
-            <div class="mb-3"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option><option value="professor_ausente" {% if 'professor_ausente' == status_filtro %}selected{% endif %}>Professor Ausente (AC)</option></select></div>
+{# 3. INCLUSÃO DO COMPONENTE DE FILTRO #}
+{% include 'scheduler/partials/_filter_panel.html' with form_action=request.path request=request user=user data_inicial=data_inicial data_final=data_final professores_list=professores_list modalidades_list=modalidades_list alunos_list=alunos_list status_choices=status_choices professor_filtro=professor_filtro modalidade_filtro=modalidade_filtro aluno_filtro_ids=aluno_filtro_ids status_filtro=status_filtro %}
 
-            <div class="mt-auto pt-3 border-top"><div class="d-flex gap-2"><a href="{{ request.path }}" class="btn btn-outline-secondary w-100">Limpar</a><button class="btn btn-primary w-100" type="submit">Aplicar Filtros</button></div></div>
-        </form>
-    </div>
-</div>
-
+{# 4. Feed de aulas (inalterado) #}
 <div class="aulas-feed">
     {% if not aulas %}
         <div class="text-center text-muted p-5 content-block">
@@ -128,53 +72,6 @@
 
 {% block extra_js %}
 {{ block.super }}
-
-{# ★★★ 2. ADICIONADO SCRIPT DO SELECT2 (NECESSÁRIO PARA O FILTRO) ★★★ #}
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa o Select2 para o filtro de alunos
-    $('#id_aluno_filtro').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Selecione um ou mais alunos',
-        closeOnSelect: false,
-        // Garante que o dropdown do select2 apareça dentro do painel de filtros (offcanvas)
-        dropdownParent: $('#filtersOffcanvas')
-    });
-
-    // Lógica dos botões de filtro de data (já existente)
-    const form = document.getElementById('filter-form');
-    if (!form) return;
-
-    const dateStartInput = form.querySelector('#id_data_inicial');
-    const dateEndInput = form.querySelector('#id_data_final');
-    
-    function formatDate(date) { return date.toISOString().split('T')[0]; }
-
-    document.getElementById('filter-today')?.addEventListener('click', () => {
-        const today = formatDate(new Date());
-        dateStartInput.value = today;
-        dateEndInput.value = today;
-        form.submit();
-    });
-
-    document.getElementById('filter-week')?.addEventListener('click', () => {
-        const today = new Date();
-        const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
-        const lastDay = new Date(new Date(firstDay).setDate(firstDay.getDate() + 6));
-        dateStartInput.value = formatDate(firstDay);
-        dateEndInput.value = formatDate(lastDay);
-        form.submit();
-    });
-
-    document.getElementById('filter-month')?.addEventListener('click', () => {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        dateStartInput.value = formatDate(firstDay);
-        dateEndInput.value = formatDate(lastDay);
-        form.submit();
-    });
-});
-</script>
+{# 5. INCLUSÃO DO SCRIPT DO COMPONENTE DE FILTRO #}
+{% include 'scheduler/partials/_filter_panel_js.html' %}
 {% endblock %}
