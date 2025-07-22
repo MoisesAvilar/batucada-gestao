@@ -1,5 +1,27 @@
-{% comment %} NOVO ARQUIVO: scheduler/templates/scheduler/partials/aula_card.html {% endcomment %}
-<div class="content-block">
+{% comment %} 
+NOVO ARQUIVO: scheduler/templates/scheduler/partials/aula_card.html 
+AGORA COM BORDAS LATERAIS DINÂMICAS.
+{% endcomment %}
+
+{# ★★★ INÍCIO DA ALTERAÇÃO ★★★ #}
+{# Adicionamos classes de borda e uma lógica condicional para a cor #}
+<div class="content-block border-0 border-start border-3 
+    {% if aula.status == 'Realizada' and aula.foi_substituida %}
+        border-secondary
+    {% elif aula.status == 'Realizada' %}
+        border-success
+    {% elif aula.status == 'Agendada' %}
+        border-info
+    {% elif aula.status == 'Cancelada' %}
+        border-danger
+    {% elif aula.status == 'Aluno Ausente' %}
+        border-warning
+    {% else %}
+        border-light
+    {% endif %}
+">
+{# ★★★ FIM DA ALTERAÇÃO ★★★ #}
+
     <div class="row g-3">
         <div class="col-12 col-md-2 text-center text-md-start">
             <h4 class="mb-1">{{ aula.data_hora|date:"H:i" }}</h4>

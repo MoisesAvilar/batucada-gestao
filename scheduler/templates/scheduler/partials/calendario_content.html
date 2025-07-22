@@ -421,11 +421,13 @@
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
                                             <li><a class="dropdown-item" href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}"><i class="bi bi-pencil me-2"></i>{% if aula.status == 'Agendada' %}Editar{% else %}Ver Relatório{% endif %}</a></li>
+                                            {% if user.tipo == 'admin' %}
                                             <li>
                                                 <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
                                                     <i class="bi bi-trash me-2"></i>Excluir
                                                 </button>
                                             </li>
+                                            {% endif %}
                                         </ul>
                                     </div>
                                 </div>

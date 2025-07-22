@@ -2,69 +2,79 @@
 
 {% block content %}
 
-{# --- CABEÇALHO APRIMORADO E CENTRALIZADO --- #}
-<div class="text-center mb-4">
-    <h1 class="mb-1">{{ titulo }}</h1>
-    <p class="text-muted mb-0">Veja aulas de outros professores que você pode cobrir.</p>
-</div>
+{# --- 1. DEPENDÊNCIAS DE CSS E ESTILOS PARA O FILTRO (NECESSÁRIO) --- #}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    /* Garante que o dropdown do filtro apareça sobre outros elementos */
+    .select2-container--open {
+        z-index: 1100 !important;
+    }
+</style>
 
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="mb-1">{{ titulo }}</h1>
+        <p class="text-muted mb-0">Veja e filtre aulas de outros professores que você pode cobrir.</p>
+    </div>
+    <div>
+        {# --- 2. ADICIONADO BOTÃO DE FILTRO PARA ABRIR O PAINEL --- #}
+        <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersOffcanvas" aria-controls="filtersOffcanvas">
+            <i class="bi bi-funnel me-1"></i> Filtros
+        </button>
+    </div>
+</div>
 
 {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>{% endfor %}{% endif %}
 
+{% include 'scheduler/partials/_filter_panel.html' with form_action=request.path request=request user=user data_inicial=data_inicial data_final=data_final professores_list=professores_list modalidades_list=modalidades_list alunos_list=alunos_list professor_filtro=professor_filtro modalidade_filtro=modalidade_filtro aluno_filtro_ids=aluno_filtro_ids %}
+
 
 <div class="aulas-feed">
-
     {% if not aulas %}
-        <div class="text-center text-muted p-5">
-            <h4>Nenhuma aula disponível para substituição no momento.</h4>
+        <div class="text-center text-muted p-5 card shadow-sm">
+            <h4>Nenhuma aula encontrada</h4>
+            <p class="mb-0">Tente ajustar os filtros ou verifique mais tarde.</p>
         </div>
     {% endif %}
 
     {% regroup aulas by data_hora.date as aulas_por_dia %}
-
     {% for grupo in aulas_por_dia %}
         <h4 class="mb-3 mt-4 border-bottom pb-2">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
-        
         {% for aula in grupo.list %}
-            <div class="card shadow-sm mb-3 border-start border-warning border-5">
+            <div class="card shadow-sm mb-3 border-0 border-start border-warning border-3">
                 <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-2 text-center">
-                            <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
-                            <span class="badge bg-info text-dark">Agendada</span>
+                    <div class="row g-3 align-items-center">
+                        <div class="col-12 col-md-2 text-center text-md-start">
+                            <h4 class="mb-1">{{ aula.data_hora|date:"H:i" }}</h4>
+                            <span class="badge bg-info-subtle text-info-emphasis aula-card-status-badge">
+                                <i class="bi bi-clock-history me-1"></i> Agendada
+                            </span>
                         </div>
-
-                        <div class="col-md-5">
-                            <h5 class="card-title mb-1">
-                                {% for aluno in aula.alunos.all %}
-                                    {{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}
-                                {% empty %}
-                                    {{ aula.modalidade.nome|title }}
-                                {% endfor %}
+                        <div class="col-12 col-md-7">
+                            <h5 class="mb-1">
+                                {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}{{ aula.modalidade.nome|title }}{% endfor %}
                             </h5>
-                            <p class="card-text text-muted">
-                              {% if aula.alunos.count > 1 %}
-                                  Aula em Grupo
-                              {% else %}
-                                  {{ aula.modalidade.nome|title }}
-                              {% endif %}
+                            <p class="text-muted mb-2">
+                                {% if aula.alunos.count > 1 %}Aula em Grupo de {% endif %}{{ aula.modalidade.nome|title }}
                             </p>
+                            <div class="d-flex align-items-center gap-2 small">
+                                <strong class="text-muted">Atribuído:</strong>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for prof in aula.professores.all %}
+                                        <span class="badge text-bg-secondary opacity-75">
+                                            <i class="bi bi-person-fill me-1"></i> {{ prof.username|title }}
+                                        </span>
+                                    {% empty %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
-
-                        <div class="col-md-3">
-                            <small class="d-block text-muted">Professor(es) Atribuído(s):</small>
-                            <strong class="d-block">
-                                {% for professor in aula.professores.all %}
-                                    {{ professor.username|title }}{% if not forloop.last %}, {% endif %}
-                                {% empty %}
-                                    N/A
-                                {% endfor %}
-                            </strong>
-                        </div>
-                        
-                        <div class="col-md-2 text-end">
-                            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-warning">
-                                <i class="bi bi-person-replace"></i> Substituir
+                        <div class="col-12 col-md-3 text-center text-md-end">
+                            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="btn btn-warning w-100 w-md-auto">
+                                <i class="bi bi-person-replace me-1"></i>
+                                <strong>Substituir</strong>
                             </a>
                         </div>
                     </div>
@@ -72,12 +82,17 @@
             </div>
         {% endfor %}
     {% endfor %}
-
 </div>
 
-{# Paginação #}
 <div class="mt-4">
     {% include 'scheduler/partials/pagination.html' with page_obj=aulas %}
 </div>
 
+{% endblock %}
+
+
+{# --- 4. ADICIONADO BLOCO PARA JAVASCRIPT NO FINAL DA PÁGINA --- #}
+{% block extra_js %}
+{{ block.super }}
+{% include 'scheduler/partials/_filter_panel_js.html' %}
 {% endblock %}

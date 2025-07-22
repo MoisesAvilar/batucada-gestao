@@ -1,0 +1,47 @@
+<div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="filtersOffcanvasLabel"><i class="bi bi-funnel-fill me-2"></i>Filtros Avançados</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+        <form method="GET" action="{{ form_action|default:request.path }}" id="filter-form" class="flex-grow-1">
+            
+            {# Botões de atalho de data #}
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-today">Hoje</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-week">Esta Semana</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-month">Este Mês</button>
+            </div>
+            
+            {# Campos do formulário #}
+            <div class="mb-3"><label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label><input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}"></div>
+            <div class="mb-3"><label for="id_data_final" class="form-label small fw-bold">Data Final</label><input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}"></div>
+            
+            {% if user.tipo == 'admin' and professores_list %}
+                <div class="mb-3"><label for="id_professor_filtro" class="form-label small fw-bold">Professor</label><select id="id_professor_filtro" name="professor_filtro" class="form-select"><option value="">Todos</option>{% for prof in professores_list %}<option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>{% endfor %}</select></div>
+            {% endif %}
+
+            {% if modalidades_list %}
+                <div class="mb-3"><label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label><select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select"><option value="">Todas</option>{% for modalidade in modalidades_list %}<option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>{% endfor %}</select></div>
+            {% endif %}
+
+            {% if alunos_list %}
+                <div class="mb-3"><label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label><select id="id_aluno_filtro" name="aluno_filtro" class="form-select" multiple>{% for aluno in alunos_list %}<option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>{{ aluno.nome_completo|title }}</option>{% endfor %}</select></div>
+            {% endif %}
+
+            {% if status_choices %}
+                <div class="mb-3"><label for="id_status_filtro" class="form-label small fw-bold">Status</label><select id="id_status_filtro" name="status_filtro" class="form-select"><option value="">Todos</option>{% for status_value, status_label in status_choices %}<option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>{% endfor %}<option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option><option value="professor_ausente" {% if 'professor_ausente' == status_filtro %}selected{% endif %}>Professor Ausente (AC)</option></select></div>
+            {% endif %}
+
+            {# Botões de ação #}
+            <div class="mt-auto pt-3 border-top">
+                {% block filter_actions %}
+                <div class="d-flex gap-2">
+                    <a href="{{ request.path }}" class="btn btn-outline-secondary w-100">Limpar</a>
+                    <button class="btn btn-primary w-100" type="submit">Aplicar Filtros</button>
+                </div>
+                {% endblock filter_actions %}
+            </div>
+        </form>
+    </div>
+</div>

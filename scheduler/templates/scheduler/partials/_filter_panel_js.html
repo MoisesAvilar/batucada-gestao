@@ -1,0 +1,52 @@
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializa o Select2 para o filtro de alunos, se ele existir
+    if ($('#id_aluno_filtro').length) {
+        $('#id_aluno_filtro').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Selecione um ou mais alunos',
+            closeOnSelect: false,
+            // Garante que o dropdown do select2 apareça dentro do painel de filtros (offcanvas)
+            dropdownParent: $('#filtersOffcanvas')
+        });
+    }
+
+    const form = document.getElementById('filter-form');
+    if (!form) return;
+
+    const dateStartInput = form.querySelector('#id_data_inicial');
+    const dateEndInput = form.querySelector('#id_data_final');
+    
+    // Função auxiliar para formatar datas
+    function formatDate(date) { return date.toISOString().split('T')[0]; }
+
+    // Lógica dos botões de atalho de data
+    document.getElementById('filter-today')?.addEventListener('click', () => {
+        const today = formatDate(new Date());
+        dateStartInput.value = today;
+        dateEndInput.value = today;
+        form.submit();
+    });
+
+    document.getElementById('filter-week')?.addEventListener('click', () => {
+        const today = new Date();
+        const firstDayOfWeek = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1); // Ajuste para semana começar na segunda
+        const firstDay = new Date(today.setDate(firstDayOfWeek));
+        const lastDay = new Date(new Date(firstDay).setDate(firstDay.getDate() + 6));
+        
+        dateStartInput.value = formatDate(firstDay);
+        dateEndInput.value = formatDate(lastDay);
+        form.submit();
+    });
+
+    document.getElementById('filter-month')?.addEventListener('click', () => {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        dateStartInput.value = formatDate(firstDay);
+        dateEndInput.value = formatDate(lastDay);
+        form.submit();
+    });
+});
+</script>
