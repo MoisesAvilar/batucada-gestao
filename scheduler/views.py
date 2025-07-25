@@ -38,6 +38,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
+import google.generativeai as genai
+from django.conf import settings
+import markdown2
+import logging
+
 
 # --- Funções de Teste para Permissões ---
 def is_admin(user):
@@ -598,9 +603,10 @@ def detalhe_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
     
     # 1. Busca todas as aulas em que o aluno está inscrito, otimizando a consulta.
+    # ★★★ CORREÇÃO 1: Usando o related_name correto 'presencas', definido em models.py ★★★
     aulas_do_aluno = Aula.objects.filter(alunos=aluno).select_related(
         'modalidade', 'relatorioaula__professor_que_validou'
-    ).prefetch_related('professores')
+    ).prefetch_related('professores', 'presencas')
 
     # 2. Anota o status de presença individual do aluno em cada aula.
     #    Isso é crucial e resolve a maioria dos bugs.
@@ -612,76 +618,58 @@ def detalhe_aluno(request, pk):
         status_presenca_aluno=Subquery(presenca_status_subquery)
     )
 
-    # 3. Calcula os KPIs com base na presença individual.
-    #    - Uma aula é "Realizada" para o aluno apenas se ele esteve PRESENTE.
-    #    - Uma aula é "Ausência" para o aluno apenas se ele esteve AUSENTE.
-    total_realizadas = aulas_com_presenca.filter(
-        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente'
-    ).count()
-    total_ausencias = aulas_com_presenca.filter(
-        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente'
-    ).count()
+    # 3. Calcula os KPIs com base na presença individual (lógica existente mantida).
+    total_realizadas = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente').count()
+    total_ausencias = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente').count()
     total_canceladas = aulas_com_presenca.filter(status="Cancelada").count()
     total_agendadas = aulas_com_presenca.filter(status="Agendada").count()
     total_aulas = aulas_do_aluno.count()
-    
     aulas_contabilizadas_para_presenca = total_realizadas + total_ausencias
     taxa_presenca = (total_realizadas / aulas_contabilizadas_para_presenca * 100) if aulas_contabilizadas_para_presenca > 0 else 0
 
-    # 4. Calcula os "Top Professores" e "Top Categorias" baseados apenas nas aulas com presença.
+    # 4. Lógica de "Top" e gráficos (lógica existente mantida).
     aulas_presente = aulas_com_presenca.filter(status_presenca_aluno='presente')
-    top_professores = aulas_presente.filter(professores__isnull=False).values(
-        "professores__pk", "professores__username"
-    ).annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
-    top_modalidades = aulas_presente.values("modalidade__nome").annotate(
-        contagem=Count("modalidade")
-    ).order_by("-contagem")[:3]
-
-    # 5. Busca dados para o gráfico de evolução APENAS de relatórios de aulas em que o aluno esteve presente.
-    relatorios_de_aulas_presente_ids = aulas_presente.filter(
-        relatorioaula__isnull=False
-    ).values_list('relatorioaula__pk', flat=True)
-
-    dados_evolucao = ItemRudimento.objects.filter(
-        relatorio_id__in=list(relatorios_de_aulas_presente_ids),
-        bpm__isnull=False
-    ).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
-
-    # 6. Prepara os dados para os gráficos.
-    # Gráfico de pizza de status
+    top_professores = aulas_presente.filter(professores__isnull=False).values("professores__pk", "professores__username").annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
+    top_modalidades = aulas_presente.values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
+    relatorios_de_aulas_presente_ids = aulas_presente.filter(relatorioaula__isnull=False).values_list('relatorioaula__pk', flat=True)
+    dados_evolucao = ItemRudimento.objects.filter(relatorio_id__in=list(relatorios_de_aulas_presente_ids), bpm__isnull=False).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
     chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
     chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
+    evolucao_chart_labels = []
+    evolucao_chart_datasets = []
+    evolucao_total_aulas = 0
+    if dados_evolucao:
+        unique_dates = sorted(list(set(item.relatorio.aula.data_hora.date() for item in dados_evolucao)))
+        evolucao_chart_labels = [d.strftime('%d/%m/%y') for d in unique_dates]
+        date_to_index_map = {date: i for i, date in enumerate(unique_dates)}
+        evolucao_total_aulas = len(unique_dates)
+        data_by_exercise = defaultdict(lambda: [None] * len(evolucao_chart_labels))
+        rudimento_cores = {}
+        def cor_random(): return f"rgba({random.randint(40, 220)}, {random.randint(40, 220)}, {random.randint(40, 220)}, 0.8)"
+        for item in dados_evolucao:
+            try:
+                bpm = int(str(item.bpm).strip().replace('bpm', ''))
+                item_date = item.relatorio.aula.data_hora.date()
+                descricao = item.descricao.strip().title()
+                if item_date in date_to_index_map:
+                    data_by_exercise[descricao][date_to_index_map[item_date]] = bpm
+                if descricao not in rudimento_cores:
+                    rudimento_cores[descricao] = cor_random()
+            except (ValueError, AttributeError): continue
+        evolucao_chart_datasets = [{'label': nome, 'data': pontos, 'borderColor': rudimento_cores[nome], 'backgroundColor': rudimento_cores[nome].replace('0.8', '0.2'), 'fill': False, 'tension': 0.1} for nome, pontos in data_by_exercise.items()]
 
-    # Gráfico de linha de evolução de BPM
-    evolucao_dataset = defaultdict(list)
-    evolucao_datas = set()
-    rudimento_cores = {}
-    def cor_random():
-        return f"rgba({random.randint(40, 220)}, {random.randint(40, 220)}, {random.randint(40, 220)}, 0.8)"
-
-    for item in dados_evolucao:
-        try:
-            bpm = int(str(item.bpm).strip().replace('bpm', ''))
-            data = item.relatorio.aula.data_hora.isoformat()
-            descricao = item.descricao.strip().title()
-            evolucao_dataset[descricao].append({'x': data, 'y': bpm})
-            evolucao_datas.add(data)
-            if descricao not in rudimento_cores:
-                rudimento_cores[descricao] = cor_random()
-        except (ValueError, AttributeError):
-            continue
-    
-    evolucao_chart_datasets = [
-        {
-            'label': nome, 'data': pontos, 'borderColor': rudimento_cores[nome],
-            'backgroundColor': rudimento_cores[nome].replace('0.8', '0.2'),
-            'fill': False, 'tension': 0.2
-        } for nome, pontos in evolucao_dataset.items()
-    ]
-    
     # 7. Paginação do histórico de aulas.
     paginator = Paginator(aulas_com_presenca.order_by("-data_hora"), 10)
     page_obj = paginator.get_page(request.GET.get("page"))
+
+    # ★★★ CORREÇÃO 2: Usando 'aula.presencas.all()' para iterar sobre os objetos corretos. ★★★
+    for aula in page_obj.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for a in aula.alunos.all():
+                status = presencas_map.get(a.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': a, 'status': status})
 
     # 8. Montagem do contexto final para o template.
     contexto = {
@@ -698,7 +686,8 @@ def detalhe_aluno(request, pk):
         "top_modalidades": top_modalidades,
         "chart_labels": chart_labels,
         "chart_data": chart_data,
-        "evolucao_total_aulas": len(evolucao_datas),
+        "evolucao_total_aulas": evolucao_total_aulas,
+        "evolucao_chart_labels": evolucao_chart_labels,
         "evolucao_chart_datasets": evolucao_chart_datasets,
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
@@ -706,25 +695,19 @@ def detalhe_aluno(request, pk):
 
 @login_required
 def listar_aulas(request):
-    # --- 1. LEITURA DOS FILTROS DA URL ---
+    # --- 1 a 4: Lógica de filtros permanece a mesma ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
     aluno_filtro_ids = request.GET.getlist("aluno_filtro")
-    
-    # --- 2. DEFINIÇÃO DO QUERYSET BASE ---
     if request.user.tipo == "admin":
         aulas_queryset = Aula.objects.all()
         contexto_titulo = "Histórico Geral de Aulas"
-    else:  # Professor
-        aulas_queryset = Aula.objects.filter(
-            Q(professores=request.user) | Q(relatorioaula__professor_que_validou=request.user)
-        ).distinct()
+    else:
+        aulas_queryset = Aula.objects.filter(Q(professores=request.user) | Q(relatorioaula__professor_que_validou=request.user)).distinct()
         contexto_titulo = "Meu Histórico de Aulas"
-
-    # --- 3. APLICAÇÃO DOS FILTROS GERAIS (DATA, MODALIDADE, ALUNO) ---
     if data_inicial_str:
         try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
         except ValueError: pass
@@ -737,47 +720,37 @@ def listar_aulas(request):
         aluno_filtro_ids_validos = [int(id) for id in aluno_filtro_ids if id.isdigit()]
         if aluno_filtro_ids_validos:
             aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos).distinct()
-
-    # ★★★ INÍCIO DO BLOCO DE FILTRO DE STATUS CORRIGIDO E SIMPLIFICADO ★★★
-    
-    # Aplica o filtro de professor primeiro, se ele existir
-    # Isso garante que os filtros de status subsequentes atuem sobre o conjunto correto de aulas
     if professor_filtro_id:
-        aulas_queryset = aulas_queryset.filter(
-            Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
-        ).distinct()
-
-    # Agora, aplica o filtro de status sobre o queryset já pré-filtrado
+        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)).distinct()
     if status_filtro:
         if status_filtro == 'Substituído':
-            # Mostra aulas em que o professor atribuído é diferente do que validou
-            # O .exclude(professores=None) garante que a aula tinha um professor atribuído
-            aulas_queryset = aulas_queryset.filter(
-                status='Realizada', relatorioaula__professor_que_validou__isnull=False, professores__isnull=False
-            ).exclude(professores=F('relatorioaula__professor_que_validou'))
-
+            aulas_queryset = aulas_queryset.filter(status='Realizada', relatorioaula__professor_que_validou__isnull=False, professores__isnull=False).exclude(professores=F('relatorioaula__professor_que_validou'))
         elif status_filtro == 'professor_ausente':
-            # Filtro específico para ACs onde um professor esteve ausente
-            aulas_queryset = aulas_queryset.filter(
-                modalidade__nome__icontains="atividade complementar",
-                presencas_professores__status='ausente'
-            )
-        
+            aulas_queryset = aulas_queryset.filter(modalidade__nome__icontains="atividade complementar", presencas_professores__status='ausente')
         else:
-            # Para todos os outros status (Agendada, Realizada, Cancelada, etc.), aplica um filtro direto.
-            # Esta é a correção principal que faz os filtros simples voltarem a funcionar.
             aulas_queryset = aulas_queryset.filter(status=status_filtro)
 
-    # ★★★ FIM DO BLOCO DE FILTRO DE STATUS CORRIGIDO ★★★
-
     # --- 5. PREPARAÇÃO FINAL E PAGINAÇÃO ---
+    # ★★★ CORREÇÃO 1: Usando o related_name correto 'presencas'. ★★★
     aulas_ordenadas = aulas_queryset.distinct().order_by("-data_hora").prefetch_related(
-        'alunos', 'professores', 'relatorioaula__professor_que_validou', 'presencas_professores__professor'
+        'alunos', 'professores', 'relatorioaula__professor_que_validou',
+        'presencas_professores__professor', 'presencas'
     )
-    
+
     paginator = Paginator(aulas_ordenadas, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    # ★★★ CORREÇÃO 2: Usando 'aula.presencas.all()' para iterar. ★★★
+    for aula in page_obj.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for aluno in aula.alunos.all():
+                status = presencas_map.get(aluno.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': aluno, 'status': status})
+
+    # ★★★ CORREÇÃO 3: Linhas duplicadas de paginação removidas. ★★★
+    
     # --- 6. MONTAGEM DO CONTEXTO PARA O TEMPLATE ---
     contexto = {
         "aulas": page_obj,
@@ -2055,3 +2028,134 @@ def perfil_usuario(request):
         'titulo': 'Meu Perfil'
     }
     return render(request, 'scheduler/perfil_usuario.html', contexto)
+
+
+@login_required
+@require_POST
+def gerar_relatorio_ia_aluno(request, pk):
+    # --- INÍCIO DO LOG DE DEPURAÇÃO ---
+    logger = logging.getLogger(__name__)
+    print("\n--- INICIANDO GERAÇÃO DE RELATÓRIO IA ---")
+    logger.info("Iniciando geração de relatório com IA.")
+    # --- FIM DO LOG DE DEPURAÇÃO ---
+
+    aluno = get_object_or_404(Aluno, pk=pk)
+
+    # 1. Coletar todas as aulas com relatório onde o aluno esteve presente
+    aulas_com_relatorio = Aula.objects.filter(
+        alunos=aluno,
+        status__in=['Realizada', 'Aluno Ausente'],
+        relatorioaula__isnull=False,
+        presencas__aluno=aluno,
+        presencas__status='presente'
+    ).order_by('data_hora').distinct().prefetch_related(
+        'relatorioaula__itens_rudimentos',
+        'relatorioaula__itens_ritmo',
+        'relatorioaula__itens_viradas',
+        'relatorioaula__professor_que_validou'
+    )
+
+    # --- LOG DE DEPURAÇÃO ---
+    print(f"Passo 1: Encontradas {aulas_com_relatorio.count()} aulas com relatórios para o aluno {aluno.nome_completo}.")
+    logger.info(f"Encontradas {aulas_com_relatorio.count()} aulas com relatórios.")
+    # --- FIM DO LOG DE DEPURAÇÃO ---
+
+    if not aulas_com_relatorio.exists():
+        print("Passo 1.1: Nenhuma aula encontrada, retornando erro 404.")
+        logger.warning("Nenhuma aula com relatório encontrada.")
+        return JsonResponse({'error': 'Nenhum relatório de aula com presença encontrada para este aluno.'}, status=404)
+
+    # 2. Formatar os dados para enviar à IA
+    dados_formatados = f"Análise de Desempenho do Aluno: {aluno.nome_completo}\n"
+    data_matricula_str = aluno.data_criacao.strftime('%d/%m/%Y') if aluno.data_criacao else "Data não informada"
+    dados_formatados += f"Matriculado desde: {data_matricula_str}\n\n"
+
+    for aula in aulas_com_relatorio:
+        relatorio = aula.relatorioaula
+        dados_formatados += f"--- RELATÓRIO DA AULA: {aula.data_hora.strftime('%d/%m/%Y')} ---\n"
+        dados_formatados += f"Professor: {relatorio.professor_que_validou.username.title() if relatorio.professor_que_validou else 'N/A'}\n"
+        if relatorio.conteudo_teorico: dados_formatados += f"\nTeoria: {relatorio.conteudo_teorico}\nObservações Teoria: {relatorio.observacoes_teoria}\n"
+        for item in relatorio.itens_rudimentos.all(): dados_formatados += f"- Rudimento: {item.descricao} | BPM: {item.bpm} | Obs: {item.observacoes}\n"
+        for item in relatorio.itens_ritmo.all(): dados_formatados += f"- Ritmo: {item.descricao} | BPM: {item.bpm} | Obs: {item.observacoes}\n"
+        for item in relatorio.itens_viradas.all(): dados_formatados += f"- Virada: {item.descricao} | BPM: {item.bpm} | Obs: {item.observacoes}\n"
+        if relatorio.repertorio_musicas: dados_formatados += f"\nRepertório: {relatorio.repertorio_musicas}\nObservações Repertório: {relatorio.observacoes_repertorio}\n"
+        if relatorio.observacoes_gerais: dados_formatados += f"\nObservações Gerais da Aula: {relatorio.observacoes_gerais}\n"
+        dados_formatados += "---\n\n"
+    
+    # --- LOG DE DEPURAÇÃO ---
+    print("Passo 2: Dados formatados para o prompt. Tamanho:", len(dados_formatados), "caracteres.")
+    # Descomente a linha abaixo APENAS se quiser ver todos os dados no terminal (pode ser muito longo)
+    # print(dados_formatados)
+    logger.info("Dados para o prompt foram formatados com sucesso.")
+    # --- FIM DO LOG DE DEPURAÇÃO ---
+
+    # 3. Chamar o Gemini
+    try:
+        prompt = construir_prompt(dados_formatados)
+        
+        # --- LOG DE DEPURAÇÃO ---
+        print("Passo 3: Construindo prompt e configurando a API do Gemini.")
+        logger.info("Configurando a API do Gemini.")
+        # --- FIM DO LOG DE DEPURAÇÃO ---
+
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        
+        # --- LOG DE DEPURAÇÃO ---
+        print("Passo 3.1: Enviando requisição para o Gemini. Aguardando resposta...")
+        logger.info("Enviando requisição para o modelo generativo.")
+        # --- FIM DO LOG DE DEPURAÇÃO ---
+
+        resposta = model.generate_content(prompt)
+        
+        # --- LOG DE DEPURAÇÃO ---
+        print("Passo 3.2: Resposta recebida do Gemini com sucesso.")
+        logger.info("Resposta do Gemini recebida.")
+        # --- FIM DO LOG DE DEPURAÇÃO ---
+        
+        html_resposta = markdown2.markdown(resposta.text)
+        return JsonResponse({'report_html': html_resposta})
+
+    except Exception as e:
+        # --- LOG DE DEPURAÇÃO ---
+        print(f"\n!!!!!!!!!! ERRO CAPTURADO !!!!!!!!!!")
+        print(f"Tipo do Erro: {type(e)}")
+        print(f"Erro detalhado: {e}")
+        print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+        logger.error(f"Erro na chamada da API Gemini: {e}", exc_info=True)
+        # --- FIM DO LOG DE DEPURAÇÃO ---
+        
+        return JsonResponse({'error': f'Erro ao comunicar com a IA: {str(e)}'}, status=500)
+    
+
+def construir_prompt(dados_aluno):
+    return f"""
+    **Tarefa:** Você é um instrutor de bateria experiente e um assistente pedagógico. Sua função é analisar um conjunto de relatórios de aulas de um aluno e gerar uma avaliação de desempenho detalhada, construtiva e encorajadora.
+
+    **Instruções:**
+    1. Leia todos os dados fornecidos sobre o aluno e seus relatórios de aula.
+    2. Identifique padrões de progresso, dificuldades recorrentes e áreas de destaque.
+    3. Não invente informações. Baseie-se estritamente nos dados fornecidos.
+    4. Use uma linguagem clara, positiva e pedagógica.
+    5. Estruture sua resposta EXATAMENTE nos seguintes tópicos, usando Markdown:
+
+    ### Análise de Desempenho Pedagógico
+
+    **1. Resumo Geral:**
+    Faça um parágrafo de abertura resumindo a trajetória e o engajamento geral do aluno com base nos relatórios.
+
+    **2. Pontos Fortes e Destaques:**
+    Liste em formato de tópicos (bullet points) as áreas onde o aluno demonstra maior habilidade, consistência ou progresso notável. (Ex: "Demonstra grande musicalidade no repertório", "Evolução consistente de velocidade nos rudimentos de toque simples").
+
+    **3. Áreas para Melhoria:**
+    Liste em formato de tópicos as áreas que necessitam de mais atenção. Seja específico e construtivo. (Ex: "A precisão em BPMs mais altos em viradas complexas pode ser aprimorada", "A memorização do conteúdo teórico pode ser um foco para as próximas aulas").
+
+    **4. Análise de Evolução Técnica:**
+    Com base nos dados de BPM e observações, comente sobre a evolução técnica do aluno em rudimentos, ritmos ou viradas. Aponte se há progresso na velocidade, consistência ou aplicação.
+
+    **5. Recomendações para Próximas Aulas:**
+    Sugira de 2 a 3 focos práticos para as aulas seguintes, com base na sua análise. (Ex: "Recomendar um exercício focado em subdivisões para melhorar a precisão rítmica", "Introduzir uma nova música no repertório que desafie a coordenação observada como ponto a melhorar").
+
+    **Dados brutos para análise:**
+    {dados_aluno}
+    """

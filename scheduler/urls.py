@@ -22,6 +22,7 @@ urlpatterns = [
     # URL para exportação de aulas
     path('aulas/exportar/', views.exportar_aulas, name='exportar_aulas'),
     path("relatorios/exportar/", views.exportar_relatorio_agregado, name="exportar_relatorio_agregado"),
+    path('alunos/<int:pk>/gerar-relatorio-ia/', views.gerar_relatorio_ia_aluno, name='aluno_gerar_relatorio_ia'),
 
     # URL para obter horários ocupados via AJAX
     path('aulas/get_horarios_ocupados/', views.get_horarios_ocupados, name='get_horarios_ocupados'),

@@ -135,7 +135,11 @@
                     {% if user.tipo == 'admin' %}
                     <div class="d-grid gap-2 mt-4">
                         <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Aluno</a>
-                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">Excluir</button>
+
+                        <button type="button" id="btn-gerar-relatorio-ia" class="btn btn-success" data-aluno-id="{{ aluno.pk }}">
+                            <i class="bi bi-robot me-1"></i> Gerar Análise com IA
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" ...>Excluir</button>
                     </div>
                     {% endif %}
                 </div>
@@ -177,15 +181,39 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="iaReportModal" tabindex="-1" aria-labelledby="iaReportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="iaReportModalLabel">Análise de Desempenho de {{ aluno.nome_completo|title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="ia-report-content">
+        <div class="text-center p-5" id="ia-loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Analisando...</span>
+            </div>
+            <p class="mt-3 text-muted">Aguarde, a IA está analisando os relatórios...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
 {% block extra_js %}
 {{ block.super }}
 
-{# Passando dados para o JavaScript de forma segura #}
+{# Passando dados para o JavaScript de forma segura (sem alterações aqui) #}
 {{ chart_labels|json_script:"status-chart-labels-data" }}
 {{ chart_data|json_script:"status-chart-data-data" }}
+{{ evolucao_chart_labels|json_script:"evolucao-labels-data" }}
 {{ evolucao_chart_datasets|json_script:"evolucao-datasets-data" }}
 
 <script>
@@ -202,85 +230,123 @@ document.addEventListener('DOMContentLoaded', function() {
         return {
             fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
             gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
+            // Cores para o gráfico de pizza (Realizadas, Ausências, Canceladas, Agendadas)
             pieColors: isDark 
-                ? ['#198754', '#ffc107', '#dc3545', '#0dcaf0'] // Cores mais saturadas para dark
-                : ['#198754', '#ffc107', '#dc3545', '#0dcaf0']  // Cores padrão para light
+                ? ['#198754', '#ffc107', '#dc3545', '#0dcaf0']
+                : ['#198754', '#ffc107', '#dc3545', '#0dcaf0']
         };
     }
 
+    // ★★★ FUNÇÃO ATUALIZADA COM AMBOS OS GRÁFICOS ★★★
     function renderOrUpdateCharts() {
+        // Destrói instâncias antigas para redesenhar
         if (statusChartInstance) statusChartInstance.destroy();
         if (evolutionChartInstance) evolutionChartInstance.destroy();
 
         const themeColors = getChartThemeColors();
         Chart.defaults.color = themeColors.fontColor;
         
-        // Gráfico de Pizza (Status)
-        const statusLabels = JSON.parse(document.getElementById('status-chart-labels-data').textContent);
-        const statusData = JSON.parse(document.getElementById('status-chart-data-data').textContent);
+        // ===============================================
+        //  1. GRÁFICO DE PIZZA (DISTRIBUIÇÃO DE STATUS)
+        // ===============================================
+        const statusLabelsDataEl = document.getElementById('status-chart-labels-data');
+        const statusDataDataEl = document.getElementById('status-chart-data-data');
         const statusCtx = document.getElementById('statusChart');
-        if (statusCtx && statusData.some(d => d > 0)) {
-            statusChartInstance = new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: statusLabels,
-                    datasets: [{
-                        data: statusData,
-                        backgroundColor: themeColors.pieColors,
-                        borderWidth: 0,
-                        hoverOffset: 8
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: true, position: 'bottom', labels: {boxWidth: 12} } }
-                }
-            });
-        }
 
-        // Gráfico de Linha (Evolução)
-        const datasets = JSON.parse(document.getElementById('evolucao-datasets-data').textContent);
-        const evolutionCtx = document.getElementById('studentEvolutionChart');
-        if (evolutionCtx && datasets.length > 0) {
-            Chart.defaults.borderColor = themeColors.gridColor; // Aplicar cor da grade para este gráfico
-            evolutionChartInstance = new Chart(evolutionCtx, {
-                type: 'line',
-                data: { datasets: datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'time', // <-- MUITO IMPORTANTE: Altera o tipo do eixo para 'time'
-                            time: {
-                                unit: 'day', // Agrupa visualmente por dia, mas mantém os pontos individuais
-                                tooltipFormat: 'dd/MM/yyyy HH:mm', // Formato para o tooltip ao passar o mouse
-                                displayFormats: {
-                                    day: 'dd/MM/yy' // Formato para a etiqueta do eixo X
+        if (statusCtx && statusLabelsDataEl && statusDataDataEl) {
+            const statusLabels = JSON.parse(statusLabelsDataEl.textContent);
+            const statusData = JSON.parse(statusDataDataEl.textContent);
+            
+            // Só renderiza o gráfico se houver dados
+            const hasData = statusData.some(item => item > 0);
+
+            if (hasData) {
+                statusChartInstance = new Chart(statusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: statusLabels,
+                        datasets: [{
+                            label: 'Status',
+                            data: statusData,
+                            backgroundColor: themeColors.pieColors,
+                            borderColor: 'var(--bs-tertiary-bg)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    boxWidth: 12
                                 }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Data da Aula'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'BPM (Batidas por Minuto)'
                             }
                         }
-                    },
-                    plugins: {
-                        legend: { display: true, position: 'bottom' },
-                        tooltip: { mode: 'index', intersect: false }
                     }
-                }
-            });
+                });
+            }
+        }
+
+        // ===============================================
+        //  2. GRÁFICO DE LINHA (EVOLUÇÃO DE BPM)
+        // ===============================================
+        const evolutionLabelsData = document.getElementById('evolucao-labels-data');
+        const evolutionDatasetsData = document.getElementById('evolucao-datasets-data');
+        const evolutionCtx = document.getElementById('studentEvolutionChart');
+
+        if (evolutionCtx && evolutionLabelsData && evolutionDatasetsData) {
+            const labels = JSON.parse(evolutionLabelsData.textContent);
+            const datasets = JSON.parse(evolutionDatasetsData.textContent);
+
+            if (labels.length > 0 && datasets.length > 0) {
+                Chart.defaults.borderColor = themeColors.gridColor;
+                evolutionChartInstance = new Chart(evolutionCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'category',
+                                title: {
+                                    display: true,
+                                    text: 'Data da Aula'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'BPM (Batidas por Minuto)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    }
+                });
+            }
         }
     }
+    // ★★★ FIM DA FUNÇÃO ATUALIZADA ★★★
 
+
+    // Renderiza os gráficos na carga inicial da página
     renderOrUpdateCharts();
 
+    // Observador para o modo light/dark (sem alterações aqui)
     const themeObserver = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
@@ -289,6 +355,58 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     themeObserver.observe(document.documentElement, { attributes: true });
+
+    const reportButton = document.getElementById('btn-gerar-relatorio-ia');
+    if (reportButton) {
+        reportButton.addEventListener('click', function() {
+            const alunoId = this.dataset.alunoId;
+            const reportModal = new bootstrap.Modal(document.getElementById('iaReportModal'));
+            const reportContent = document.getElementById('ia-report-content');
+            
+            // ★★★ CORREÇÃO AQUI ★★★
+            // Movemos a captura do HTML do spinner para dentro do evento de clique,
+            // e adicionamos uma verificação para garantir que ele existe.
+            const loadingSpinner = document.getElementById('ia-loading-spinner');
+            if (loadingSpinner) {
+                reportContent.innerHTML = loadingSpinner.outerHTML;
+            } else {
+                reportContent.innerHTML = '<p>Carregando...</p>'; // Fallback
+            }
+            // ★★★ FIM DA CORREÇÃO ★★★
+
+            reportModal.show();
+
+            const url = `/alunos/${alunoId}/gerar-relatorio-ia/`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || `Erro no servidor: ${response.statusText}`);
+                    }).catch(() => {
+                        throw new Error(`Erro na rede ou servidor: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.report_html) {
+                    reportContent.innerHTML = data.report_html;
+                } else {
+                    reportContent.innerHTML = `<div class="alert alert-warning">${data.error || 'Não foi possível gerar o relatório.'}</div>`;
+                }
+            })
+            .catch(error => {
+                reportContent.innerHTML = `<div class="alert alert-danger">Falha na requisição: ${error.message}</div>`;
+            });
+        });
+    }
 });
 </script>
 {% endblock %}

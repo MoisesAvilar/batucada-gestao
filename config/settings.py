@@ -160,3 +160,5 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+GEMINI_API_KEY = "AIzaSyDaSZ2RqAqzdPrVb16AITrlfieXM-2AFpM"
