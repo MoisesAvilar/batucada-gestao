@@ -9,6 +9,7 @@
     </p>
 </div>
 
+<<<<<<< Updated upstream
 <div id="page-overlay"></div>
 {% if user.tipo == 'admin' %}
     <div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
@@ -48,6 +49,137 @@
     </div>
     <div class="card-body p-2" id="calendario-wrapper">
         {% include 'scheduler/partials/calendario_content.html' %}
+=======
+<div class="vstack gap-4">
+    {% if user.tipo == 'admin' %}
+        <div class="d-flex justify-content-end align-items-center gap-2">
+            <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
+            <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
+        </div>
+        <div class="row g-4">
+            <div class="col-xl-3 col-md-6">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Aulas Hoje</div><div class="kpi-value mt-1">{{ aulas_hoje_count }}</div></div>
+                            <i class="bi bi-calendar-day kpi-icon text-info"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Aulas na Semana</div><div class="kpi-value mt-1">{{ aulas_semana_count }}</div></div>
+                            <i class="bi bi-calendar-week kpi-icon text-primary"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                {# ★★★ CARD DE AGENDADAS AGORA É UM LINK ★★★ #}
+                <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Total Agendadas</div><div class="kpi-value mt-1">{{ aulas_agendadas_total }}</div></div>
+                            <i class="bi bi-clock-history kpi-icon text-secondary"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                 <a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Novos Alunos (Mês)</div><div class="kpi-value mt-1">{{ novos_alunos_mes }}</div></div>
+                            <i class="bi bi-person-plus-fill kpi-icon text-success"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    {% else %}
+        {# --- PROFESSOR: STATS --- #}
+        <div class="row g-4">
+            <div class="col-lg-4 col-md-6">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Minhas Aulas Hoje</div><div class="kpi-value mt-1">{{ aulas_hoje_count }}</div></div>
+                            <i class="bi bi-calendar-day kpi-icon text-info"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Minhas Aulas na Semana</div><div class="kpi-value mt-1">{{ aulas_semana_count }}</div></div>
+                            <i class="bi bi-calendar-week kpi-icon text-primary"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                 <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada&data_final=" class="kpi-link">
+                    <div class="content-block kpi-card">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1"><div class="kpi-label">Pendentes de Validação</div><div class="kpi-value mt-1">{{ aulas_pendentes_count }}</div></div>
+                            <i class="bi bi-exclamation-triangle-fill kpi-icon text-danger"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    {% if aulas_pendentes_validacao %}
+    <div class="card alert-card shadow-sm border-0">
+        <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i><h5 class="mb-0 fs-6 fw-bold">Ação Necessária: Aulas Pendentes</h5></div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Aulas que ocorreram mas não tiveram o relatório preenchido.</p>
+            <div class="list-group list-group-flush">
+                {% for aula in aulas_pendentes_validacao %}
+                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action px-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ aula.modalidade.nome|title }}</strong>
+                            <div class="text-muted small">{{ aula.data_hora|date:"d/m/Y H:i" }} • {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}Atividade Complementar{% endfor %}</div>
+                        </div>
+                        <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill">Pendente</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="content-block shadow-sm p-0">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 border-bottom">
+            <!-- Título (centralizado em mobile, alinhado à esquerda em desktop) -->
+            <h5 class="text-center text-md-start mb-3 mb-md-0 w-100 w-md-auto">
+                {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
+            </h5>
+            
+            <!-- Select (centralizado em mobile, alinhado à direita em desktop) -->
+            {% if user.tipo == 'admin' %}
+            <div class="text-center w-100 w-md-auto">  <!-- Ocupa 100% em mobile -->
+                <select id="professor_calendario_filtro" class="form-select form-select-sm mx-auto mx-md-0" style="max-width: 200px;">
+                    <option value="">Todos os Professores</option>
+                    {% for prof in professores_list %}
+                    <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+        <div class="p-3" id="calendario-wrapper">
+            {% include 'scheduler/partials/calendario_content.html' %}
+        </div>
+>>>>>>> Stashed changes
     </div>
 </div>
 

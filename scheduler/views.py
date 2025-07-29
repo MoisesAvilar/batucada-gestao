@@ -58,21 +58,40 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
 
 
 # --- Views Principais (dashboard) ---
-# scheduler/views.py
-
 @login_required
 def dashboard(request):
     now = timezone.now()
     today = now.date()
+<<<<<<< Updated upstream
+=======
+
+    # ★★★ INÍCIO DA ALTERAÇÃO ★★★
+    # 1. MOVA ESTA LÓGICA PARA ANTES DO IF/ELSE
+    #    Agora, ela será executada para qualquer usuário logado.
+    #    A consulta funciona perfeitamente para ambos, admin e professor.
+    aulas_pendentes_validacao = Aula.objects.filter(
+        professores=request.user, 
+        status='Agendada', 
+        data_hora__lt=now
+    ).order_by('data_hora')
+    aulas_pendentes_count = aulas_pendentes_validacao.count()
+    # ★★★ FIM DA ALTERAÇÃO ★★★
     
-    # --- PREPARAÇÃO DOS DADOS DO CALENDÁRIO ---
+    # Formatação das datas para os links (lógica existente)
+    today_iso = today.strftime('%Y-%m-%d')
+    start_of_week = today - timedelta(days=today.weekday() + 1)
+    end_of_week = start_of_week + timedelta(days=6)
+    week_start_iso = start_of_week.strftime('%Y-%m-%d')
+    week_end_iso = end_of_week.strftime('%Y-%m-%d')
+>>>>>>> Stashed changes
+    
+    # ... (o resto da lógica de preparação do calendário permanece igual) ...
     try:
         year = int(request.GET.get('year', today.year))
         month = int(request.GET.get('month', today.month))
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
-    # Define o queryset base de acordo com o usuário
     if request.user.tipo == 'admin':
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
@@ -80,8 +99,8 @@ def dashboard(request):
             aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id)
     else: # Professor
         aulas_qs = Aula.objects.filter(professores=request.user)
-
-    # Lógica de construção do calendário (agora comum para ambos)
+    
+    # ... (a lógica de construção do calendário permanece igual) ...
     aulas_do_mes = aulas_qs.filter(
         data_hora__year=year, 
         data_hora__month=month
@@ -99,6 +118,7 @@ def dashboard(request):
         for dia in semana:
             semana_com_aulas.append({'dia': dia, 'aulas': aulas_por_dia.get(dia, [])})
         calendario_final.append(semana_com_aulas)
+
 
     # --- PREPARAÇÃO DO CONTEXTO ESPECÍFICO DE CADA USUÁRIO ---
     if request.user.tipo == 'admin':
@@ -123,20 +143,26 @@ def dashboard(request):
             'aula_form_modal': AulaForm(),
             'aluno_formset_modal': AlunoFormSetModal(prefix='alunos'),
             'professor_formset_modal': ProfessorFormSetModal(prefix='professores'),
-            'form_action_modal': reverse('scheduler:aula_agendar')
+            'form_action_modal': reverse('scheduler:aula_agendar'),
+            # ★★★ INÍCIO DA ALTERAÇÃO ★★★
+            # 2. ADICIONE AS AULAS PENDENTES AO CONTEXTO DO ADMIN
+            "aulas_pendentes_validacao": aulas_pendentes_validacao,
+            # ★★★ FIM DA ALTERAÇÃO ★★★
         }
     else: # Professor
         # KPIs para o Professor
         aulas_do_professor = Aula.objects.filter(professores=request.user).distinct()
         aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
         aulas_semana_count = aulas_do_professor.filter(data_hora__date__range=[today, today + timezone.timedelta(days=7)]).count()
-        aulas_pendentes_count = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).count()
-        aulas_pendentes_validacao = aulas_do_professor.filter(status='Agendada', data_hora__lt=now).order_by('data_hora')
+        # A contagem de pendentes já foi feita acima, então podemos reutilizá-la
+        
         contexto = {
             "titulo": "Meu Dashboard",
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
-            "aulas_pendentes_count": aulas_pendentes_count,
+            # A variável `aulas_pendentes_count` já existe e está correta
+            "aulas_pendentes_count": aulas_pendentes_count, 
+            # A variável `aulas_pendentes_validacao` já existe e está correta
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
         }
 
