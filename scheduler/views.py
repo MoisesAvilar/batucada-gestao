@@ -537,7 +537,13 @@ def listar_alunos(request):
     now = timezone.now()
 
     if request.user.tipo == 'professor':
-        alunos_queryset = Aluno.objects.filter(aulas_aluno__professores=request.user).distinct().annotate(
+        # ★★★ INÍCIO DA CORREÇÃO ★★★
+        # Agora, a consulta para professores inclui:
+        # 1. Alunos que já têm aulas com o professor logado.
+        # 2. Alunos que não têm nenhuma aula agendada (aulas_aluno__isnull=True).
+        alunos_queryset = Aluno.objects.filter(
+            Q(aulas_aluno__professores=request.user) | Q(aulas_aluno__isnull=True)
+        ).distinct().annotate(
             total_aulas=Count('aulas_aluno', filter=Q(aulas_aluno__professores=request.user)),
             proxima_aula=Min(
                 Case(
@@ -550,7 +556,8 @@ def listar_alunos(request):
                 )
             )
         )
-    else: # Visão do Admin
+        # ★★★ FIM DA CORREÇÃO ★★★
+    else: # Visão do Admin (sem alterações)
         alunos_queryset = Aluno.objects.all().annotate(
             total_aulas=Count('aulas_aluno'),
             proxima_aula=Min(
@@ -561,6 +568,7 @@ def listar_alunos(request):
             )
         )
 
+    # O resto da lógica de filtros e renderização permanece o mesmo
     if search_query:
         alunos_queryset = alunos_queryset.filter(
             Q(nome_completo__icontains=search_query) |
@@ -573,14 +581,14 @@ def listar_alunos(request):
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
             alunos_queryset = alunos_queryset.filter(data_criacao__gte=data_inicial)
         except ValueError:
-            pass # Ignora data inválida
+            pass
     
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
             alunos_queryset = alunos_queryset.filter(data_criacao__lte=data_final)
         except ValueError:
-            pass # Ignora data inválida
+            pass
 
     alunos = alunos_queryset.order_by("nome_completo")
 
@@ -594,7 +602,8 @@ def listar_alunos(request):
     return render(request, "scheduler/aluno_listar.html", contexto)
 
 
-@user_passes_test(is_admin)
+@login_required
+@user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
 def criar_aluno(request):
     if request.method == "POST":
         form = AlunoForm(request.POST)
@@ -612,14 +621,15 @@ def criar_aluno(request):
     )
 
 
-@user_passes_test(is_admin)
+@login_required
+@user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
 def editar_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
     if request.method == "POST":
         form = AlunoForm(request.POST, instance=aluno)
         if form.is_valid():
             form.save()
-            messages.success(request, "Aluno atualizada com sucesso!")
+            messages.success(request, "Aluno atualizado com sucesso!")
             return redirect("scheduler:aluno_listar")
     else:
         form = AlunoForm(instance=aluno)

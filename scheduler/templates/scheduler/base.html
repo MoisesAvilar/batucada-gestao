@@ -216,11 +216,13 @@
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                         </li>
+                        {% if user.tipo in 'admin,professor' %}
                         <li class="nav-item">
                                 <a class="nav-link {% if 'aluno_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:aluno_listar' %}">
                                     <i class="bi bi-people"></i> Alunos
                                 </a>
                             </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'aula_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:aula_listar' %}">
                                 <i class="bi bi-calendar3"></i> 

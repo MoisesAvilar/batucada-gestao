@@ -160,20 +160,38 @@
 <div class="d-lg-none vstack gap-3">
     {% for aula in aulas %}
     <div class="card shadow-sm mb-3 border-0 border-start border-4
-                {% if aula.status == 'Realizada' %}border-success
+                {% if aula.status == 'Agendada' and aula.data_hora < now %}border-danger
+                {% elif aula.status == 'Realizada' %}border-success
                 {% elif aula.status == 'Cancelada' %}border-danger
                 {% elif aula.status == 'Aluno Ausente' %}border-warning
                 {% elif aula.status == 'Agendada' %}border-info
                 {% else %}border-secondary{% endif %}">
         
+        {# ★★★ INÍCIO DA CORREÇÃO NO CABEÇALHO MOBILE ★★★ #}
         <div class="card-header text-center">
-            {# Nome do Aluno ou da Atividade #}
             <h5 class="card-title mb-1">
                 {% if "atividade complementar" in aula.modalidade.nome|lower %}
                     {{ aula.modalidade.nome|title }}
                 {% else %}
-                        {# ★★★ INÍCIO DA CORREÇÃO ★★★ #}
-                        {# O código do badge foi colocado diretamente aqui, sem o include #}
+                    {# Lógica principal que verifica se há dados de presença para exibir os badges corretos #}
+                    {% if aula.status in "Realizada,Aluno Ausente" and aula.alunos_com_status %}
+                        {% for item in aula.alunos_com_status %}
+                            {% if user.tipo == 'admin' %}
+                                <a href="{% url 'scheduler:aluno_detalhe' item.aluno.pk %}" class="text-decoration-none d-inline-block mb-1">
+                                    <span class="badge rounded-pill {% if item.status == 'presente' %}bg-success-subtle text-success-emphasis border border-success-subtle{% elif item.status == 'ausente' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% else %}bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle{% endif %} d-inline-flex align-items-center">
+                                        <i class="bi {% if item.status == 'presente' %}bi-person-check-fill{% elif item.status == 'ausente' %}bi-person-x-fill{% else %}bi-person-fill{% endif %} me-1"></i>
+                                        {{ item.aluno.nome_completo|title }}
+                                    </span>
+                                </a>
+                            {% else %}
+                                <span class="badge rounded-pill {% if item.status == 'presente' %}bg-success-subtle text-success-emphasis border border-success-subtle{% elif item.status == 'ausente' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% else %}bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle{% endif %} d-inline-flex align-items-center d-inline-block mb-1">
+                                    <i class="bi {% if item.status == 'presente' %}bi-person-check-fill{% elif item.status == 'ausente' %}bi-person-x-fill{% else %}bi-person-fill{% endif %} me-1"></i>
+                                    {{ item.aluno.nome_completo|title }}
+                                </span>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        {# Fallback para aulas agendadas (mostra o badge cinza padrão) #}
                         {% for aluno in aula.alunos.all %}
                             {% if user.tipo == 'admin' %}
                                 <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none d-inline-block mb-1">
@@ -191,15 +209,15 @@
                         {% empty %}
                             {{ aula.modalidade.nome|title }}
                         {% endfor %}
-                        {# ★★★ FIM DA CORREÇÃO ★★★ #}
+                    {% endif %}
                 {% endif %}
             </h5>
             
-            {# Data e Status abaixo do nome #}
             <div class="d-flex justify-content-center align-items-center gap-2 small">
                 <span class="text-muted">{{ aula.data_hora|date:"d/m/Y, H:i" }}</span>
                 
-                {% if aula.status == 'Realizada' %}<span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Realizada</span>
+                {% if aula.status == 'Agendada' and aula.data_hora < now %}<span class="badge text-bg-danger pulse-slow"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pendente</span>
+                {% elif aula.status == 'Realizada' %}<span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Realizada</span>
                 {% elif aula.status == 'Agendada' %}<span class="badge text-bg-info"><i class="bi bi-clock-history me-1"></i>Agendada</span>
                 {% elif aula.status == 'Cancelada' %}<span class="badge text-bg-danger"><i class="bi bi-x-circle-fill me-1"></i>Cancelada</span>
                 {% elif aula.status == 'Aluno Ausente' %}<span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Aluno Ausente</span>
