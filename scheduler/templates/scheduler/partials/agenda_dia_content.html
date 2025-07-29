@@ -1,0 +1,36 @@
+<div class="agenda-day-header">
+    {{ data_selecionada|date:"l, d \d\e F"|capfirst }}
+</div>
+{% for aula in aulas_do_dia %}
+    <div class="swipe-wrapper" data-swipeable="true">
+        <div class="swipe-actions">
+            {% if user.tipo == 'admin' %}
+                <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-primary h-100">Editar</a>
+                <button type="button" class="btn btn-sm btn-danger h-100" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:excluir_aula' aula.pk %}">Excluir</button>
+            {% endif %}
+        </div>
+        <div class="swipe-foreground status-{{ aula.status|slugify }}">
+            <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="text-decoration-none text-body">
+                <div class="d-flex justify-content-between">
+                    <span class="agenda-card-title">{% if aula.alunos.all|length == 1 %}{{ aula.alunos.first.nome_completo|title }}{% elif aula.alunos.all|length > 1 %}Grupo: {{ aula.modalidade.nome|title }}{% else %}{{ aula.modalidade.nome|title }}{% endif %}</span>
+                    <span class="agenda-card-time">{{ aula.data_hora|time:"H:i" }}</span>
+                </div>
+                <div class="small text-muted mt-1"><i class="bi bi-person-video3 me-1"></i>{% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% empty %}N/A{% endfor %}</div>
+            </a>
+        </div>
+    </div>
+{% empty %}
+    <div class="d-flex flex-column justify-content-center align-items-center h-100 text-center text-muted p-5">
+        <i class="bi bi-calendar2-heart fs-1 mb-3"></i>
+        <h6 class="mb-1">Nenhuma aula para este dia.</h6>
+        {% if user.tipo == 'admin' %}
+        <p class="small">Que tal agendar uma?</p>
+        <button class="btn btn-sm btn-primary mt-2" 
+                data-bs-toggle="modal" 
+                data-bs-target="#agendamentoModal" 
+                data-date-agenda="{{ data_selecionada|date:'Y-m-d' }}">
+            <i class="bi bi-plus-circle me-1"></i> Agendar Aula
+        </button>
+        {% endif %}
+    </div>
+{% endfor %}

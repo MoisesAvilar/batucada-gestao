@@ -1,57 +1,57 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
+<style>
+    .content-block {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 2rem;
+    }
+</style>
+
 <div class="row justify-content-center">
     <div class="col-lg-8">
-        {# --- CABEÇALHO APRIMORADO --- #}
         <div class="text-center mb-4">
-            <h1 class="mb-1">{{ titulo }}</h1>
-            <p class="text-muted mb-0">Preencha os dados para adicionar ou editar um aluno.</p>
+            <h1 class="h2 mb-1">{{ titulo }}</h1>
+            <p class="text-muted">Preencha os dados para adicionar ou editar um aluno.</p>
         </div>
 
-        {% if form.errors %}
-            <div class="alert alert-danger">
-                Por favor, corrija os erros abaixo.
-            </div>
-        {% endif %}
+        <div class="content-block">
+            <form method="post">
+                {% csrf_token %}
 
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <form method="post">
-                    {% csrf_token %}
+                <div class="mb-3">
+                    <label for="{{ form.nome_completo.id_for_label }}" class="form-label fw-bold">{{ form.nome_completo.label }}</label>
+                    {{ form.nome_completo }}
+                    {% if form.nome_completo.errors %}<div class="invalid-feedback d-block">{{ form.nome_completo.errors|first }}</div>{% endif %}
+                </div>
 
-                    <div class="mb-3">
-                        <label for="{{ form.nome_completo.id_for_label }}" class="form-label fw-bold">Nome</label>
-                        {{ form.nome_completo }}
-                        {% if form.nome_completo.errors %}<div class="text-danger small mt-1">{{ form.nome_completo.errors }}</div>{% endif %}
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">{{ form.email.label }}</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<div class="invalid-feedback d-block">{{ form.email.errors|first }}</div>{% endif %}
                     </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">Email</label>
-                            {{ form.email }}
-                            {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.telefone.id_for_label }}" class="form-label fw-bold">Telefone</label>
-                            {{ form.telefone }}
-                            {% if form.telefone.errors %}<div class="text-danger small mt-1">{{ form.telefone.errors }}</div>{% endif %}
-                        </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.telefone.id_for_label }}" class="form-label fw-bold">{{ form.telefone.label }}</label>
+                        {{ form.telefone }}
+                        {% if form.telefone.errors %}<div class="invalid-feedback d-block">{{ form.telefone.errors|first }}</div>{% endif %}
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label for="{{ form.data_criacao.id_for_label }}" class="form-label fw-bold">Data de Matrícula</label>
-                        {{ form.data_criacao }}
-                        <small class="form-text text-muted">A data padrão é a atual, mas pode ser editada para registrar alunos antigos.</small>
-                        {% if form.data_criacao.errors %}<div class="text-danger small mt-1">{{ form.data_criacao.errors }}</div>{% endif %}
-                    </div>
+                <div class="mb-3">
+                    <label for="{{ form.data_criacao.id_for_label }}" class="form-label fw-bold">{{ form.data_criacao.label }}</label>
+                    {{ form.data_criacao }}
+                    <small class="form-text text-muted">A data padrão é a atual, mas pode ser editada para registrar alunos antigos.</small>
+                    {% if form.data_criacao.errors %}<div class="invalid-feedback d-block">{{ form.data_criacao.errors|first }}</div>{% endif %}
+                </div>
 
-                    <div class="mt-4 border-top pt-3 text-end">
-                        <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">Salvar</button>
-                    </div>
-                </form>
-            </div>
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">Salvar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

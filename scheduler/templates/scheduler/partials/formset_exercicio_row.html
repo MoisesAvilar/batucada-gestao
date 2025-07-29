@@ -1,0 +1,38 @@
+<div class="p-3 rounded" style="background-color: var(--bs-body-bg);">
+    {# O campo ID é necessário para o formset, mas não precisa ser visível #}
+    <div class="d-none">{{ form.id }}</div>
+
+    <div class="row g-3 align-items-end">
+        <div class="col-md-{% if type == 'ritmo' %}4{% else %}5{% endif %}">
+            <label class="form-label small fw-medium">Descrição</label>
+            {{ form.descricao }}
+        </div>
+        {% if type == 'ritmo' %}
+        <div class="col-md-3">
+            <label class="form-label small fw-medium">Livro/Método</label>
+            {{ form.livro_metodo }}
+        </div>
+        {% endif %}
+        <div class="col-md-2">
+            <label class="form-label small fw-medium">BPM</label>
+            {{ form.bpm }}
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-medium">Duração (min)</label>
+            {{ form.duracao_min }}
+        </div>
+        
+        {# ★★★ BOTÃO DE REMOÇÃO ADICIONADO ★★★ #}
+        <div class="col-md-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-exercicio-row" title="Remover Exercício"><i class="bi bi-trash"></i></button>
+            {# O checkbox de DELETE do Django agora fica escondido, mas ainda é usado pelo nosso script #}
+            <div class="d-none">{{ form.DELETE }}</div>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-12">
+            <label class="form-label small fw-medium">Observações</label>
+            {{ form.observacoes }}
+        </div>
+    </div>
+</div>

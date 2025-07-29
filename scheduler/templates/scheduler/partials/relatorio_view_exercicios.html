@@ -1,0 +1,98 @@
+<h4 class="mt-4 mb-4">Exercícios Aplicados</h4>
+
+{# A parte de teoria continua como estava, fora do acordeão de exercícios #}
+<h6 class="text-muted">Teoria</h6>
+<p>{{ relatorio.conteudo_teorico|default:"Nenhum conteúdo teórico informado."|linebreaksbr }}</p>
+{% if relatorio.observacoes_teoria %}<p class="small text-muted fst-italic report-notes p-2 rounded"><b>Obs:</b> {{ relatorio.observacoes_teoria }}</p>{% endif %}
+<hr class="my-4">
+
+
+{# ★★★ INÍCIO DA ALTERAÇÃO: ACORDEÃO PARA OS EXERCÍCIOS ★★★ #}
+<h6 class="text-muted mb-3">Exercícios Práticos</h6>
+<div class="accordion accordion-flush" id="accordionExerciciosHistorico">
+
+    {# --- Rudimentos --- #}
+    {% if relatorio.itens_rudimentos.all %}
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRudimentos">
+                Rudimentos ({{ relatorio.itens_rudimentos.all|length }})
+            </button>
+        </h2>
+        <div id="collapseRudimentos" class="accordion-collapse collapse" data-bs-parent="#accordionExerciciosHistorico">
+            <div class="accordion-body">
+                <ul class="list-group list-group-flush">
+                {% for item in relatorio.itens_rudimentos.all %}
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ item.descricao }}</span>
+                            <span class="text-muted small">{% if item.bpm %}{{ item.bpm }} BPM{% endif %}{% if item.duracao_min %} • {{ item.duracao_min }}min{% endif %}</span>
+                        </div>
+                        {% if item.observacoes %}<p class="small text-muted fst-italic mt-1 mb-0 report-notes p-2 rounded"><b>Obs:</b> {{ item.observacoes }}</p>{% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Ritmo --- #}
+    {% if relatorio.itens_ritmo.all %}
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRitmo">
+                Ritmos ({{ relatorio.itens_ritmo.all|length }})
+            </button>
+        </h2>
+        <div id="collapseRitmo" class="accordion-collapse collapse" data-bs-parent="#accordionExerciciosHistorico">
+            <div class="accordion-body">
+                <ul class="list-group list-group-flush">
+                {% for item in relatorio.itens_ritmo.all %}
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div>{{ item.descricao }}</div>
+                                {% if item.livro_metodo %}<div class="small text-muted">Livro/Método: {{ item.livro_metodo }}</div>{% endif %}
+                            </div>
+                            <span class="text-muted small">{% if item.bpm %}{{ item.bpm }} BPM{% endif %}{% if item.duracao_min %} • {{ item.duracao_min }}min{% endif %}</span>
+                        </div>
+                        {% if item.observacoes %}<p class="small text-muted fst-italic mt-1 mb-0 report-notes p-2 rounded"><b>Obs:</b> {{ item.observacoes }}</p>{% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Viradas --- #}
+    {% if relatorio.itens_viradas.all %}
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseViradas">
+                Viradas ({{ relatorio.itens_viradas.all|length }})
+            </button>
+        </h2>
+        <div id="collapseViradas" class="accordion-collapse collapse" data-bs-parent="#accordionExerciciosHistorico">
+            <div class="accordion-body">
+                <ul class="list-group list-group-flush">
+                {% for item in relatorio.itens_viradas.all %}
+                    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ item.descricao }}</span>
+                            <span class="text-muted small">{% if item.bpm %}{{ item.bpm }} BPM{% endif %}{% if item.duracao_min %} • {{ item.duracao_min }}min{% endif %}</span>
+                        </div>
+                        {% if item.observacoes %}<p class="small text-muted fst-italic mt-1 mb-0 report-notes p-2 rounded"><b>Obs:</b> {{ item.observacoes }}</p>{% endif %}
+                    </li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>

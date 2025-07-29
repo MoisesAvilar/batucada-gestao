@@ -2,333 +2,76 @@
 
 {% block content %}
 
-{# --- CABEÇALHO MELHORADO --- #}
-<div class="d-flex flex-column justify-content-center align-items-center align-items-md-start text-center text-md-start mb-4 gap-3">
-    {# Título e Subtítulo #}
+{# 1. Dependências de CSS (pode até ir para o base.html se for usar em muitos lugares) #}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    /* Estilos da página (mantidos como antes) */
+    .content-block { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color-translucent); padding: 1.5rem; border-radius: 0.75rem; }
+    .initials-avatar { width: 28px; height: 28px; border-radius: 50%; background-color: var(--bs-primary-bg-subtle); color: var(--bs-emphasis-color); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8rem; }
+    .date-group-header { position: sticky; top: 0; z-index: 10; background-color: var(--bs-body-bg); padding-top: 1rem; }
+    .date-group-header h4 { font-size: 1.25rem; font-weight: 600; color: var(--bs-secondary-color); margin-bottom: 0.5rem; border-bottom: 1px solid var(--bs-border-color-translucent); padding-bottom: 0.5rem; padding-left: 0.5rem; }
+    .aula-card-status-badge { font-size: 0.8rem; font-weight: 600; }
+    .select2-container--open { z-index: 1100 !important; }
+</style>
+
+{# 2. Cabeçalho da página (inalterado) #}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <h1 class="h2 mb-1">{{ titulo }}</h1>
-        <p class="text-muted mb-0">Filtre e visualize o histórico completo de aulas.</p>
+        <h1 class="h3 mb-0">{{ titulo }}</h1>
+        <p class="text-muted mb-0 d-none d-md-block">Filtre e visualize o histórico completo de aulas.</p>
     </div>
-
-    {# Botões de Ação (Admin) #}
-    {% if user.tipo == 'admin' %}
-    <div class="d-flex flex-wrap justify-content-center gap-2 w-100 w-md-auto">
-        <a href="{% url 'scheduler:exportar_aulas' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-success btn-sm flex-grow-1 flex-md-grow-0">
-            <i class="bi bi-file-earmark-arrow-down me-1"></i> Exportar
-        </a>
-        <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary btn-sm flex-grow-1 flex-md-grow-0">
-            <i class="bi bi-plus-circle me-1"></i> Agendar Aula
-        </a>
-    </div>
-    {% endif %}
-</div>
-
-{# --- BOTÃO DE FILTROS --- #}
-<div class="d-flex justify-content-center justify-content-md-end mb-3">
-    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="false" aria-controls="filterCollapse">
-        <i class="bi bi-funnel me-1"></i> Filtros Avançados
-    </button>
-</div>
-
-{# --- PAINEL DE FILTROS --- #}
-<div class="collapse mb-4" id="filterCollapse">
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-3">
-            <form method="GET" action="{{ request.path }}" id="filter-form">
-                {# Botões Rápidos - Agora em linha única no mobile #}
-                <div class="d-flex flex-nowrap gap-2 mb-3 overflow-auto pb-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="filter-today">
-                        <i class="bi bi-calendar-day me-1"></i> Hoje
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="filter-week">
-                        <i class="bi bi-calendar-week me-1"></i> Semana
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="filter-month">
-                        <i class="bi bi-calendar-month me-1"></i> Mês
-                    </button>
-                </div>
-
-                {# Filtros Avançados #}
-                <div class="row g-2">
-                    {# Linha 1 - Filtros Principais #}
-                    <div class="col-md-3">
-                        <label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label>
-                        <input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="id_data_final" class="form-label small fw-bold">Data Final</label>
-                        <input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}">
-                    </div>
-                    
-                    {% if user.tipo == 'admin' %}
-                    <div class="col-md-3">
-                        <label for="id_professor_filtro" class="form-label small fw-bold">Professor</label>
-                        <select id="id_professor_filtro" name="professor_filtro" class="form-select form-select-sm">
-                            <option value="">Todos</option>
-                            {% for prof in professores_list %}
-                            <option value="{{ prof.pk }}" {% if prof.pk|stringformat:"d" == professor_filtro %}selected{% endif %}>{{ prof.username|title }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-                    
-                    <div class="col-md-3">
-                        <label for="id_modalidade_filtro" class="form-label small fw-bold">Categoria</label>
-                        <select id="id_modalidade_filtro" name="modalidade_filtro" class="form-select form-select-sm">
-                            <option value="">Todas</option>
-                            {% for modalidade in modalidades_list %}
-                            <option value="{{ modalidade.id }}" {% if modalidade.id|stringformat:"d" == modalidade_filtro %}selected{% endif %}>{{ modalidade.nome|title }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    {# Linha 2 - Filtros Secundários #}
-                    <div class="col-md-6">
-                        <label for="id_aluno_filtro" class="form-label small fw-bold">Aluno(s)</label>
-                        <select id="id_aluno_filtro" name="aluno_filtro" class="form-select form-select-sm" multiple>
-                            <option value="">Todos</option>
-                            {% for aluno in alunos_list %}
-                                <option value="{{ aluno.pk }}" {% if aluno.pk in aluno_filtro_ids %}selected{% endif %}>
-                                    {{ aluno.nome_completo|title }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label for="id_status_filtro" class="form-label small fw-bold">Status</label>
-                        <select id="id_status_filtro" name="status_filtro" class="form-select form-select-sm">
-                            <option value="">Todos</option>
-                            {% for status_value, status_label in status_choices %}
-                                {# Adiciona uma condição para não mostrar 'Aluno Ausente' se for AC, pois não se aplica #}
-                                <option value="{{ status_value }}" {% if status_value == status_filtro %}selected{% endif %}>{{ status_label }}</option>
-                            {% endfor %}
-                            <option value="Substituído" {% if 'Substituído' == status_filtro %}selected{% endif %}>Substituído</option>
-                            {# --- NOVA OPÇÃO --- #}
-                            <option value="professor_ausente" {% if 'professor_ausente' == status_filtro %}selected{% endif %}>Professor Ausente (em ACs)</option>
-                        </select>
-                    </div>
-                    
-                    {# Botões do Formulário #}
-                    <div class="col-md-3 d-flex align-items-end">
-                        <div class="d-flex gap-2 w-100">
-                            <a href="{{ request.path }}" class="btn btn-outline-danger btn-sm flex-grow-1">
-                                <i class="bi bi-x-circle me-1"></i> Limpar
-                            </a>
-                            <button class="btn btn-primary btn-sm flex-grow-1" type="submit">
-                                <i class="bi bi-check-circle me-1"></i> Aplicar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </form>
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersOffcanvas" aria-controls="filtersOffcanvas">
+            <i class="bi bi-funnel me-1"></i> Filtros
+        </button>
+        {% if user.tipo == 'admin' %}
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{% url 'scheduler:aula_agendar' %}"><i class="bi bi-plus-circle me-2"></i>Agendar Nova Aula</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Exportar com Filtros Atuais</h6></li>
+                <li><a class="dropdown-item" href="{% url 'scheduler:exportar_aulas' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Exportar Detalhes</a></li>
+                <li><a class="dropdown-item" href="{% url 'scheduler:exportar_relatorio_agregado' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-bar-graph me-2"></i>Exportar Resumo</a></li>
+            </ul>
         </div>
+        {% endif %}
     </div>
 </div>
 
-{# --- FEED DE AULAS (sem alterações na lógica) --- #}
+{# 3. INCLUSÃO DO COMPONENTE DE FILTRO #}
+{% include 'scheduler/partials/_filter_panel.html' with form_action=request.path request=request user=user data_inicial=data_inicial data_final=data_final professores_list=professores_list modalidades_list=modalidades_list alunos_list=alunos_list status_choices=status_choices professor_filtro=professor_filtro modalidade_filtro=modalidade_filtro aluno_filtro_ids=aluno_filtro_ids status_filtro=status_filtro %}
+
+{# 4. Feed de aulas (inalterado) #}
 <div class="aulas-feed">
     {% if not aulas %}
-        <div class="text-center text-muted p-5"><h4>Nenhuma aula encontrada para os filtros aplicados.</h4></div>
-    {% endif %}
-    {% regroup aulas by data_hora.date as aulas_por_dia %}
-    {% for grupo in aulas_por_dia %}
-    <h4 class="mb-3 mt-4 border-bottom pb-2">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
-    {% for aula in grupo.list %}
-    {% with status_slug=aula.status|slugify %}
-    <div class="card shadow-sm mb-3 border-start border-5 {% if status_slug == 'realizada' %}border-success{% elif status_slug == 'cancelada' %}border-danger{% elif status_slug == 'aluno-ausente' %}border-warning{% elif status_slug == 'agendada' %}border-info{% else %}border-secondary{% endif %}">
-        <div class="card-body">
-            <div class="row align-items-center">
-                <div class="col-md-2 text-center">
-                    <h4 class="mb-0">{{ aula.data_hora|date:"H:i" }}</h4>
-                    <span class="badge {% if status_slug == 'realizada' %}bg-success{% elif status_slug == 'cancelada' %}bg-danger{% elif status_slug == 'aluno-ausente' %}bg-warning text-dark{% elif status_slug == 'agendada' %}bg-info text-dark{% else %}bg-secondary{% endif %}">{{ aula.status }}</span>
-                </div>
-                <div class="col-md-5">
-                    <h5 class="card-title mb-1">
-                        {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}{{ aula.modalidade.nome|title }}{% endfor %}
-                    </h5>
-                    <p class="card-text text-muted">
-                        {% if aula.alunos.count > 1 %}Aula em Grupo{% else %}{{ aula.modalidade.nome|title }}{% endif %}
-                    </p>
-                </div>
-                <div class="col-md-3">
-                    {% if "atividade complementar" in aula.modalidade.nome|lower and aula.status == 'Realizada' %}
-                        <!-- Layout para ACs (mantido) -->
-                        <small class="d-block text-muted mb-1">Participantes:</small>
-                        <div class="d-flex flex-wrap align-items-center gap-2">
-                            {% for presenca in aula.presencas_professores.all %}
-                                <div class="d-flex align-items-center transition-all-300">
-                                    {% if presenca.status == 'ausente' %}
-                                        <span class="badge text-bg-light border border-danger text-danger d-inline-flex align-items-center py-1 hover-grow"
-                                            data-bs-toggle="tooltip" data-bs-placement="top" 
-                                            title="Professor ausente nesta aula">
-                                            <i class="bi bi-person-x-fill me-1"></i>
-                                            <span class="text-decoration-line-through">{{ presenca.professor.username|title }}</span>
-                                        </span>
-                                    {% else %}
-                                        <span class="badge text-bg-light border border-success text-success d-inline-flex align-items-center py-1 hover-grow"
-                                            data-bs-toggle="tooltip" data-bs-placement="top"
-                                            title="Professor presente">
-                                            <i class="bi bi-person-check-fill me-1"></i>
-                                            {{ presenca.professor.username|title }}
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            {% empty %}
-                                <span class="text-muted small">Nenhum participante</span>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <!-- Aulas normais com tratamento para aluno ausente -->
-                        <div class="participantes-list">
-                            {% with realizado_por=aula.relatorioaula.professor_que_validou %}
-                            
-                            <!-- Professores atribuídos (sempre mostra) -->
-                            <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-                                <small class="text-muted me-1">Atribuído a:</small>
-                                <div class="d-flex flex-wrap gap-1">
-                                    {% for prof in aula.professores.all %}
-                                        <span class="badge text-bg-secondary opacity-75 hover-grow"
-                                            data-bs-toggle="tooltip" data-bs-placement="top"
-                                            title="Professor originalmente designado">
-                                            <i class="bi bi-person-fill me-1"></i>
-                                            {{ prof.username|title }}
-                                        </span>
-                                    {% empty %}
-                                        <span class="text-muted small">N/A</span>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            
-                            <!-- Status (não mostra se cancelada ou aluno ausente) -->
-                            {% if aula.status != 'Cancelada' and aula.status != 'Aluno Ausente' %}
-                                <div class="d-flex align-items-center flex-wrap gap-2 status-container">
-                                    {% if realizado_por %}
-                                        {% if realizado_por in aula.professores.all %}
-                                            <small class="text-muted me-1">Realizado por:</small>
-                                            <span class="badge text-bg-success pulse-once"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                title="Aula concluída conforme planejado">
-                                                <i class="bi bi-check-circle-fill me-1"></i>
-                                                {{ realizado_por.username|title }}
-                                            </span>
-                                        {% else %}
-                                            <small class="text-muted me-1">Substituído por:</small>
-                                            <span class="badge text-bg-secondary shake-on-hover"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                title="Professor substituto nesta aula">
-                                                <i class="bi bi-arrow-repeat me-1"></i>
-                                                {{ realizado_por.username|title }}
-                                            </span>
-                                        {% endif %}
-                                    {% else %}
-                                        <small class="text-muted me-1">Status:</small>
-                                        <span class="badge text-bg-info pulse-slow"
-                                            data-bs-toggle="tooltip" data-bs-placement="top"
-                                            title="Aguardando confirmação de realização">
-                                            <i class="bi bi-clock-history me-1"></i>
-                                            Aguardando
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                            
-                            {% endwith %}
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="col-md-2 text-end">
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Ações</button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'scheduler:aula_validar' aula.pk %}"><i class="bi bi-file-earmark-text me-2"></i>Ver Relatório</a></li>
-                            {% if user.tipo == 'admin' %}
-                            <li><a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar Aula</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <button type="button" class="dropdown-item text-danger delete-button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#confirmDeleteModal"
-                                        data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
-                                    <i class="bi bi-trash me-2"></i>Excluir Aula
-                                </button>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-            </div>
+        <div class="text-center text-muted p-5 content-block">
+            <h4><i class="bi bi-search-heart"></i></h4>
+            <p class="mb-0">Nenhuma aula encontrada para os filtros aplicados.</p>
         </div>
-    </div>
-    {% endwith %}
-    {% endfor %}
-    {% endfor %}
+    {% else %}
+        {% regroup aulas by data_hora.date as aulas_por_dia %}
+        {% for grupo in aulas_por_dia %}
+            <div class="date-group-header">
+                <h4 class="h5 mb-3">{{ grupo.grouper|date:"l, d \d\e F \d\e Y"|capfirst }}</h4>
+            </div>
+            <div class="vstack gap-3">
+            {% for aula in grupo.list %}
+                {% include 'scheduler/partials/aula_card.html' with aula=aula %}
+            {% endfor %}
+            </div>
+        {% endfor %}
+    {% endif %}
 </div>
 
-{# Paginação #}
-<div class="mt-4">
-    {% include 'scheduler/partials/pagination.html' with page_obj=aulas %}
-</div>
+{% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
+
 {% endblock %}
+
 
 {% block extra_js %}
 {{ block.super }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Encontra os elementos do formulário
-    const form = document.getElementById('filter-form');
-    const dateStartInput = document.getElementById('id_data_inicial');
-    const dateEndInput = document.getElementById('id_data_final');
-    
-    // Encontra os botões de filtro rápido
-    const btnToday = document.getElementById('filter-today');
-    const btnWeek = document.getElementById('filter-week');
-    const btnMonth = document.getElementById('filter-month');
-
-    // Função para formatar a data para YYYY-MM-DD
-    function formatDate(date) {
-        return date.toISOString().split('T')[0];
-    }
-
-    // Ação para o botão "Hoje"
-    if (btnToday) {
-        btnToday.addEventListener('click', function() {
-            const today = formatDate(new Date());
-            dateStartInput.value = today;
-            dateEndInput.value = today;
-            if (form) form.submit();
-        });
-    }
-
-    // Ação para o botão "Esta Semana"
-    if (btnWeek) {
-        btnWeek.addEventListener('click', function() {
-            const today = new Date();
-            // Considera o Domingo (0) como início da semana
-            const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); 
-            const lastDayOfWeek = new Date(firstDayOfWeek);
-            lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
-
-            dateStartInput.value = formatDate(firstDayOfWeek);
-            dateEndInput.value = formatDate(lastDayOfWeek);
-            if (form) form.submit();
-        });
-    }
-
-    // Ação para o botão "Este Mês"
-    if (btnMonth) {
-        btnMonth.addEventListener('click', function() {
-            const today = new Date();
-            const y = today.getFullYear();
-            const m = today.getMonth();
-            const firstDayOfMonth = new Date(y, m, 1);
-            const lastDayOfMonth = new Date(y, m + 1, 0); // O dia 0 do próximo mês é o último dia do mês atual
-
-            dateStartInput.value = formatDate(firstDayOfMonth);
-            dateEndInput.value = formatDate(lastDayOfMonth);
-            if (form) form.submit();
-        });
-    }
-});
-</script>
+{# 5. INCLUSÃO DO SCRIPT DO COMPONENTE DE FILTRO #}
+{% include 'scheduler/partials/_filter_panel_js.html' %}
 {% endblock %}

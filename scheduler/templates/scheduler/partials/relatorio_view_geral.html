@@ -1,0 +1,36 @@
+<h4 class="mt-4 mb-4">Informações Gerais</h4>
+
+{% if not is_ac and aula.alunos.all %}
+<h6 class="text-muted">Lista de Presença (Alunos)</h6>
+<ul class="list-group list-group-flush mb-4">
+    {% for presenca in aula.presencas.all %}
+    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ presenca.aluno.nome_completo|title }}
+        {% if presenca.status == 'presente' %}<span class="badge bg-success-subtle text-success-emphasis rounded-pill">Presente</span>{% else %}<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill">Ausente</span>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% elif is_ac %}
+<h6 class="text-muted">Lista de Presença (Professores)</h6>
+<ul class="list-group list-group-flush mb-4">
+    {% for presenca in aula.presencas_professores.all %}
+    {# ★★★ MUDANÇA AQUI: REMOVIDO 'ps-0' ★★★ #}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ presenca.professor.username|title }}
+        {% if presenca.status == 'presente' %}<span class="badge bg-success-subtle text-success-emphasis rounded-pill">Presente</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Ausente</span>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{# A seção de validação já deve respeitar o padding do container pai, mas a mudança acima ajudará no espaçamento geral #}
+<h6 class="text-muted">Validação do Relatório</h6>
+<div class="small">
+    <p class="mb-1"><strong>Professor que realizou a aula:</strong> 
+        <span class="badge bg-primary-subtle text-primary-emphasis">
+            {{ relatorio.professor_que_validou.username|title|default:"Não registrado" }}
+        </span>
+    </p>
+    <p class="mb-0"><strong>Última atualização:</strong> {{ relatorio.data_atualizacao|date:"d/m/Y H:i" }}</p>
+</div>

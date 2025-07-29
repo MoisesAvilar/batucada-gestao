@@ -1,0 +1,38 @@
+{# scheduler/templates/scheduler/partials/pagination_ajax.html (CORRIGIDO) #}
+
+{% if page_obj.has_other_pages %}
+<nav aria-label="Navegação das páginas">
+  <ul class="pagination justify-content-center">
+    
+    {# Botão 'Anterior' -- LÓGICA CORRIGIDA #}
+    {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&laquo;</span>
+      </li>
+    {% endif %}
+    
+    {# Números das Páginas (sem alteração, já estava correto) #}
+    {% for i in page_obj.paginator.page_range %}
+      <li class="page-item {% if page_obj.number == i %}active{% endif %}">
+        <a class="page-link" href="?page={{ i }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">{{ i }}</a>
+      </li>
+    {% endfor %}
+    
+    {# Botão 'Próximo' -- LÓGICA CORRIGIDA #}
+    {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&amp;{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a>
+      </li>
+    {% else %}
+      <li class="page-item disabled">
+        <span class="page-link">&raquo;</span>
+      </li>
+    {% endif %}
+
+  </ul>
+</nav>
+{% endif %}

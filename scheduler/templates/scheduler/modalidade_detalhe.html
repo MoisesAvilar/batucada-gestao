@@ -1,134 +1,226 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO APRIMORADO --- #}
-<div class="row align-items-center mb-3 g-3">
-    <div class="col-md">
-        <h1 class="mb-0 text-center text-md-start">{{ titulo|title }}</h1>
-        <p class="text-muted mb-0 text-center text-md-start">Estatísticas de uso e professores associados.</p>
-    </div>
-    {% if user.tipo == 'admin' %}
-    <div class="col-md-auto">
-        <div class="d-flex gap-2 justify-content-center">
-            <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
-            <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#confirmDeleteModal"
-                    data-delete-url="{% url 'scheduler:modalidade_excluir' modalidade.pk %}">
-                Excluir
-            </button>
-        </div>
-    </div>
-    {% endif %}
-</div>
+<style>
+    .content-block {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+    }
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        text-align: center;
+    }
+    .kpi-card .kpi-icon { font-size: 1.75rem; }
+    .kpi-card .kpi-value { font-size: 2rem; font-weight: 700; }
+    .kpi-card .kpi-label { font-size: 0.8rem; text-transform: uppercase; color: var(--bs-secondary-color); }
+    
+    .initials-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-emphasis-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .list-group-item {
+        background-color: transparent;
+        padding-left: 0;
+        padding-right: 0;
+        border-color: var(--bs-border-color-translucent);
+    }
+    
+    @media (min-width: 992px) {
+        .sticky-lg-top {
+            position: sticky;
+            top: 1.5rem;
+            z-index: 1010;
+        }
+    }
+</style>
 
+<div class="row g-4">
+    {# --- COLUNA PRINCIPAL (ESQUERDA) --- #}
+    <div class="col-lg-8">
+        <div class="vstack gap-4">
+            
+            {# --- KPIs --- #}
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="kpi-icon text-secondary-emphasis"><i class="bi bi-stack"></i></div>
+                        <div class="kpi-value mt-2">{{ total_aulas }}</div>
+                        <div class="kpi-label mt-1">Total</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="kpi-icon text-success-emphasis"><i class="bi bi-calendar2-check"></i></div>
+                        <div class="kpi-value mt-2">{{ total_realizadas }}</div>
+                        <div class="kpi-label mt-1">Realizadas</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="kpi-icon text-info-emphasis"><i class="bi bi-people-fill"></i></div>
+                        <div class="kpi-value mt-2">{{ alunos_ativos_count }}</div>
+                        <div class="kpi-label mt-1">Alunos</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="kpi-card h-100">
+                        <div class="kpi-icon text-primary-emphasis"><i class="bi bi-person-video3"></i></div>
+                        <div class="kpi-value mt-2">{{ professores_count }}</div>
+                        <div class="kpi-label mt-1">Professores</div>
+                    </div>
+                </div>
+            </div>
 
-{# --- SEÇÃO DE CARDS ATUALIZADA COM FUNDO COLORIDO --- #}
-<div class="row">
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-secondary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Total de Aulas</div><div class="h4 mb-0 fw-bold">{{ total_aulas }}</div>
-            </div><div class="col-auto"><i class="bi bi-stack fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-success shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Aulas Realizadas</div><div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
-            </div><div class="col-auto"><i class="bi bi-calendar2-check fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-info shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Alunos Ativos</div><div class="h4 mb-0 fw-bold">{{ alunos_ativos_count }}</div>
-            </div><div class="col-auto"><i class="bi bi-people-fill fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card text-bg-primary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Professores</div><div class="h4 mb-0 fw-bold">{{ professores_count }}</div>
-            </div><div class="col-auto"><i class="bi bi-person-video3 fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-</div>
+            {# --- GRÁFICO --- #}
+            <div class="content-block">
+                <h5 class="mb-3">Atividade Mensal da Categoria</h5>
+                {% if chart_data %}
+                    <div style="height: 350px;"><canvas id="activityChart"></canvas></div>
+                {% else %}
+                    <div class="text-center text-muted p-5">Nenhum dado de atividade encontrado para exibir.</div>
+                {% endif %}
+            </div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header"><h5>Professores que Lecionam</h5></div>
-            <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    {% for professor in professores_da_modalidade %}
-                        <li class="list-group-item fw-bold">
-                            <a href="{% url 'scheduler:professor_detalhe' professor.pk %}">{{ professor.username|title }}</a>
+            {# --- TABELA DE AULAS --- #}
+            <h3 class="mt-5 mb-3">Histórico de Aulas Recentes</h3>
+            {# --- NOVA DIV CONTAINER --- #}
+            {# Envolvemos a tabela e a paginação em um container com um ID #}
+            <div id="tabela-aulas-container">
+                <div class="card shadow-sm">
+                <div class="card-body">
+                    {% include 'scheduler/partials/aula_table.html' with aulas=aulas %}
+                </div>
+                </div>
+                {# Paginação #}
+                <div class="mt-4">
+                    {% include 'scheduler/partials/pagination.html' with page_obj=aulas %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- COLUNA LATERAL (DIREITA) --- #}
+    <div class="col-lg-4">
+        <div class="sticky-lg-top">
+            <div class="vstack gap-4">
+                <div class="content-block">
+                    <h2 class="h3 mb-1">{{ titulo|title }}</h2>
+                    <p class="text-muted">Estatísticas de uso e professores que lecionam esta categoria.</p>
+
+                    {% if user.tipo == 'admin' %}
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'scheduler:modalidade_editar' modalidade.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Categoria</a>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:modalidade_excluir' modalidade.pk %}"><i class="bi bi-trash me-1"></i> Excluir</button>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="content-block">
+                    <h6 class="mb-3">Professores Associados</h6>
+                    <ul class="list-group list-group-flush">
+                        {% for professor in professores_da_modalidade %}
+                        <li class="list-group-item">
+                            <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="text-decoration-none text-body d-flex align-items-center gap-3">
+                                <div class="initials-avatar">{{ professor.username|first|upper }}</div>
+                                <span class="fw-bold">{{ professor.username|title }}</span>
+                            </a>
                         </li>
-                    {% empty %}
-                        <li class="list-group-item text-muted">Nenhum professor associado a esta categoria.</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-    </div>
+                        {% empty %}
+                        <li class="list-group-item text-muted small">Nenhum professor leciona esta categoria.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
 
-    <div class="col-md-8">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5>Atividade Mensal da Categoria</h5>
-            </div>
-            <div class="card-body d-flex align-items-center justify-content-center">
-                <canvas id="activityChart"></canvas>
             </div>
         </div>
     </div>
-</div>
-<h3 class="mt-5 mb-3">Histórico de Aulas da Categoria</h3>
-<div class="card shadow-sm">
-  <div class="card-body">
-      {# Reutilizando nosso template de tabela de aulas #}
-      {% include 'scheduler/partials/aula_table.html' with aulas=aulas %}
-  </div>
 </div>
 {% endblock %}
 
+
 {% block extra_js %}
 {{ block.super }}
+{{ chart_labels|json_script:"chart-labels-data" }}
+{{ chart_data|json_script:"chart-data-data" }}
+
 <script>
-// Script para renderizar o gráfico de atividade mensal
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('activityChart');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'line', // Gráfico de Linha para mostrar tendência ao longo do tempo
-            data: {
-                // As labels (ex: 'Jun/2025') vêm da view
-                labels: {{ chart_labels|safe }},
-                datasets: [{
-                    label: 'Número de Aulas',
-                    // Os dados (ex: 5, 10, 8) também vêm da view
-                    data: {{ chart_data|safe }},
-                    fill: false,
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            // Garante que o eixo Y só mostre números inteiros
-                            stepSize: 1 
-                        }
-                    }
-                }
-            }
-        });
+    let activityChartInstance = null;
+
+    function getChartThemeColors() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        return {
+            fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
+            gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
+            lineColor: rootStyles.getPropertyValue('--bs-primary').trim(),
+            fillColor: `rgba(${rootStyles.getPropertyValue('--bs-primary-rgb').trim()}, 0.1)`
+        };
     }
+
+    function renderOrUpdateChart() {
+        if (activityChartInstance) {
+            activityChartInstance.destroy();
+        }
+
+        const themeColors = getChartThemeColors();
+        Chart.defaults.color = themeColors.fontColor;
+        Chart.defaults.borderColor = themeColors.gridColor;
+
+        const labels = JSON.parse(document.getElementById('chart-labels-data')?.textContent || '[]');
+        const data = JSON.parse(document.getElementById('chart-data-data')?.textContent || '[]');
+        const ctx = document.getElementById('activityChart');
+        
+        if (ctx && data.length > 0) {
+            activityChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Número de Aulas',
+                        data: data,
+                        fill: true,
+                        borderColor: themeColors.lineColor,
+                        backgroundColor: themeColors.fillColor,
+                        tension: 0.3,
+                        pointBackgroundColor: themeColors.lineColor,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+    }
+
+    renderOrUpdateChart();
+
+    const themeObserver = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
+                renderOrUpdateChart();
+            }
+        }
+    });
+
+    themeObserver.observe(document.documentElement, { attributes: true });
 });
 </script>
 {% endblock %}

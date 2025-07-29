@@ -1,161 +1,155 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-{# --- CABEÇALHO APRIMORADO --- #}
-<div class="row align-items-center mb-3 g-3">
-    <div class="col-md">
-        <h1 class="mb-0 text-center text-md-start">{{ titulo|title }}</h1>
-        <p class="text-muted mb-0 text-center text-md-start">Desempenho, estatísticas e aulas lecionadas.</p>
-    </div>
-    {% if user.tipo == 'admin' %}
-    <div class="col-md-auto">
-        <div class="d-flex gap-2 justify-content-center">
-            <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
-            <button type="button" class="btn btn-sm btn-outline-danger delete-button" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#confirmDeleteModal"
-                    data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">
-                Excluir
-            </button>
-        </div>
-    </div>
-    {% endif %}
-</div>
 
+{# ★★★ CSS COM VARIÁVEIS PARA LIGHT/DARK MODE (SEM ALTERAÇÕES) ★★★ #}
+<style>
+    body {
+        background-color: var(--bs-body-bg);
+    }
+    .initials-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-emphasis-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+    .content-block {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+    }
+    .kpi-item .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .kpi-item .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    @media (min-width: 992px) {
+        .sticky-lg-top {
+            position: sticky;
+            top: 1.5rem;
+            z-index: 1010;
+        }
+    }
+</style>
 
-    {# --- INÍCIO DO FORMULÁRIO DE FILTRO DE DATA --- #}
-<div class="card p-3 shadow-sm mb-4">
-    <form method="GET" action="{{ request.path }}" class="row align-items-end g-3">
-        <div class="col-md-5">
-            <label for="id_data_inicial" class="form-label">Filtrar de:</label>
-            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
-        </div>
-        <div class="col-md-5">
-            <label for="id_data_final" class="form-label">Até:</label>
-            <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
-        </div>
-        <div class="col-md-2 d-flex">
-            <button class="btn btn-outline-secondary w-100 me-2" type="submit" title="Aplicar Filtro">
-                <i class="bi bi-search"></i>
-            </button>
-            {# Mostra o botão de limpar apenas se um filtro estiver ativo #}
-            {% if data_inicial or data_final %}
-                <a href="{{ request.path }}" class="btn btn-outline-danger w-100" title="Limpar Filtro">
-                    <i class="bi bi-x-circle"></i>
-                </a>
-            {% endif %}
-        </div>
-    </form>
-</div>
-{# --- FIM DO FORMULÁRIO DE FILTRO DE DATA --- #}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="vstack gap-4">
+            <div class="content-block">
+                <h5 class="mb-3">Distribuição de Status das Aulas</h5>
+                <div style="height: 300px;"><canvas id="statusChart"></canvas></div>
+            </div>
 
-{# --- SEÇÃO DE CARDS ATUALIZADA COM FUNDO COLORIDO --- #}
-<div class="row">
-    <div class="col-lg col-md-4 mb-4">
-        <div class="card text-bg-success shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Realizadas por Mim</div><div class="h4 mb-0 fw-bold">{{ total_realizadas }}</div>
-            </div><div class="col-auto"><i class="bi bi-check2-all fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg col-md-4 mb-4">
-        <div class="card text-bg-info shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Agendadas</div><div class="h4 mb-0 fw-bold">{{ total_agendadas }}</div>
-            </div><div class="col-auto"><i class="bi bi-calendar-event fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg col-md-4 mb-4">
-        <div class="card text-bg-warning shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Ausências de Alunos</div><div class="h4 mb-0 fw-bold">{{ total_aluno_ausente }}</div>
-            </div><div class="col-auto"><i class="bi bi-person-x fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg col-md-6 mb-4">
-        <div class="card text-bg-danger shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Canceladas</div><div class="h4 mb-0 fw-bold">{{ total_canceladas }}</div>
-            </div><div class="col-auto"><i class="bi bi-slash-circle fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg col-md-6 mb-4">
-        <div class="card text-bg-secondary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Fui Substituído</div><div class="h4 mb-0 fw-bold">{{ total_substituido }}</div>
-            </div><div class="col-auto"><i class="bi bi-person-dash fs-1 opacity-75"></i></div></div></div>
-        </div>
-    </div>
-    <div class="col-lg col-md-6 mb-4">
-        <div class="card text-bg-secondary shadow h-100">
-            <div class="card-body"><div class="row g-0 align-items-center"><div class="col">
-                <div class="small fw-bold text-uppercase mb-1">Ausências do Professor</div><div class="h4 mb-0 fw-bold">{{ total_ausencias_professor }}</div>
-            </div><div class="col-auto"><i class="bi bi-journal-text fs-1 opacity-75"></i></div></div></div>
-        </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-header"><h5>Resumo Geral</h5></div>
-            <div class="card-body">
-                <strong>Taxa de Presença:</strong>
-<div class="progress my-2" style="height: 25px;">
-    <div class="progress-bar bg-success fw-bold" role="progressbar" 
-         style="width: {{ taxa_presenca|floatformat:0 }}%;" {# Arredonda a largura para o inteiro mais próximo #}
-         aria-valuenow="{{ taxa_presenca|floatformat:0 }}" 
-         aria-valuemin="0" aria-valuemax="100">
-            {# Mostra o valor com uma casa decimal e vírgula #}
-            {{ taxa_presenca|floatformat:"-1" }}%
-    </div>
-</div>
-
-                <h6 class="mt-4">Top Alunos:</h6>
-                <ul class="list-group list-group-flush">
-                {# --- CORRIGIDO: Loop para Top Alunos --- #}
-                {% for aluno in top_alunos %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <a href="{% url 'scheduler:aluno_detalhe' aluno.alunos__pk %}" class="fw-bold">
-                            {{ aluno.alunos__nome_completo|title }}
-                        </a>
-                        <span class="badge bg-secondary float-end">{{ aluno.contagem }} aulas</span>
-                    </li>
-                {% empty %}
-                    <li class="list-group-item text-muted">Nenhum aluno encontrado.</li>
-                {% endfor %}
-            </ul>
-
-                <h6 class="mt-4">Top Categorias:</h6>
-                <ul class="list-group list-group-flush">
-                    {% for modalidade in top_modalidades %}
-                        <li class="list-group-item">{{ modalidade.modalidade__nome|title }} <span class="badge bg-secondary float-end">{{ modalidade.contagem }} aulas</span></li>
-                    {% empty %}
-                         <li class="list-group-item text-muted">Nenhuma categoria recorrente.</li>
-                    {% endfor %}
-                </ul>
+            <h3 class="mt-5 mb-3">Histórico de Aulas Recentes</h3>
+            {# --- NOVA DIV CONTAINER --- #}
+            {# Envolvemos a tabela e a paginação em um container com um ID #}
+            <div id="tabela-aulas-container">
+                <div class="card shadow-sm">
+                <div class="card-body">
+                    {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_professor professor_context=professor %}
+                </div>
+                </div>
+                {# Paginação #}
+                <div class="mt-4">
+                    {% include 'scheduler/partials/pagination.html' with page_obj=aulas_do_professor %}
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-8">
-        <div class="card shadow-sm h-100">
-            <div class="card-header">
-                <h5>Distribuição de Status das Aulas</h5>
-            </div>
-            <div class="card-body d-flex align-items-center justify-content-center">
-                <canvas id="statusChart"></canvas>
+    <div class="col-lg-4">
+        <div class="sticky-lg-top">
+            <div class="vstack gap-4">
+                <div class="content-block text-center">
+                    <div class="initials-avatar mx-auto mb-3">{{ professor.username|first|upper }}</div>
+                    <h2 class="h4 mb-1">{{ titulo|title }}</h2>
+                    <p class="text-muted">{{ professor.email }}</p>
+                     {% if user.tipo == 'admin' %}
+                        <div class="d-flex gap-2 justify-content-center mt-3">
+                            <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">Excluir</button>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="content-block">
+                    <h6 class="mb-3">Filtrar Período</h6>
+                    <form method="GET" action="{{ request.path }}">
+                        <div class="mb-2">
+                            <label for="id_data_inicial" class="form-label small">De:</label>
+                            <input type="date" id="id_data_inicial" name="data_inicial" class="form-control form-control-sm" value="{{ data_inicial }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_data_final" class="form-label small">Até:</label>
+                            <input type="date" id="id_data_final" name="data_final" class="form-control form-control-sm" value="{{ data_final }}">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary w-100">Limpar</a>
+                            <button class="btn btn-sm btn-secondary w-100" type="submit">Aplicar</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="content-block">
+                    <h6 class="mb-3">Estatísticas no Período</h6>
+                    <div class="vstack gap-3">
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-success-subtle text-success-emphasis"><i class="bi bi-check2-all"></i></div>
+                            <div class="ms-3 flex-grow-1">Realizadas por Mim</div>
+                            <div class="value text-success-emphasis">{{ total_realizadas }}</div>
+                        </div>
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-info-subtle text-info-emphasis"><i class="bi bi-calendar-event"></i></div>
+                            <div class="ms-3 flex-grow-1">Agendadas</div>
+                            <div class="value text-info-emphasis">{{ total_agendadas }}</div>
+                        </div>
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-warning-subtle text-warning-emphasis"><i class="bi bi-person-x"></i></div>
+                            <div class="ms-3 flex-grow-1">Ausências de Alunos</div>
+                            <div class="value text-warning-emphasis">{{ total_aluno_ausente }}</div>
+                        </div>
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-danger-subtle text-danger-emphasis"><i class="bi bi-slash-circle"></i></div>
+                            <div class="ms-3 flex-grow-1">Aulas Canceladas</div>
+                            <div class="value text-danger-emphasis">{{ total_canceladas }}</div>
+                        </div>
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-person-dash"></i></div>
+                            <div class="ms-3 flex-grow-1">Fui Substituído</div>
+                            <div class="value text-secondary-emphasis">{{ total_substituido }}</div>
+                        </div>
+                        <div class="d-flex align-items-center kpi-item">
+                            <div class="icon bg-secondary-subtle text-secondary-emphasis"><i class="bi bi-journal-x"></i></div>
+                            <div class="ms-3 flex-grow-1">Minhas Ausências (AC)</div>
+                            <div class="value text-secondary-emphasis">{{ total_ausencias_professor }}</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
-</div>
-<h3 class="mt-5 mb-3">Histórico de Aulas Recentes</h3>
-<div class="card shadow-sm">
-  <div class="card-body">
-      {# ADICIONE os parâmetros de data aqui para passá-los para o template da tabela #}
-      {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_professor professor_context=professor %}
-  </div>
 </div>
 {% endblock %}
+
+{# professor_detalhe.html #}
 
 {% block extra_js %}
 {{ block.super }}
@@ -164,45 +158,152 @@
 {{ chart_data|json_script:"chart-data-data" }}
 
 <script>
-// Script para renderizar o gráfico de status de aulas
 document.addEventListener('DOMContentLoaded', function() {
-    const labels = JSON.parse(document.getElementById('chart-labels-data').textContent);
-    const data = JSON.parse(document.getElementById('chart-data-data').textContent);
+    // ★★★ INÍCIO DO SCRIPT UNIFICADO E CORRIGIDO ★★★
 
-    const ctx = document.getElementById('statusChart');
-    if (ctx) {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels, // Usa a variável JS segura
-                datasets: [{
-                    label: 'Total de Aulas',
-                    data: data, // Usa a variável JS segura
-                    backgroundColor: [
-                        'rgba(25, 135, 84, 0.7)',
-                        'rgba(13, 202, 240, 0.7)',
-                        'rgba(255, 193, 7, 0.7)',
-                        'rgba(220, 53, 69, 0.7)',
-                        'rgba(108, 117, 125, 0.7)' // Cinza para 'Substituído'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+    // Variável para guardar a instância do gráfico
+    let statusChartInstance = null;
+    
+    // 1. Mapeamento dos nomes amigáveis do gráfico para os status do banco de dados
+    const statusMap = {
+        'Realizadas por Mim': 'Realizada',
+        'Agendadas': 'Agendada',
+        'Ausências de Alunos': 'Aluno Ausente',
+        'Canceladas': 'Cancelada',
+        'Fui Substituído': 'Substituído'
+    };
+
+    // --- FUNÇÕES AJAX ---
+
+    // Função para carregar a tabela com um FILTRO DE STATUS específico
+    function filtrarTabelaAulas(status, page = 1) {
+        const containerTabela = document.getElementById('tabela-aulas-container');
+        const dataInicial = document.getElementById('id_data_inicial').value;
+        const dataFinal = document.getElementById('id_data_final').value;
+        
+        const url = `{% url 'scheduler:filtrar_aulas_professor_ajax' professor.pk %}?status=${status}&page=${page}&data_inicial=${dataInicial}&data_final=${dataFinal}`;
+        
+        containerTabela.style.opacity = '0.5';
+        fetch(url)
+            .then(response => response.text())
+            .then(html => { containerTabela.innerHTML = html; })
+            .finally(() => { containerTabela.style.opacity = '1'; });
+    }
+
+    // Função para carregar a tabela SEM filtros de status (a versão original)
+    function carregarTabelaOriginal(page = 1) {
+        const containerTabela = document.getElementById('tabela-aulas-container');
+        const dataInicial = document.getElementById('id_data_inicial').value;
+        const dataFinal = document.getElementById('id_data_final').value;
+        
+        const url = `{% url 'scheduler:filtrar_aulas_professor_ajax' professor.pk %}?page=${page}&data_inicial=${dataInicial}&data_final=${dataFinal}`;
+
+        containerTabela.style.opacity = '0.5';
+        fetch(url)
+            .then(response => response.text())
+            .then(html => { containerTabela.innerHTML = html; })
+            .finally(() => { containerTabela.style.opacity = '1'; });
+    }
+    
+    // --- LÓGICA DO GRÁFICO E TEMAS ---
+
+    // Função para obter as cores do tema atual do Bootstrap
+    function getChartThemeColors() {
+        const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+        return {
+            fontColor: getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim(),
+            gridColor: getComputedStyle(document.documentElement).getPropertyValue('--bs-border-color-translucent').trim(),
+            barColors: isDark 
+                ? ['rgba(40, 167, 69, 0.85)','rgba(52, 182, 221, 0.85)','rgba(255, 193, 7, 0.85)','rgba(220, 53, 69, 0.85)','rgba(145, 153, 161, 0.85)']
+                : ['rgba(25, 135, 84, 0.7)','rgba(13, 202, 240, 0.7)','rgba(255, 193, 7, 0.7)','rgba(220, 53, 69, 0.7)','rgba(108, 117, 125, 0.7)']
+        };
+    }
+
+    // Função principal que desenha ou atualiza o gráfico
+    function renderOrUpdateChart() {
+        if (statusChartInstance) {
+            statusChartInstance.destroy();
+        }
+
+        const themeColors = getChartThemeColors();
+        Chart.defaults.color = themeColors.fontColor;
+        Chart.defaults.borderColor = themeColors.gridColor;
+
+        const labels = JSON.parse(document.getElementById('chart-labels-data').textContent);
+        const chartData = JSON.parse(document.getElementById('chart-data-data').textContent);
+        const ctx = document.getElementById('statusChart');
+
+        if (ctx) {
+            statusChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total de Aulas',
+                        data: chartData,
+                        backgroundColor: themeColors.barColors,
+                        borderWidth: 0
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { stepSize: 1 }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Gráfico de barras horizontais
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0 } },
+                    },
+                    // ★★★ AQUI ESTÁ A CORREÇÃO PRINCIPAL ★★★
+                    // A função onClick foi adicionada na única instância do gráfico que é criada.
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const clickedElementIndex = elements[0].index;
+                            const clickedLabel = statusChartInstance.data.labels[clickedElementIndex];
+                            const statusParaFiltrar = statusMap[clickedLabel];
+                            if (statusParaFiltrar) {
+                                filtrarTabelaAulas(statusParaFiltrar);
+                            }
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
+
+    // --- INICIALIZAÇÃO E EVENT LISTENERS ---
+
+    // Renderiza o gráfico pela primeira vez
+    renderOrUpdateChart();
+
+    // Observa mudanças no tema (light/dark) e atualiza o gráfico
+    const themeObserver = new MutationObserver(() => renderOrUpdateChart());
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    
+    // ÚNICO Event Listener para a área da tabela, que lida com paginação E com o botão de limpar
+    document.getElementById('tabela-aulas-container').addEventListener('click', function(event) {
+        const paginationLink = event.target.closest('.pagination a');
+        const clearButton = event.target.closest('#limpar-filtro-btn');
+
+        if (clearButton) {
+            event.preventDefault();
+            carregarTabelaOriginal();
+            return;
+        }
+        
+        if (paginationLink) {
+            event.preventDefault();
+            const url = new URL(paginationLink.href);
+            const page = url.searchParams.get('page');
+            const status = url.searchParams.get('status');
+
+            if (status) {
+                filtrarTabelaAulas(status, page);
+            } else {
+                carregarTabelaOriginal(page);
+            }
+        }
+    });
+
 });
 </script>
 {% endblock %}
