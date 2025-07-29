@@ -63,8 +63,6 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
 def dashboard(request):
     now = timezone.now()
     today = now.date()
-<<<<<<< Updated upstream
-=======
 
     # ★★★ INÍCIO DA ALTERAÇÃO ★★★
     # 1. MOVA ESTA LÓGICA PARA ANTES DO IF/ELSE
@@ -84,7 +82,6 @@ def dashboard(request):
     end_of_week = start_of_week + timedelta(days=6)
     week_start_iso = start_of_week.strftime('%Y-%m-%d')
     week_end_iso = end_of_week.strftime('%Y-%m-%d')
->>>>>>> Stashed changes
     
     # ... (o resto da lógica de preparação do calendário permanece igual) ...
     try:

@@ -52,52 +52,13 @@
     <p class="text-muted mb-0">{% if user.tipo == 'admin' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}</p>
 </div>
 
-<<<<<<< Updated upstream
-<div id="page-overlay"></div>
-{% if user.tipo == 'admin' %}
-    <div class="d-flex justify-content-center justify-content-md-end align-items-center gap-2 mb-4">
-        <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
-        <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
-    </div>
-    <div class="row">
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-info shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Aulas na Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><div class="card text-bg-secondary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Total Agendadas</div><div class="h3 mb-0 fw-bold">{{ aulas_agendadas_total }}</div></div><div class="col-auto"><i class="bi bi-clock-history fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-3 col-md-6 mb-4"><a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="text-decoration-none"><div class="card text-bg-success shadow h-100 hover-scale"><div class="card-body"><div class="row no-gutters align-items-center"><div class="col me-2"><div class="text-xs fw-bold text-uppercase mb-1">Novos Alunos (Mês)</div><div class="h5 mb-0 fw-bold">{{ novos_alunos_mes }}</div></div><div class="col-auto"><i class="bi bi-person-plus-fill fs-2 text-white-50"></i></div></div></div></div></a></div>
-    </div>
-{% else %} {# PROFESSOR #}
-    <div class="row">
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-info shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Minhas Aulas Hoje</div><div class="h3 mb-0 fw-bold">{{ aulas_hoje_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-day fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-primary shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Minhas Aulas Semana</div><div class="h3 mb-0 fw-bold">{{ aulas_semana_count }}</div></div><div class="col-auto"><i class="bi bi-calendar-week fs-1 opacity-75"></i></div></div></div></div></div>
-        <div class="col-xl-4 col-md-6 mb-4"><div class="card text-bg-danger shadow h-100 hover-scale"><div class="card-body"><div class="row g-0 align-items-center"><div class="col"><div class="small fw-bold text-uppercase mb-1">Pendentes Validação</div><div class="h3 mb-0 fw-bold">{{ aulas_pendentes_count }}</div></div><div class="col-auto"><i class="bi bi-exclamation-triangle-fill fs-1 opacity-75"></i></div></div></div></div></div>
-    </div>
-    {% if aulas_pendentes_validacao %}
-    <div class="card shadow-sm mb-4 border-danger"><div class="card-header bg-danger text-white"><h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Ação Necessária: Aulas Pendentes</h5></div><div class="card-body"><p class="text-muted small">Aulas que ocorreram mas não tiveram o relatório preenchido.</p><div class="list-group">{% for aula in aulas_pendentes_validacao %}<a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action"><div class="d-flex justify-content-between"><div><strong>{{ aula.modalidade.nome|title }}</strong><div class="text-muted small">{{ aula.data_hora|date:"d/m/Y H:i" }} • {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% endfor %}</div></div><span class="badge bg-danger">Pendente</span></div></a>{% endfor %}</div></div></div>
-    {% endif %}
-{% endif %}
-
-<div class="card shadow-sm mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center bg-light">
-        <h5 class="mb-0">{% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}</h5>
-        {% if user.tipo == 'admin' %}
-        <div class="ms-auto">
-            <select id="professor_calendario_filtro" class="form-select form-select-sm" style="width: 200px;">
-                <option value="">Todos os Professores</option>
-                {% for prof in professores_list %}
-                <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
-    </div>
-    <div class="card-body p-2" id="calendario-wrapper">
-        {% include 'scheduler/partials/calendario_content.html' %}
-=======
 <div class="vstack gap-4">
     {% if user.tipo == 'admin' %}
         <div class="d-flex justify-content-end align-items-center gap-2">
             <a href="{% url 'scheduler:relatorios_aulas' %}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart-line-fill me-1"></i> Relatórios</a>
-            <a href="{% url 'scheduler:aula_agendar' %}" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Agendar Aula</a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendamentoModal">
+                <i class="bi bi-plus-circle me-1"></i> Agendar Aula
+            </button>
         </div>
         <div class="row g-4">
             <div class="col-xl-3 col-md-6">
@@ -121,7 +82,6 @@
                 </a>
             </div>
             <div class="col-xl-3 col-md-6">
-                {# ★★★ CARD DE AGENDADAS AGORA É UM LINK ★★★ #}
                 <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada" class="kpi-link">
                     <div class="content-block kpi-card">
                         <div class="d-flex align-items-center">
@@ -166,7 +126,7 @@
                 </a>
             </div>
             <div class="col-lg-4 col-md-12">
-                 <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada&data_final=" class="kpi-link">
+                 <a href="#pending-card" class="kpi-link">
                     <div class="content-block kpi-card">
                         <div class="d-flex align-items-center">
                             <div class="flex-grow-1"><div class="kpi-label">Pendentes de Validação</div><div class="kpi-value mt-1">{{ aulas_pendentes_count }}</div></div>
@@ -176,10 +136,10 @@
                 </a>
             </div>
         </div>
-        {% endif %}
+    {% endif %}
 
     {% if aulas_pendentes_validacao %}
-    <div class="card alert-card shadow-sm border-0">
+    <div class="card alert-card shadow-sm border-0" id="pending-card">
         <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i><h5 class="mb-0 fs-6 fw-bold">Ação Necessária: Aulas Pendentes</h5></div>
         <div class="card-body">
             <p class="text-muted small mb-3">Aulas que ocorreram mas não tiveram o relatório preenchido.</p>
@@ -202,14 +162,12 @@
 
     <div class="content-block shadow-sm p-0">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 border-bottom">
-            <!-- Título (centralizado em mobile, alinhado à esquerda em desktop) -->
             <h5 class="text-center text-md-start mb-3 mb-md-0 w-100 w-md-auto">
                 {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
             </h5>
             
-            <!-- Select (centralizado em mobile, alinhado à direita em desktop) -->
             {% if user.tipo == 'admin' %}
-            <div class="text-center w-100 w-md-auto">  <!-- Ocupa 100% em mobile -->
+            <div class="text-center w-100 w-md-auto">
                 <select id="professor_calendario_filtro" class="form-select form-select-sm mx-auto mx-md-0" style="max-width: 200px;">
                     <option value="">Todos os Professores</option>
                     {% for prof in professores_list %}
@@ -222,7 +180,6 @@
         <div class="p-3" id="calendario-wrapper">
             {% include 'scheduler/partials/calendario_content.html' %}
         </div>
->>>>>>> Stashed changes
     </div>
 </div>
 
@@ -238,9 +195,12 @@
     </div>
 </div>
 {% endif %}
+
 {% endblock %}
 
+
 {% block extra_js %}
+{# O seu bloco de javascript permanece aqui, sem alterações #}
 {{ block.super }}
 <style>
 	/* Estilos Gerais (compartilhados) */
@@ -422,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (popoverAberto) {
             const instanciaAnterior = bootstrap.Popover.getInstance(document.querySelector('[aria-describedby="' + popoverAberto.id + '"]'));
             instanciaAnterior?.hide();
-            if (diaClicado === instanciaAnterior._element) return;  // se clicou no mesmo, só fecha
+            if (diaClicado === instanciaAnterior._element) return;
         }
 
         const instance = bootstrap.Popover.getInstance(diaClicado);
@@ -479,12 +439,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO ---
     function setupModalInteractions() {
         if (!modalEl) return;
-        const form = modalEl.querySelector('form'); // Encontra o formulário do modal
+        const form = modalEl.querySelector('form');
         if (!form) return;
 
-        // --- LÓGICA CORRIGIDA E COMPLETA ---
-
-        // 1. OUVINTE DE EVENTO PARA ABRIR O MODAL (fecha popover e preenche data)
         modalEl.addEventListener('show.bs.modal', function (event) {
             const popoverAberto = document.querySelector('.popover.show');
             if (popoverAberto) {
@@ -504,9 +461,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // 2. LÓGICA PARA REMOVER LINHAS (ALUNO/PROFESSOR)
         form.addEventListener('click', function(e) {
-            const removeButton = e.target.closest('.btn-remove-row-modal'); // Alvo na classe do modal
+            const removeButton = e.target.closest('.btn-remove-row-modal');
             if (!removeButton) return;
             
             e.preventDefault();
@@ -516,12 +472,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (deleteCheckbox) {
                     deleteCheckbox.checked = true;
                 }
-                row.style.display = 'none'; // Esconde a linha
+                row.style.display = 'none';
             }
         });
 
 
-        // 3. LÓGICA PARA ADICIONAR LINHAS (ALUNO/PROFESSOR)
         function setupFormset(buttonId, containerId, templateId, prefix) {
             const addButton = modalEl.querySelector(`#${buttonId}`);
             addButton?.addEventListener('click', function() {
@@ -536,12 +491,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Chamadas corrigidas com os IDs do modal
         setupFormset('add-aluno-form-modal', 'aluno-forms-modal', 'empty-form-alunos-modal', 'alunos');
         setupFormset('add-professor-form-modal', 'professor-forms-modal', 'empty-form-professores-modal', 'professores');
 
 
-        // 4. LÓGICA PARA ENVIAR O FORMULÁRIO VIA AJAX (sem alteração)
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
@@ -565,30 +518,25 @@ document.addEventListener('DOMContentLoaded', function() {
             
             function toggleAlunosVisibility() {
                 const alunosContainerModal = modalEl.querySelector('#alunos-formset-container-modal');
-                // Pega o texto da opção selecionada, ex: "Atividade Complementar"
                 const selectedOptionText = modalidadeSelectModal.options[modalidadeSelectModal.selectedIndex].text.toLowerCase();
                 
                 if (alunosContainerModal) {
                     if (selectedOptionText.includes('atividade complementar')) {
-                        alunosContainerModal.style.display = 'none'; // Esconde
+                        alunosContainerModal.style.display = 'none';
                     } else {
-                        alunosContainerModal.style.display = 'block'; // Mostra
+                        alunosContainerModal.style.display = 'block';
                     }
                 }
             }
-
-            // Adiciona o "ouvinte" para o evento de mudança
             modalidadeSelectModal.addEventListener('change', toggleAlunosVisibility);
-            
-            // Garante que a verificação seja feita sempre que o modal abrir
             modalEl.addEventListener('show.bs.modal', function() {
                 toggleAlunosVisibility();
             });
         }
 
-        // 5. LÓGICA PARA LIMPAR O FORMULÁRIO AO FECHAR (sem alteração)
         modalEl.addEventListener('hidden.bs.modal', () => form.reset());
     }
+
     // --- 4. INICIALIZAÇÃO GERAL ---
     associarEventosNavegacao();
     setupCalendarInteractions();
@@ -606,13 +554,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.addEventListener('click', function(e) {
-        // Se o clique foi dentro de um popover, não faz nada
         if (e.target.closest('.popover')) {
             return;
         }
 
-        // Se o clique NÃO foi em uma célula de dia (que já abre o popover)
-        // E existe um popover aberto, ele será fechado.
         if (!e.target.closest('.js-day-cell')) {
             const popoverAberto = document.querySelector('.popover');
             if (popoverAberto) {
