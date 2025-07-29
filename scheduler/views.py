@@ -64,32 +64,29 @@ def dashboard(request):
     now = timezone.now()
     today = now.date()
 
-    # ★★★ INÍCIO DA ALTERAÇÃO ★★★
-    # 1. MOVA ESTA LÓGICA PARA ANTES DO IF/ELSE
-    #    Agora, ela será executada para qualquer usuário logado.
-    #    A consulta funciona perfeitamente para ambos, admin e professor.
+    # A consulta de aulas pendentes funciona para ambos, admin e professor
+    # (Para admin, mostra as aulas que ele mesmo tem que validar)
     aulas_pendentes_validacao = Aula.objects.filter(
         professores=request.user, 
         status='Agendada', 
         data_hora__lt=now
     ).order_by('data_hora')
     aulas_pendentes_count = aulas_pendentes_validacao.count()
-    # ★★★ FIM DA ALTERAÇÃO ★★★
     
-    # Formatação das datas para os links (lógica existente)
+    # Formatação de datas (sem alterações)
     today_iso = today.strftime('%Y-%m-%d')
-    start_of_week = today - timedelta(days=today.weekday() + 1)
+    start_of_week = today - timedelta(days=today.weekday()) # Semana começando no Domingo
     end_of_week = start_of_week + timedelta(days=6)
     week_start_iso = start_of_week.strftime('%Y-%m-%d')
     week_end_iso = end_of_week.strftime('%Y-%m-%d')
     
-    # ... (o resto da lógica de preparação do calendário permanece igual) ...
     try:
         year = int(request.GET.get('year', today.year))
         month = int(request.GET.get('month', today.month))
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
+    # Filtro de aulas para o calendário (sem alterações)
     if request.user.tipo == 'admin':
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
@@ -98,7 +95,7 @@ def dashboard(request):
     else: # Professor
         aulas_qs = Aula.objects.filter(professores=request.user)
     
-    # ... (a lógica de construção do calendário permanece igual) ...
+    # Lógica de construção do calendário (sem alterações)
     aulas_do_mes = aulas_qs.filter(
         data_hora__year=year, 
         data_hora__month=month
@@ -117,17 +114,20 @@ def dashboard(request):
             semana_com_aulas.append({'dia': dia, 'aulas': aulas_por_dia.get(dia, [])})
         calendario_final.append(semana_com_aulas)
 
+    # ★★★ INÍCIO DA CORREÇÃO ★★★
+    # Os formulários do modal são definidos aqui FORA do if/else,
+    # para que estejam disponíveis para todos os usuários logados.
+    AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
+    ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
+    # ★★★ FIM DA CORREÇÃO ★★★
 
     # --- PREPARAÇÃO DO CONTEXTO ESPECÍFICO DE CADA USUÁRIO ---
     if request.user.tipo == 'admin':
-        # KPIs e formulários do modal para o Admin
+        # KPIs e contexto do Admin
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
         aulas_semana_count = Aula.objects.filter(data_hora__date__range=[today, today + timezone.timedelta(days=7)]).count()
         aulas_agendadas_total = Aula.objects.filter(status='Agendada', data_hora__gte=now).count()
         novos_alunos_mes = Aluno.objects.filter(data_criacao__year=today.year, data_criacao__month=today.month).count()
-        
-        AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
-        ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
         
         contexto = {
             "titulo": "Painel de Controle - Admin",
@@ -138,33 +138,23 @@ def dashboard(request):
             "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
             "primeiro_dia_mes": today.replace(day=1).strftime('%Y-%m-%d'),
             "ultimo_dia_mes": today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime('%Y-%m-%d'),
-            'aula_form_modal': AulaForm(),
-            'aluno_formset_modal': AlunoFormSetModal(prefix='alunos'),
-            'professor_formset_modal': ProfessorFormSetModal(prefix='professores'),
-            'form_action_modal': reverse('scheduler:aula_agendar'),
-            # ★★★ INÍCIO DA ALTERAÇÃO ★★★
-            # 2. ADICIONE AS AULAS PENDENTES AO CONTEXTO DO ADMIN
-            "aulas_pendentes_validacao": aulas_pendentes_validacao,
-            # ★★★ FIM DA ALTERAÇÃO ★★★
+            "aulas_pendentes_validacao": aulas_pendentes_validacao, # Passa as aulas pendentes para o admin também
         }
     else: # Professor
-        # KPIs para o Professor
+        # KPIs e contexto do Professor
         aulas_do_professor = Aula.objects.filter(professores=request.user).distinct()
         aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
         aulas_semana_count = aulas_do_professor.filter(data_hora__date__range=[today, today + timezone.timedelta(days=7)]).count()
-        # A contagem de pendentes já foi feita acima, então podemos reutilizá-la
         
         contexto = {
             "titulo": "Painel de Controle",
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
-            # A variável `aulas_pendentes_count` já existe e está correta
             "aulas_pendentes_count": aulas_pendentes_count, 
-            # A variável `aulas_pendentes_validacao` já existe e está correta
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
         }
 
-    # Adiciona o contexto comum do calendário
+    # Adiciona o contexto comum a AMBOS os usuários (incluindo os formulários do modal)
     contexto.update({
         "today": today,
         "mes_atual": date(year, month, 1),
@@ -173,6 +163,13 @@ def dashboard(request):
         "today_iso": today_iso,
         "week_start_iso": week_start_iso,
         "week_end_iso": week_end_iso,
+        # ★★★ INÍCIO DA CORREÇÃO ★★★
+        # Adicionamos os formulários do modal aqui, no contexto comum.
+        'aula_form_modal': AulaForm(),
+        'aluno_formset_modal': AlunoFormSetModal(prefix='alunos'),
+        'professor_formset_modal': ProfessorFormSetModal(prefix='professores'),
+        'form_action_modal': reverse('scheduler:aula_agendar'),
+        # ★★★ FIM DA CORREÇÃO ★★★
     })
 
     return render(request, "scheduler/dashboard.html", contexto)
@@ -226,7 +223,7 @@ def get_calendario_html(request):
 
 
 # --- Views de Aulas (agendar_aula, editar_aula, excluir_aula) ---
-@user_passes_test(is_admin)
+@login_required
 def agendar_aula(request):
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     AlunoFormSet = formset_factory(AlunoChoiceForm, extra=1, can_delete=True)
@@ -235,16 +232,32 @@ def agendar_aula(request):
     if request.method == 'POST':
         form = AulaForm(request.POST)
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
-        professor_formset = ProfessorFormSet(request.POST, prefix='professores')
+        
+        # ★★★ INÍCIO DA CORREÇÃO 1/2 ★★★
+        # A validação do formset de professores agora é condicional
+        professor_formset_is_valid = False
+        if request.user.tipo == 'admin':
+            professor_formset = ProfessorFormSet(request.POST, prefix='professores')
+            if professor_formset.is_valid():
+                professor_formset_is_valid = True
+        else:
+            # Para professores, o formset não é enviado, então consideramos válido por padrão.
+            professor_formset = ProfessorFormSet(prefix='professores') # Cria um formset vazio para o contexto
+            professor_formset_is_valid = True
+        # ★★★ FIM DA CORREÇÃO 1/2 ★★★
 
-        if form.is_valid() and aluno_formset.is_valid() and professor_formset.is_valid():
+        if form.is_valid() and aluno_formset.is_valid() and professor_formset_is_valid:
+            # (O resto da sua lógica de extração de dados e criação de aulas permanece o mesmo)
             modalidade = form.cleaned_data.get('modalidade')
             alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
-            professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
             data_hora_inicial = form.cleaned_data.get('data_hora')
             is_recorrente = form.cleaned_data.get('recorrente_mensal')
-            # LINHA CORRIGIDA: A variável 'status' agora é extraída do formulário.
             status = form.cleaned_data.get('status')
+            
+            if request.user.tipo == 'admin':
+                professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
+            else:
+                professores_ids = {request.user.id}
 
             is_ac = 'atividade complementar' in modalidade.nome.lower()
 
@@ -329,37 +342,62 @@ def agendar_aula(request):
     return render(request, 'scheduler/aula_form.html', contexto)
 
 
-@user_passes_test(is_admin)
+@login_required
 def editar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
+
+    # Lógica de permissão para edição (sem alterações)
+    pode_editar = False
+    if request.user.tipo == 'admin':
+        pode_editar = True
+    elif request.user.tipo == 'professor' and request.user in aula.professores.all():
+        pode_editar = True
+
+    if not pode_editar:
+        messages.error(request, "Você não tem permissão para editar esta aula.")
+        return redirect('scheduler:dashboard')
+
     AlunoFormSet = formset_factory(AlunoChoiceForm, extra=1, can_delete=True)
     ProfessorFormSet = formset_factory(ProfessorChoiceForm, extra=1, can_delete=True)
 
     if request.method == 'POST':
         form = AulaForm(request.POST, instance=aula)
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
-        professor_formset = ProfessorFormSet(request.POST, prefix='professores')
+        
+        # Validação condicional do formset de professores (sem alterações)
+        professor_formset_is_valid = False
+        if request.user.tipo == 'admin':
+            professor_formset = ProfessorFormSet(request.POST, prefix='professores')
+            if professor_formset.is_valid():
+                professor_formset_is_valid = True
+        else:
+            professor_formset = ProfessorFormSet(prefix='professores')
+            professor_formset_is_valid = True
 
-        if form.is_valid() and aluno_formset.is_valid() and professor_formset.is_valid():
-            # Coleta os dados dos formulários
-            alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
-            professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
+        if form.is_valid() and aluno_formset.is_valid() and professor_formset_is_valid:
+            # ★★★ INÍCIO DA CORREÇÃO ★★★
+            # As duas linhas abaixo estavam faltando. Elas pegam os dados do formulário.
             data_hora_nova = form.cleaned_data.get('data_hora')
             is_recorrente = form.cleaned_data.get('recorrente_mensal')
+            # ★★★ FIM DA CORREÇÃO ★★★
 
-            # --- LÓGICA DE RECORRÊNCIA NA EDIÇÃO ---
+            alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
+            
+            if request.user.tipo == 'admin':
+                professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
+            else:
+                professores_ids = {p.id for p in aula.professores.all()}
 
-            # 1. Verifica conflito para a aula principal que está sendo editada
+            # Lógica de recorrência na edição
             conflito_info_principal = _check_conflito_aula(list(professores_ids), data_hora_nova, aula_id=aula.pk)
             if conflito_info_principal['conflito']:
                 messages.error(request, f"Não foi possível atualizar a aula: {conflito_info_principal['mensagem']}")
             else:
-                # Se a aula principal está OK, salva as alterações nela
-                aula_salva = form.save()
+                aula_salva = form.save(commit=False) # Adicionado commit=False para controle
                 aula_salva.alunos.set(list(alunos_ids))
                 aula_salva.professores.set(list(professores_ids))
+                aula_salva.save() # Salva o M2M
                 
-                # 2. Se a checkbox de recorrência estiver marcada, cria as aulas seguintes
                 if is_recorrente:
                     datas_para_agendar = []
                     dia_semana = data_hora_nova.weekday()
@@ -367,20 +405,16 @@ def editar_aula(request, pk):
                     cal = calendar.Calendar()
                     
                     for dia in cal.itermonthdates(ano, mes):
-                        # Adiciona apenas as datas que são no mesmo mês, mesmo dia da semana, e POSTERIORES à data atual
                         if dia.month == mes and dia.weekday() == dia_semana and dia > data_hora_nova.date():
                             nova_data_hora = data_hora_nova.replace(year=dia.year, month=dia.month, day=dia.day)
                             datas_para_agendar.append(nova_data_hora)
 
-                    # 3. Verifica conflitos para as NOVAS aulas recorrentes
                     conflitos_novos = [info['mensagem'] for dt in datas_para_agendar if (info := _check_conflito_aula(list(professores_ids), dt))['conflito']]
 
                     if conflitos_novos:
                         messages.warning(request, f"A aula do dia {data_hora_nova.strftime('%d/%m')} foi atualizada, mas as aulas recorrentes não puderam ser criadas devido a conflitos.")
-                        for erro in conflitos_novos:
-                            messages.error(request, erro)
+                        for erro in conflitos_novos: messages.error(request, erro)
                     else:
-                        # 4. Cria as novas aulas recorrentes
                         aulas_criadas_count = 0
                         for data_agendamento in datas_para_agendar:
                             nova_aula = Aula.objects.create(

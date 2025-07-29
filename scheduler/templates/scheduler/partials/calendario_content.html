@@ -267,7 +267,7 @@
                                             <div class='d-flex justify-content-between align-items-center'>
                                                 <span class='text-muted small'>{{ dia|stringformat:'02d' }} de {{ mes_atual|date:'F'|capfirst }}</span>
                                             </div>
-                                            {% if user.tipo == 'admin' %}
+                                            {% if user.tipo in 'admin, professor' %}
                                                 <button class='btn btn-sm btn-primary btn-agendar-popover ms-2' 
                                                         data-bs-toggle='modal' 
                                                         data-bs-target='#agendamentoModal'
@@ -359,7 +359,7 @@
                             {# Lado Direito: Contador de Aulas e Botão de Agendar #}
                             <div class="d-flex align-items-center gap-2">
                                 <span class="day-total-badge">{{ grupo.list|length }} Aula{{ grupo.list|length|pluralize }}</span>
-                                {% if user.tipo == 'admin' %}
+                                {% if user.tipo in 'admin, professor' %}
                                     <button class="btn btn-sm btn-primary py-0 px-2" 
                                             title="Agendar nova aula para este dia"
                                             data-bs-toggle="modal" 

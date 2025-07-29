@@ -47,6 +47,13 @@
     }
 </style>
 
+{# O botão de filtro para admin permanece como está #}
+{% if user.tipo == 'admin' %}
+    <div class="btn-group">
+        </div>
+{% endif %}
+
+
 <div class="mb-4">
     <h1 class="h3 mb-1">{{ titulo }}</h1>
     <p class="text-muted mb-0">{% if user.tipo == 'admin' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}</p>
@@ -104,6 +111,11 @@
         </div>
     {% else %}
         {# --- PROFESSOR: STATS --- #}
+        <div class="d-flex justify-content-end align-items-center gap-2">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendamentoModal">
+                <i class="bi bi-plus-circle me-1"></i> Agendar Aula
+            </button>
+        </div>
         <div class="row g-4">
             <div class="col-lg-4 col-md-6">
                 <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="kpi-link">
@@ -183,7 +195,6 @@
     </div>
 </div>
 
-{% if user.tipo == 'admin' %}
 <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -194,7 +205,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 {% endblock %}
 
@@ -541,11 +551,13 @@ document.addEventListener('DOMContentLoaded', function() {
     associarEventosNavegacao();
     setupCalendarInteractions();
 
-    if (userType === 'admin') {
+    if (userType === 'admin' || userType === 'professor') {
         setupModalInteractions();
-        professorFiltro?.addEventListener('change', () => {
-             carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
-        });
+        if (professorFiltro) {
+            professorFiltro.addEventListener('change', () => {
+                 carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+            });
+        }
     }
     
     if (overlay) {
