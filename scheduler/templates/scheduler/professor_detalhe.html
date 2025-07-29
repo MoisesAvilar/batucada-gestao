@@ -180,31 +180,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const containerTabela = document.getElementById('tabela-aulas-container');
         const dataInicial = document.getElementById('id_data_inicial').value;
         const dataFinal = document.getElementById('id_data_final').value;
-        
         const url = `{% url 'scheduler:filtrar_aulas_professor_ajax' professor.pk %}?status=${status}&page=${page}&data_inicial=${dataInicial}&data_final=${dataFinal}`;
         
-        containerTabela.style.opacity = '0.5';
+        containerTabela.innerHTML = `{% include "scheduler/partials/aula_table_skeleton.html" %}`;
+
         fetch(url)
             .then(response => response.text())
-            .then(html => { containerTabela.innerHTML = html; })
-            .finally(() => { containerTabela.style.opacity = '1'; });
+            .then(html => { containerTabela.innerHTML = html; });
     }
 
-    // Função para carregar a tabela SEM filtros de status (a versão original)
     function carregarTabelaOriginal(page = 1) {
         const containerTabela = document.getElementById('tabela-aulas-container');
         const dataInicial = document.getElementById('id_data_inicial').value;
         const dataFinal = document.getElementById('id_data_final').value;
-        
         const url = `{% url 'scheduler:filtrar_aulas_professor_ajax' professor.pk %}?page=${page}&data_inicial=${dataInicial}&data_final=${dataFinal}`;
+        containerTabela.innerHTML = `{% include "scheduler/partials/aula_table_skeleton.html" %}`;
 
-        containerTabela.style.opacity = '0.5';
         fetch(url)
             .then(response => response.text())
-            .then(html => { containerTabela.innerHTML = html; })
-            .finally(() => { containerTabela.style.opacity = '1'; });
+            .then(html => { containerTabela.innerHTML = html; });
     }
-    
     // --- LÓGICA DO GRÁFICO E TEMAS ---
 
     // Função para obter as cores do tema atual do Bootstrap

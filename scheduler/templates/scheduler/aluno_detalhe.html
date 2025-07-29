@@ -183,9 +183,10 @@
 {% block extra_js %}
 {{ block.super }}
 
-{# Passando dados para o JavaScript de forma segura #}
+{# Passando dados para o JavaScript de forma segura (sem alterações aqui) #}
 {{ chart_labels|json_script:"status-chart-labels-data" }}
 {{ chart_data|json_script:"status-chart-data-data" }}
+{{ evolucao_chart_labels|json_script:"evolucao-labels-data" }}
 {{ evolucao_chart_datasets|json_script:"evolucao-datasets-data" }}
 
 <script>
@@ -202,85 +203,126 @@ document.addEventListener('DOMContentLoaded', function() {
         return {
             fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
             gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
-            pieColors: isDark 
-                ? ['#198754', '#ffc107', '#dc3545', '#0dcaf0'] // Cores mais saturadas para dark
-                : ['#198754', '#ffc107', '#dc3545', '#0dcaf0']  // Cores padrão para light
+            // Cores para o gráfico de pizza (Realizadas, Ausências, Canceladas, Agendadas)
+            pieColors: [
+                'rgba(25, 135, 84, 0.8)',  // success
+                'rgba(255, 193, 7, 0.8)',  // warning
+                'rgba(220, 53, 69, 0.8)',  // danger
+                'rgba(108, 117, 125, 0.7)' // secondary
+            ]
         };
     }
 
+    // ★★★ FUNÇÃO ATUALIZADA COM AMBOS OS GRÁFICOS ★★★
     function renderOrUpdateCharts() {
+        // Destrói instâncias antigas para redesenhar
         if (statusChartInstance) statusChartInstance.destroy();
         if (evolutionChartInstance) evolutionChartInstance.destroy();
 
         const themeColors = getChartThemeColors();
         Chart.defaults.color = themeColors.fontColor;
         
-        // Gráfico de Pizza (Status)
-        const statusLabels = JSON.parse(document.getElementById('status-chart-labels-data').textContent);
-        const statusData = JSON.parse(document.getElementById('status-chart-data-data').textContent);
+        // ===============================================
+        //  1. GRÁFICO DE PIZZA (DISTRIBUIÇÃO DE STATUS)
+        // ===============================================
+        const statusLabelsDataEl = document.getElementById('status-chart-labels-data');
+        const statusDataDataEl = document.getElementById('status-chart-data-data');
         const statusCtx = document.getElementById('statusChart');
-        if (statusCtx && statusData.some(d => d > 0)) {
-            statusChartInstance = new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: statusLabels,
-                    datasets: [{
-                        data: statusData,
-                        backgroundColor: themeColors.pieColors,
-                        borderWidth: 0,
-                        hoverOffset: 8
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: true, position: 'bottom', labels: {boxWidth: 12} } }
-                }
-            });
-        }
 
-        // Gráfico de Linha (Evolução)
-        const datasets = JSON.parse(document.getElementById('evolucao-datasets-data').textContent);
-        const evolutionCtx = document.getElementById('studentEvolutionChart');
-        if (evolutionCtx && datasets.length > 0) {
-            Chart.defaults.borderColor = themeColors.gridColor; // Aplicar cor da grade para este gráfico
-            evolutionChartInstance = new Chart(evolutionCtx, {
-                type: 'line',
-                data: { datasets: datasets },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'time', // <-- MUITO IMPORTANTE: Altera o tipo do eixo para 'time'
-                            time: {
-                                unit: 'day', // Agrupa visualmente por dia, mas mantém os pontos individuais
-                                tooltipFormat: 'dd/MM/yyyy HH:mm', // Formato para o tooltip ao passar o mouse
-                                displayFormats: {
-                                    day: 'dd/MM/yy' // Formato para a etiqueta do eixo X
+        if (statusCtx && statusLabelsDataEl && statusDataDataEl) {
+            const statusLabels = JSON.parse(statusLabelsDataEl.textContent);
+            const statusData = JSON.parse(statusDataDataEl.textContent);
+            
+            // Só renderiza o gráfico se houver dados
+            const hasData = statusData.some(item => item > 0);
+
+            if (hasData) {
+                statusChartInstance = new Chart(statusCtx, {
+                    type: 'doughnut', // Gráfico de rosca
+                    data: {
+                        labels: statusLabels,
+                        datasets: [{
+                            label: 'Status',
+                            data: statusData,
+                            backgroundColor: themeColors.pieColors,
+                            borderColor: 'var(--bs-tertiary-bg)', // Cor de fundo do card
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    boxWidth: 12
                                 }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Data da Aula'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'BPM (Batidas por Minuto)'
                             }
                         }
-                    },
-                    plugins: {
-                        legend: { display: true, position: 'bottom' },
-                        tooltip: { mode: 'index', intersect: false }
                     }
-                }
-            });
+                });
+            }
+        }
+
+        // ===============================================
+        //  2. GRÁFICO DE LINHA (EVOLUÇÃO DE BPM)
+        // ===============================================
+        const evolutionLabelsData = document.getElementById('evolucao-labels-data');
+        const evolutionDatasetsData = document.getElementById('evolucao-datasets-data');
+        const evolutionCtx = document.getElementById('studentEvolutionChart');
+
+        if (evolutionCtx && evolutionLabelsData && evolutionDatasetsData) {
+            const labels = JSON.parse(evolutionLabelsData.textContent);
+            const datasets = JSON.parse(evolutionDatasetsData.textContent);
+
+            if (labels.length > 0 && datasets.length > 0) {
+                Chart.defaults.borderColor = themeColors.gridColor;
+                evolutionChartInstance = new Chart(evolutionCtx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'category',
+                                title: {
+                                    display: true,
+                                    text: 'Data da Aula'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'BPM (Batidas por Minuto)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: true, position: 'bottom' },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        }
+                    }
+                });
+            }
         }
     }
+    // ★★★ FIM DA FUNÇÃO ATUALIZADA ★★★
 
+
+    // Renderiza os gráficos na carga inicial da página
     renderOrUpdateCharts();
 
+    // Observador para o modo light/dark (sem alterações aqui)
     const themeObserver = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {

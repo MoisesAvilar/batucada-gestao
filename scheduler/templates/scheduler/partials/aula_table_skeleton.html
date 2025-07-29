@@ -1,0 +1,28 @@
+{# scheduler/partials/aula_table_skeleton.html #}
+
+<div class="table-responsive">
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th scope="col">Aluno(s)</th>
+                <th scope="col">Categoria</th>
+                <th scope="col">Prof. Atribuído(s)</th>
+                <th scope="col">Status</th>
+                <th scope="col">Data e Hora</th>
+                <th scope="col" class="text-center">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in "12345" %} {# Repete 5 linhas de placeholder #}
+            <tr class="placeholder-glow">
+                <td><span class="placeholder col-10"></span></td>
+                <td><span class="placeholder col-8"></span></td>
+                <td><span class="placeholder col-7"></span></td>
+                <td><span class="placeholder col-9"></span></td>
+                <td><span class="placeholder col-10"></span></td>
+                <td class="text-center"><span class="placeholder col-6"></span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

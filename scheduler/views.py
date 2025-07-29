@@ -611,9 +611,10 @@ def detalhe_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
     
     # 1. Busca todas as aulas em que o aluno está inscrito, otimizando a consulta.
+    # ★★★ CORREÇÃO 1: Usando o related_name correto 'presencas', definido em models.py ★★★
     aulas_do_aluno = Aula.objects.filter(alunos=aluno).select_related(
         'modalidade', 'relatorioaula__professor_que_validou'
-    ).prefetch_related('professores')
+    ).prefetch_related('professores', 'presencas')
 
     # 2. Anota o status de presença individual do aluno em cada aula.
     #    Isso é crucial e resolve a maioria dos bugs.
@@ -625,76 +626,58 @@ def detalhe_aluno(request, pk):
         status_presenca_aluno=Subquery(presenca_status_subquery)
     )
 
-    # 3. Calcula os KPIs com base na presença individual.
-    #    - Uma aula é "Realizada" para o aluno apenas se ele esteve PRESENTE.
-    #    - Uma aula é "Ausência" para o aluno apenas se ele esteve AUSENTE.
-    total_realizadas = aulas_com_presenca.filter(
-        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente'
-    ).count()
-    total_ausencias = aulas_com_presenca.filter(
-        status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente'
-    ).count()
+    # 3. Calcula os KPIs com base na presença individual (lógica existente mantida).
+    total_realizadas = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente').count()
+    total_ausencias = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente').count()
     total_canceladas = aulas_com_presenca.filter(status="Cancelada").count()
     total_agendadas = aulas_com_presenca.filter(status="Agendada").count()
     total_aulas = aulas_do_aluno.count()
-    
     aulas_contabilizadas_para_presenca = total_realizadas + total_ausencias
     taxa_presenca = (total_realizadas / aulas_contabilizadas_para_presenca * 100) if aulas_contabilizadas_para_presenca > 0 else 0
 
-    # 4. Calcula os "Top Professores" e "Top Categorias" baseados apenas nas aulas com presença.
+    # 4. Lógica de "Top" e gráficos (lógica existente mantida).
     aulas_presente = aulas_com_presenca.filter(status_presenca_aluno='presente')
-    top_professores = aulas_presente.filter(professores__isnull=False).values(
-        "professores__pk", "professores__username"
-    ).annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
-    top_modalidades = aulas_presente.values("modalidade__nome").annotate(
-        contagem=Count("modalidade")
-    ).order_by("-contagem")[:3]
-
-    # 5. Busca dados para o gráfico de evolução APENAS de relatórios de aulas em que o aluno esteve presente.
-    relatorios_de_aulas_presente_ids = aulas_presente.filter(
-        relatorioaula__isnull=False
-    ).values_list('relatorioaula__pk', flat=True)
-
-    dados_evolucao = ItemRudimento.objects.filter(
-        relatorio_id__in=list(relatorios_de_aulas_presente_ids),
-        bpm__isnull=False
-    ).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
-
-    # 6. Prepara os dados para os gráficos.
-    # Gráfico de pizza de status
+    top_professores = aulas_presente.filter(professores__isnull=False).values("professores__pk", "professores__username").annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
+    top_modalidades = aulas_presente.values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
+    relatorios_de_aulas_presente_ids = aulas_presente.filter(relatorioaula__isnull=False).values_list('relatorioaula__pk', flat=True)
+    dados_evolucao = ItemRudimento.objects.filter(relatorio_id__in=list(relatorios_de_aulas_presente_ids), bpm__isnull=False).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
     chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
     chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
+    evolucao_chart_labels = []
+    evolucao_chart_datasets = []
+    evolucao_total_aulas = 0
+    if dados_evolucao:
+        unique_dates = sorted(list(set(item.relatorio.aula.data_hora.date() for item in dados_evolucao)))
+        evolucao_chart_labels = [d.strftime('%d/%m/%y') for d in unique_dates]
+        date_to_index_map = {date: i for i, date in enumerate(unique_dates)}
+        evolucao_total_aulas = len(unique_dates)
+        data_by_exercise = defaultdict(lambda: [None] * len(evolucao_chart_labels))
+        rudimento_cores = {}
+        def cor_random(): return f"rgba({random.randint(40, 220)}, {random.randint(40, 220)}, {random.randint(40, 220)}, 0.8)"
+        for item in dados_evolucao:
+            try:
+                bpm = int(str(item.bpm).strip().replace('bpm', ''))
+                item_date = item.relatorio.aula.data_hora.date()
+                descricao = item.descricao.strip().title()
+                if item_date in date_to_index_map:
+                    data_by_exercise[descricao][date_to_index_map[item_date]] = bpm
+                if descricao not in rudimento_cores:
+                    rudimento_cores[descricao] = cor_random()
+            except (ValueError, AttributeError): continue
+        evolucao_chart_datasets = [{'label': nome, 'data': pontos, 'borderColor': rudimento_cores[nome], 'backgroundColor': rudimento_cores[nome].replace('0.8', '0.2'), 'fill': False, 'tension': 0.1} for nome, pontos in data_by_exercise.items()]
 
-    # Gráfico de linha de evolução de BPM
-    evolucao_dataset = defaultdict(list)
-    evolucao_datas = set()
-    rudimento_cores = {}
-    def cor_random():
-        return f"rgba({random.randint(40, 220)}, {random.randint(40, 220)}, {random.randint(40, 220)}, 0.8)"
-
-    for item in dados_evolucao:
-        try:
-            bpm = int(str(item.bpm).strip().replace('bpm', ''))
-            data = item.relatorio.aula.data_hora.isoformat()
-            descricao = item.descricao.strip().title()
-            evolucao_dataset[descricao].append({'x': data, 'y': bpm})
-            evolucao_datas.add(data)
-            if descricao not in rudimento_cores:
-                rudimento_cores[descricao] = cor_random()
-        except (ValueError, AttributeError):
-            continue
-    
-    evolucao_chart_datasets = [
-        {
-            'label': nome, 'data': pontos, 'borderColor': rudimento_cores[nome],
-            'backgroundColor': rudimento_cores[nome].replace('0.8', '0.2'),
-            'fill': False, 'tension': 0.2
-        } for nome, pontos in evolucao_dataset.items()
-    ]
-    
     # 7. Paginação do histórico de aulas.
     paginator = Paginator(aulas_com_presenca.order_by("-data_hora"), 10)
     page_obj = paginator.get_page(request.GET.get("page"))
+
+    # ★★★ CORREÇÃO 2: Usando 'aula.presencas.all()' para iterar sobre os objetos corretos. ★★★
+    for aula in page_obj.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for a in aula.alunos.all():
+                status = presencas_map.get(a.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': a, 'status': status})
 
     # 8. Montagem do contexto final para o template.
     contexto = {
@@ -711,7 +694,8 @@ def detalhe_aluno(request, pk):
         "top_modalidades": top_modalidades,
         "chart_labels": chart_labels,
         "chart_data": chart_data,
-        "evolucao_total_aulas": len(evolucao_datas),
+        "evolucao_total_aulas": evolucao_total_aulas,
+        "evolucao_chart_labels": evolucao_chart_labels,
         "evolucao_chart_datasets": evolucao_chart_datasets,
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
@@ -719,25 +703,19 @@ def detalhe_aluno(request, pk):
 
 @login_required
 def listar_aulas(request):
-    # --- 1. LEITURA DOS FILTROS DA URL ---
+    # --- 1 a 4: Lógica de filtros permanece a mesma ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
     professor_filtro_id = request.GET.get("professor_filtro", "")
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
     aluno_filtro_ids = request.GET.getlist("aluno_filtro")
-    
-    # --- 2. DEFINIÇÃO DO QUERYSET BASE ---
     if request.user.tipo == "admin":
         aulas_queryset = Aula.objects.all()
         contexto_titulo = "Histórico Geral de Aulas"
-    else:  # Professor
-        aulas_queryset = Aula.objects.filter(
-            Q(professores=request.user) | Q(relatorioaula__professor_que_validou=request.user)
-        ).distinct()
+    else:
+        aulas_queryset = Aula.objects.filter(Q(professores=request.user) | Q(relatorioaula__professor_que_validou=request.user)).distinct()
         contexto_titulo = "Meu Histórico de Aulas"
-
-    # --- 3. APLICAÇÃO DOS FILTROS GERAIS (DATA, MODALIDADE, ALUNO) ---
     if data_inicial_str:
         try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
         except ValueError: pass
@@ -750,47 +728,37 @@ def listar_aulas(request):
         aluno_filtro_ids_validos = [int(id) for id in aluno_filtro_ids if id.isdigit()]
         if aluno_filtro_ids_validos:
             aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos).distinct()
-
-    # ★★★ INÍCIO DO BLOCO DE FILTRO DE STATUS CORRIGIDO E SIMPLIFICADO ★★★
-    
-    # Aplica o filtro de professor primeiro, se ele existir
-    # Isso garante que os filtros de status subsequentes atuem sobre o conjunto correto de aulas
     if professor_filtro_id:
-        aulas_queryset = aulas_queryset.filter(
-            Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
-        ).distinct()
-
-    # Agora, aplica o filtro de status sobre o queryset já pré-filtrado
+        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)).distinct()
     if status_filtro:
         if status_filtro == 'Substituído':
-            # Mostra aulas em que o professor atribuído é diferente do que validou
-            # O .exclude(professores=None) garante que a aula tinha um professor atribuído
-            aulas_queryset = aulas_queryset.filter(
-                status='Realizada', relatorioaula__professor_que_validou__isnull=False, professores__isnull=False
-            ).exclude(professores=F('relatorioaula__professor_que_validou'))
-
+            aulas_queryset = aulas_queryset.filter(status='Realizada', relatorioaula__professor_que_validou__isnull=False, professores__isnull=False).exclude(professores=F('relatorioaula__professor_que_validou'))
         elif status_filtro == 'professor_ausente':
-            # Filtro específico para ACs onde um professor esteve ausente
-            aulas_queryset = aulas_queryset.filter(
-                modalidade__nome__icontains="atividade complementar",
-                presencas_professores__status='ausente'
-            )
-        
+            aulas_queryset = aulas_queryset.filter(modalidade__nome__icontains="atividade complementar", presencas_professores__status='ausente')
         else:
-            # Para todos os outros status (Agendada, Realizada, Cancelada, etc.), aplica um filtro direto.
-            # Esta é a correção principal que faz os filtros simples voltarem a funcionar.
             aulas_queryset = aulas_queryset.filter(status=status_filtro)
 
-    # ★★★ FIM DO BLOCO DE FILTRO DE STATUS CORRIGIDO ★★★
-
     # --- 5. PREPARAÇÃO FINAL E PAGINAÇÃO ---
+    # ★★★ CORREÇÃO 1: Usando o related_name correto 'presencas'. ★★★
     aulas_ordenadas = aulas_queryset.distinct().order_by("-data_hora").prefetch_related(
-        'alunos', 'professores', 'relatorioaula__professor_que_validou', 'presencas_professores__professor'
+        'alunos', 'professores', 'relatorioaula__professor_que_validou',
+        'presencas_professores__professor', 'presencas'
     )
-    
+
     paginator = Paginator(aulas_ordenadas, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    # ★★★ CORREÇÃO 2: Usando 'aula.presencas.all()' para iterar. ★★★
+    for aula in page_obj.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for aluno in aula.alunos.all():
+                status = presencas_map.get(aluno.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': aluno, 'status': status})
+
+    # ★★★ CORREÇÃO 3: Linhas duplicadas de paginação removidas. ★★★
+    
     # --- 6. MONTAGEM DO CONTEXTO PARA O TEMPLATE ---
     contexto = {
         "aulas": page_obj,
@@ -1064,27 +1032,22 @@ def detalhe_modalidade(request, pk):
     aulas_da_modalidade = Aula.objects.filter(modalidade=modalidade)
     now = timezone.now()
 
-    # KPIs de Contagem
+    # KPIs de Contagem (sem alterações)
     total_aulas = aulas_da_modalidade.count()
     total_realizadas = aulas_da_modalidade.filter(status="Realizada").count()
-    
-    # --- CORRIGIDO ---
-    # Contagens de alunos e professores agora usam os campos no plural.
     alunos_ativos_count = aulas_da_modalidade.filter(
         data_hora__gte=now
     ).values('alunos').distinct().count()
-
     professores_count = aulas_da_modalidade.filter(
         professores__isnull=False
     ).values('professores').distinct().count()
 
-    # --- CORRIGIDO ---
-    # A busca reversa de professores agora usa 'aulas_lecionadas' (related_name).
+    # Professores da modalidade (sem alterações)
     professores_da_modalidade = CustomUser.objects.filter(
         aulas_lecionadas__in=aulas_da_modalidade
     ).distinct().order_by('username')
     
-    # Dados do Gráfico de Atividade Mensal
+    # Dados do Gráfico (sem alterações)
     aulas_por_mes = aulas_da_modalidade.annotate(
         mes=TruncMonth('data_hora')
     ).values('mes').annotate(
@@ -1095,7 +1058,23 @@ def detalhe_modalidade(request, pk):
     chart_data = [item['contagem'] for item in aulas_por_mes]
     
     # Paginação
-    aulas_paginadas = Paginator(aulas_da_modalidade.order_by("-data_hora").prefetch_related('alunos', 'professores'), 10).get_page(request.GET.get("page"))
+    # ★★★ INÍCIO DA ALTERAÇÃO (1/2) ★★★
+    # Adicionamos 'presencas' ao prefetch_related para buscar os dados de presença dos alunos.
+    aulas_paginadas_qs = aulas_da_modalidade.order_by("-data_hora").prefetch_related('alunos', 'professores', 'presencas')
+    # ★★★ FIM DA ALTERAÇÃO (1/2) ★★★
+
+    aulas_paginadas = Paginator(aulas_paginadas_qs, 10).get_page(request.GET.get("page"))
+
+    # ★★★ INÍCIO DA ALTERAÇÃO (2/2) ★★★
+    # Adicionamos a mesma lógica que processa o status de cada aluno para cada aula.
+    for aula in aulas_paginadas.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for aluno in aula.alunos.all():
+                status = presencas_map.get(aluno.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': aluno, 'status': status})
+    # ★★★ FIM DA ALTERAÇÃO (2/2) ★★★
 
     contexto = {
         "modalidade": modalidade,
@@ -1107,7 +1086,7 @@ def detalhe_modalidade(request, pk):
         "chart_labels": chart_labels,
         "chart_data": chart_data,
         "professores_da_modalidade": professores_da_modalidade,
-        "aulas": aulas_paginadas,
+        "aulas": aulas_paginadas, # Esta variável agora contém os objetos de aula modificados
     }
     
     return render(request, "scheduler/modalidade_detalhe.html", contexto)
@@ -1271,7 +1250,7 @@ def detalhe_professor(request, pk):
     
     total_agendadas = aulas_kpi.filter(status='Agendada', professores=professor).count()
     total_canceladas = aulas_kpi.filter(status='Cancelada', professores=professor).count()
-    total_aluno_ausente = aulas_kpi.filter(status='Aluno Ausente').count() # LINHA CORRIGIDA
+    total_aluno_ausente = aulas_kpi.filter(status='Aluno Ausente').count()
     total_substituido = aulas_kpi.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
     # --- 2. QUERYSET PARA A TABELA (será filtrado por status) ---
     aulas_para_tabela = aulas_kpi # Começa com a base já filtrada por data
@@ -1294,8 +1273,25 @@ def detalhe_professor(request, pk):
         elif status_filtro in ['Agendada', 'Cancelada']:
             aulas_para_tabela = aulas_para_tabela.filter(status=status_filtro, professores=professor)
     
+    # ★★★ INÍCIO DO CÓDIGO ADICIONADO (1/2) ★★★
+    # Adiciona o prefetch_related para otimizar a busca dos dados de presença dos alunos.
+    aulas_para_tabela = aulas_para_tabela.prefetch_related('presencas', 'alunos')
+    # ★★★ FIM DO CÓDIGO ADICIONADO (1/2) ★★★
+
     # Paginação (agora sobre 'aulas_para_tabela')
     aulas_do_professor_paginated = Paginator(aulas_para_tabela.order_by("-data_hora"), 10).get_page(request.GET.get("page"))
+
+    # ★★★ INÍCIO DO CÓDIGO ADICIONADO (2/2) ★★★
+    # Adiciona a lógica que processa o status de cada aluno para cada aula.
+    for aula in aulas_do_professor_paginated.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            # O .all() aqui é importante para garantir que iteramos sobre a lista completa de alunos da aula.
+            for aluno in aula.alunos.all():
+                status = presencas_map.get(aluno.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': aluno, 'status': status})
+    # ★★★ FIM DO CÓDIGO ADICIONADO (2/2) ★★★
 
     # Dados para o gráfico (agora com um label mais claro para ausências)
     chart_labels = ['Realizadas por Mim', 'Agendadas', 'Ausências de Alunos', 'Canceladas', 'Fui Substituído']
@@ -1304,7 +1300,7 @@ def detalhe_professor(request, pk):
     contexto = {
         "professor": professor,
         "titulo": f"Dashboard de: {professor.username}",
-        "aulas_do_professor": aulas_do_professor_paginated, # Passa o queryset correto
+        "aulas_do_professor": aulas_do_professor_paginated,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
         "status_filtro": status_filtro,
@@ -1326,23 +1322,23 @@ def detalhe_professor(request, pk):
 
 @login_required
 def filtrar_aulas_professor_ajax(request, pk):
-    # Lógica de permissão
+    # Lógica de permissão (sem alterações)
     if not (request.user.tipo == "admin" or (request.user.pk == pk and request.user.tipo == 'professor')):
         return HttpResponse("Acesso negado.", status=403)
 
     professor = get_object_or_404(CustomUser, pk=pk, tipo__in=['professor', 'admin'])
     
-    # Pega os parâmetros da requisição AJAX
+    # Pega os parâmetros da requisição AJAX (sem alterações)
     status_filtro = request.GET.get("status", "")
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
 
-    # Queryset base (exatamente como na view original)
+    # Queryset base (sem alterações)
     aulas_relacionadas = Aula.objects.filter(
         Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
     ).distinct()
 
-    # Aplica filtros de data (exatamente como na view original)
+    # Aplica filtros de data (sem alterações)
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
@@ -1354,33 +1350,38 @@ def filtrar_aulas_professor_ajax(request, pk):
             aulas_relacionadas = aulas_relacionadas.filter(data_hora__date__lte=data_final)
         except ValueError: pass
 
-    # --- LÓGICA DE FILTRO POR STATUS (O CORAÇÃO DESTA VIEW) ---
+    # LÓGICA DE FILTRO POR STATUS (sem alterações)
     if status_filtro:
         if status_filtro == 'Realizada':
-            # Combina a lógica de aulas normais e ACs que o professor participou
             q_realizadas_normal = Q(status='Realizada', relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
             q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
             aulas_relacionadas = aulas_relacionadas.filter(q_realizadas_normal | q_realizadas_ac)
-        
         elif status_filtro == 'Substituído':
-            # Lógica para aulas em que o professor foi atribuído, mas outro validou
-            aulas_relacionadas = aulas_relacionadas.filter(
-                status='Realizada', professores=professor
-            ).exclude(
-                relatorioaula__professor_que_validou=professor
-            ).exclude(
-                modalidade__nome__icontains="atividade complementar"
-            )
-        
+            aulas_relacionadas = aulas_relacionadas.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar")
         elif status_filtro == 'Aluno Ausente':
             aulas_relacionadas = aulas_relacionadas.filter(status='Aluno Ausente')
-
-        else: # Para status simples como 'Agendada' e 'Cancelada'
+        else:
             aulas_relacionadas = aulas_relacionadas.filter(status=status_filtro, professores=professor)
+
+    # ★★★ INÍCIO DA ALTERAÇÃO (1/2) ★★★
+    # Adicionamos o prefetch_related para otimizar a busca dos dados de presença dos alunos.
+    aulas_relacionadas = aulas_relacionadas.prefetch_related('presencas', 'alunos')
+    # ★★★ FIM DA ALTERAÇÃO (1/2) ★★★
 
     # Paginação dos resultados filtrados
     paginator = Paginator(aulas_relacionadas.order_by("-data_hora"), 10)
     page_obj = paginator.get_page(request.GET.get("page"))
+
+    # ★★★ INÍCIO DA ALTERAÇÃO (2/2) ★★★
+    # Adicionamos a mesma lógica que processa o status de cada aluno para cada aula.
+    for aula in page_obj.object_list:
+        if aula.status in ['Realizada', 'Aluno Ausente']:
+            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+            aula.alunos_com_status = []
+            for aluno in aula.alunos.all():
+                status = presencas_map.get(aluno.id, 'nao_lancado')
+                aula.alunos_com_status.append({'aluno': aluno, 'status': status})
+    # ★★★ FIM DA ALTERAÇÃO (2/2) ★★★
 
     # Monta o contexto para o template parcial
     contexto = {
@@ -1393,7 +1394,6 @@ def filtrar_aulas_professor_ajax(request, pk):
     
     # Renderiza APENAS a porção da página que contém a tabela e a paginação
     return render(request, 'scheduler/partials/professor_detalhe_table_content.html', contexto)
-
 
 
 # --- NOVA VIEW PARA VERIFICAÇÃO DE CONFLITO VIA AJAX ---
