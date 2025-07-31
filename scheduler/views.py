@@ -1007,17 +1007,14 @@ def listar_modalidades(request):
     now = timezone.now()
     modalidades_queryset = Modalidade.objects.all()
 
+    # ★★★ INÍCIO DA CORREÇÃO ★★★
+    # Removemos o filtro de data (Q(aula__data_hora__gte=now)) da contagem de alunos_ativos.
     modalidades_queryset = modalidades_queryset.annotate(
         total_aulas=Count('aula', distinct=True),
-        # --- CORRIGIDO ---
-        # A contagem de alunos ativos agora usa a relação 'aula__alunos'.
-        alunos_ativos=Count(
-            'aula__alunos', 
-            distinct=True, 
-            filter=Q(aula__data_hora__gte=now)
-        ),
+        alunos_ativos=Count('aula__alunos', distinct=True), # <-- CORRIGIDO
         proxima_aula=Min(Case(When(aula__data_hora__gte=now, then='aula__data_hora'), default=None))
     )
+    # ★★★ FIM DA CORREÇÃO ★★★
 
     if search_query:
         modalidades_queryset = modalidades_queryset.filter(nome__icontains=search_query)
@@ -1083,22 +1080,47 @@ def excluir_modalidade(request, pk):
 def detalhe_modalidade(request, pk):
     modalidade = get_object_or_404(Modalidade, pk=pk)
     aulas_da_modalidade = Aula.objects.filter(modalidade=modalidade)
-    now = timezone.now()
 
     # KPIs de Contagem (sem alterações)
     total_aulas = aulas_da_modalidade.count()
     total_realizadas = aulas_da_modalidade.filter(status="Realizada").count()
     alunos_ativos_count = aulas_da_modalidade.filter(
-        data_hora__gte=now
+        alunos__isnull=False
     ).values('alunos').distinct().count()
-    professores_count = aulas_da_modalidade.filter(
-        professores__isnull=False
-    ).values('professores').distinct().count()
+    
+    # ★★★ INÍCIO DA LÓGICA ATUALIZADA E CORRIGIDA ★★★
+    # Vamos usar a mesma lógica "fonte da verdade" da página do professor,
+    # mas aplicada a cada professor que já lecionou nesta categoria.
 
-    # Professores da modalidade (sem alterações)
-    professores_da_modalidade = CustomUser.objects.filter(
-        aulas_lecionadas__in=aulas_da_modalidade
-    ).distinct().order_by('username')
+    professores_da_modalidade = CustomUser.objects.annotate(
+        # 1. Conta aulas normais que o professor VALIDOU nesta categoria
+        normal_count=Count(
+            'aulas_validadas_por_mim',
+            distinct=True,
+            filter=Q(aulas_validadas_por_mim__aula__modalidade=modalidade) &
+                   Q(aulas_validadas_por_mim__aula__status='Realizada') &
+                   ~Q(aulas_validadas_por_mim__aula__modalidade__nome__icontains="atividade complementar")
+        ),
+        # 2. Conta ACs em que o professor esteve PRESENTE nesta categoria
+        ac_count=Count(
+            'presencas_registradas',
+            distinct=True,
+            filter=Q(presencas_registradas__aula__modalidade=modalidade) &
+                   Q(presencas_registradas__aula__status='Realizada') &
+                   Q(presencas_registradas__status='presente') &
+                   Q(presencas_registradas__aula__modalidade__nome__icontains="atividade complementar")
+        )
+    ).annotate(
+        # 3. Soma as duas contagens para obter o total real
+        aulas_na_modalidade_count=F('normal_count') + F('ac_count')
+    ).filter(
+        # 4. Mostra apenas os professores que de fato deram aula nesta categoria
+        aulas_na_modalidade_count__gt=0
+    ).order_by('-aulas_na_modalidade_count', 'username')
+    
+    # O KPI de contagem de professores também usa este resultado para ser consistente
+    professores_count = professores_da_modalidade.count()
+    # ★★★ FIM DA LÓGICA ATUALIZADA E CORRIGIDA ★★★
     
     # Dados do Gráfico (sem alterações)
     aulas_por_mes = aulas_da_modalidade.annotate(
@@ -1110,16 +1132,10 @@ def detalhe_modalidade(request, pk):
     chart_labels = [item['mes'].strftime('%b/%Y') for item in aulas_por_mes]
     chart_data = [item['contagem'] for item in aulas_por_mes]
     
-    # Paginação
-    # ★★★ INÍCIO DA ALTERAÇÃO (1/2) ★★★
-    # Adicionamos 'presencas' ao prefetch_related para buscar os dados de presença dos alunos.
+    # Paginação (sem alterações)
     aulas_paginadas_qs = aulas_da_modalidade.order_by("-data_hora").prefetch_related('alunos', 'professores', 'presencas')
-    # ★★★ FIM DA ALTERAÇÃO (1/2) ★★★
-
     aulas_paginadas = Paginator(aulas_paginadas_qs, 10).get_page(request.GET.get("page"))
 
-    # ★★★ INÍCIO DA ALTERAÇÃO (2/2) ★★★
-    # Adicionamos a mesma lógica que processa o status de cada aluno para cada aula.
     for aula in aulas_paginadas.object_list:
         if aula.status in ['Realizada', 'Aluno Ausente']:
             presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
@@ -1127,7 +1143,6 @@ def detalhe_modalidade(request, pk):
             for aluno in aula.alunos.all():
                 status = presencas_map.get(aluno.id, 'nao_lancado')
                 aula.alunos_com_status.append({'aluno': aluno, 'status': status})
-    # ★★★ FIM DA ALTERAÇÃO (2/2) ★★★
 
     contexto = {
         "modalidade": modalidade,
@@ -1139,7 +1154,7 @@ def detalhe_modalidade(request, pk):
         "chart_labels": chart_labels,
         "chart_data": chart_data,
         "professores_da_modalidade": professores_da_modalidade,
-        "aulas": aulas_paginadas, # Esta variável agora contém os objetos de aula modificados
+        "aulas": aulas_paginadas,
     }
     
     return render(request, "scheduler/modalidade_detalhe.html", contexto)
@@ -1279,39 +1294,31 @@ def detalhe_professor(request, pk):
     if data_final:
         aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
     
-    # --- Cálculo de KPIs (sem alterações) ---
-    realizadas_normal = aulas_kpi.filter(status='Realizada', relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
-    realizadas_ac = aulas_kpi.filter(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente').count()
-    total_realizadas = realizadas_normal + realizadas_ac
+    # --- Lógica de "fonte da verdade" e KPIs (sem alterações) ---
+    q_realizadas_normal = Q(status='Realizada', relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
+    q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
+    aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(q_realizadas_normal | q_realizadas_ac).distinct()
+    total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
+
     total_ausencias_professor = aulas_kpi.filter(modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='ausente').count()
     total_agendadas = aulas_kpi.filter(status='Agendada', professores=professor).count()
     total_canceladas = aulas_kpi.filter(status='Cancelada', professores=professor).count()
-    total_aluno_ausente = aulas_kpi.filter(status='Aluno Ausente').count()
+    total_aluno_ausente = aulas_kpi.filter(status='Aluno Ausente', relatorioaula__professor_que_validou=professor).count()
     total_substituido = aulas_kpi.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
 
-    # ★★★ INÍCIO DA LÓGICA REFINADA ★★★
-    # 1. Filtra APENAS as aulas que o professor efetivamente lecionou,
-    #    seguindo as novas regras.
-    aulas_lecionadas_pelo_professor = aulas_kpi.filter(
-        (Q(relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")) |
-        (Q(presencas_professores__professor=professor, presencas_professores__status='presente') & Q(modalidade__nome__icontains="atividade complementar"))
-    ).distinct()
-
-    # 2. A contagem por categoria agora é feita sobre este queryset mais preciso.
-    aulas_por_categoria = aulas_lecionadas_pelo_professor.values(
+    # ★★★ INÍCIO DA CORREÇÃO DA CONTAGEM ★★★
+    # A contagem por categoria agora usa Count('id', distinct=True)
+    aulas_por_categoria = aulas_realizadas_pelo_professor_no_periodo.values(
         'modalidade__nome'
     ).annotate(
-        contagem=Count('id')
+        contagem=Count('id', distinct=True) # <-- AQUI ESTÁ A CORREÇÃO
     ).order_by('-contagem')
-    # ★★★ FIM DA LÓGICA REFINADA ★★★
+    # ★★★ FIM DA CORREÇÃO DA CONTAGEM ★★★
 
     # --- Lógica da tabela e paginação (sem alterações) ---
     aulas_para_tabela = aulas_kpi
-    
     if status_filtro:
         if status_filtro == 'Realizada':
-            q_realizadas_normal = Q(status='Realizada', relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
-            q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
             aulas_para_tabela = aulas_para_tabela.filter(q_realizadas_normal | q_realizadas_ac)
         elif status_filtro == 'Substituído':
             aulas_para_tabela = aulas_para_tabela.filter(status='Realizada', professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar")
@@ -1332,7 +1339,7 @@ def detalhe_professor(request, pk):
                 aula.alunos_com_status.append({'aluno': aluno, 'status': status})
 
     # Dados do gráfico (sem alterações)
-    chart_labels = ['Realizadas por Mim', 'Agendadas', 'Ausências de Alunos', 'Canceladas', 'Fui Substituído']
+    chart_labels = ['Realizadas', 'Agendadas', 'Ausências de Alunos', 'Canceladas', 'Fui Substituído']
     chart_data = [total_realizadas, total_agendadas, total_aluno_ausente, total_canceladas, total_substituido]
     
     contexto = {
