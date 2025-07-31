@@ -143,6 +143,21 @@
                     </div>
                 </div>
 
+                <div class="content-block">
+                    <h6 class="mb-3">Aulas por Categoria</h6>
+                    {% if aulas_por_categoria %}
+                        <ul class="list-group list-group-flush">
+                            {% for categoria in aulas_por_categoria %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-2">
+                                <span>{{ categoria.modalidade__nome|title }}</span>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ categoria.contagem }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small mb-0">Nenhuma aula no período selecionado.</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
