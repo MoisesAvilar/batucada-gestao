@@ -1,0 +1,84 @@
+<div class="content-block text-center">
+
+  <!-- BPM -->
+  <div class="mb-3">
+    <label class="form-label fw-semibold">BPM</label>
+    <div class="d-flex justify-content-center align-items-center gap-2">
+      <button class="btn btn-outline-secondary btn-sm" id="bpm-minus-10">-10</button>
+      <button class="btn btn-outline-secondary btn-sm" id="bpm-minus-5">-5</button>
+      <input type="number" id="bpm-input" class="form-control form-control-sm text-center" value="120" min="40" max="240" style="width: 70px;">
+      <button class="btn btn-outline-secondary btn-sm" id="bpm-plus-5">+5</button>
+      <button class="btn btn-outline-secondary btn-sm" id="bpm-plus-10">+10</button>
+    </div>
+    <input type="range" id="bpm-slider" class="form-range mt-2" min="40" max="240" value="120">
+  </div>
+
+    <!-- Subdivisões -->
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Subdivisão</label>
+        <div id="subdivision-controls" 
+            class="d-flex flex-wrap gap-2 justify-content-center" 
+            role="group"
+            style="max-width: 100%;">
+
+            <input type="radio" class="btn-check" name="subdivision" id="sub-1" value="1" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
+                for="sub-1" style="min-width: 60px; flex: 1 1 20%;">
+            <span style="font-size: 1.2rem;">♩</span>
+            <small>Semínima</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="subdivision" id="sub-2" value="2" autocomplete="off">
+            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
+                for="sub-2" style="min-width: 60px; flex: 1 1 20%;">
+            <span style="font-size: 1.2rem;">♫</span>
+            <small>Colcheia</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="subdivision" id="sub-3" value="3" autocomplete="off">
+            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
+                for="sub-3" style="min-width: 60px; flex: 1 1 20%;">
+            <span style="font-size: 1.2rem;">♪♪♪</span>
+            <small>Tercina</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="subdivision" id="sub-4" value="4" autocomplete="off">
+            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
+                for="sub-4" style="min-width: 60px; flex: 1 1 20%;">
+            <span style="font-size: 1.2rem;">♬♬</span>
+            <small>Semicolcheia</small>
+            </label>
+
+            <input type="radio" class="btn-check" name="subdivision" id="sub-6" value="6" autocomplete="off">
+            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
+                for="sub-6" style="min-width: 60px; flex: 1 1 20%;">
+            <span style="font-size: 1.2rem;">♫♫♫</span>
+            <small>Sextina</small>
+            </label>
+        </div>
+    </div>
+
+
+
+  <!-- Botão Start/Stop -->
+  <div class="mb-4">
+    <button id="start-stop-btn" class="btn btn-lg btn-primary w-100">
+      <i class="bi bi-play-fill"></i> Iniciar
+    </button>
+  </div>
+
+  <!-- Temporizador -->
+  <div class="mb-2">
+    <label class="form-label fw-semibold">Parar após</label>
+    <div class="d-flex justify-content-center align-items-center gap-2">
+      <input type="number" id="timer-minutes" class="form-control form-control-sm text-center" value="3" min="0" max="60" style="width: 60px;">
+      <span class="small">min</span>
+      <input type="number" id="timer-seconds" class="form-control form-control-sm text-center" value="0" min="0" max="59" style="width: 60px;">
+      <span class="small">s</span>
+    </div>
+  </div>
+  <div>
+    <kbd id="timer-display" class="fs-3">03:00</kbd>
+  </div>
+
+</div>

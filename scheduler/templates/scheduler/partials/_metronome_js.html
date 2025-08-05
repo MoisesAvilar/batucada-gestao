@@ -1,0 +1,213 @@
+{% load static %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const openBtn = document.getElementById('btn-open-metronome');
+    // Verifica se os elementos do metrônomo existem na página
+    const startStopBtn = document.getElementById('start-stop-btn');
+    if (!startStopBtn) {
+        return; // Sai do script se não houver metrônomo
+    }
+
+    // Variáveis e referências
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const bpmInput = document.getElementById('bpm-input');
+    const bpmSlider = document.getElementById('bpm-slider');
+    const subdivisionControls = document.getElementById('subdivision-controls');
+    const timerMinutesInput = document.getElementById('timer-minutes');
+    const timerSecondsInput = document.getElementById('timer-seconds');
+    const timerDisplay = document.getElementById('timer-display');
+    
+    let isPlaying = false;
+    let bpm = parseInt(bpmInput.value, 10);
+    let subdivision = 1;
+    let mainTimerId = null;
+    let countdownTimerId = null;
+    let timeRemaining = 0;
+    
+    // Objeto para armazenar os sons decodificados
+    const sounds = {
+        accent: null,
+        sub: null
+    };
+
+    // Função para carregar os sons
+    async function loadSound(url) {
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            return await audioContext.decodeAudioData(arrayBuffer);
+        } catch (error) {
+            console.error(`Erro ao carregar o som: ${url}`, error);
+            startStopBtn.disabled = true;
+            alert('Não foi possível carregar os sons do metrônomo.');
+        }
+    }
+    
+    // Carrega os sons e os armazena no objeto 'sounds'
+    Promise.all([
+        loadSound("{% static 'scheduler/sounds/clave-accent.wav' %}"),
+        loadSound("{% static 'scheduler/sounds/clave-sub.wav' %}")
+    ]).then(([accentBuffer, subBuffer]) => {
+        sounds.accent = accentBuffer;
+        sounds.sub = subBuffer;
+        startStopBtn.disabled = false;
+        startStopBtn.innerHTML = '<i class="bi bi-play-fill"></i> Iniciar';
+    });
+    startStopBtn.disabled = true;
+    startStopBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Carregando...';
+
+    // ★★★ FUNÇÃO playTick CORRIGIDA ★★★
+    // Agora ela acessa os sons diretamente do objeto 'sounds'
+    function playTick(isAccent = false) {
+        // Verifica se os sons estão prontos
+        if (!sounds.accent || !sounds.sub) return;
+
+        const source = audioContext.createBufferSource();
+        // Escolhe o buffer correto do objeto 'sounds'
+        source.buffer = isAccent ? sounds.accent : sounds.sub;
+        source.connect(audioContext.destination);
+        source.start(0);
+    }
+
+    // Função que agenda as batidas do metrônomo
+    function scheduler() {
+        const beatInterval = (60 / bpm) * 1000;
+
+        function scheduleNotes() {
+            // Toca a batida principal (acentuada)
+            playTick(true);
+
+            // ★★★ NOVO: Aciona a animação de pulso no botão flutuante ★★★
+            openBtn.classList.add('is-pulsing');
+            // Remove a classe após a animação terminar (200ms, conforme o CSS)
+            // para que ela possa ser acionada novamente na próxima batida.
+            setTimeout(() => {
+                openBtn.classList.remove('is-pulsing');
+            }, 200);
+
+            // Agenda as batidas da subdivisão (não acentuadas)
+            if (subdivision > 1) {
+                const subdivisionInterval = beatInterval / subdivision;
+                openBtn.style.setProperty('--pulse-duration', `${Math.min(beatInterval * 0.4, 600)}ms`);
+
+                for (let i = 1; i < subdivision; i++) {
+                    setTimeout(() => playTick(false), i * subdivisionInterval);
+                }
+            }
+        }
+
+        if (mainTimerId) { clearInterval(mainTimerId); }
+        if (isPlaying) {
+            scheduleNotes(); 
+            mainTimerId = setInterval(scheduleNotes, beatInterval);
+        }
+    }
+
+
+    // Funções do Temporizador
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+        const seconds = (timeRemaining % 60).toString().padStart(2, '0');
+        timerDisplay.textContent = `${minutes}:${seconds}`;
+    }
+
+    function startTimer() {
+        const minutes = parseInt(timerMinutesInput.value, 10) || 0;
+        const seconds = parseInt(timerSecondsInput.value, 10) || 0;
+        timeRemaining = (minutes * 60) + seconds;
+
+        if (timeRemaining <= 0) return;
+        updateTimerDisplay();
+
+        countdownTimerId = setInterval(() => {
+            timeRemaining--;
+            updateTimerDisplay();
+            if (timeRemaining <= 0) {
+                stopAll();
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplayFromInputs() {
+        const minutes = parseInt(timerMinutesInput.value, 10) || 0;
+        const seconds = parseInt(timerSecondsInput.value, 10) || 0;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Função unificada para parar tudo
+    function stopAll() {
+        isPlaying = false;
+        clearInterval(mainTimerId);
+        mainTimerId = null;
+        clearInterval(countdownTimerId);
+        countdownTimerId = null;
+        startStopBtn.innerHTML = '<i class="bi bi-play-fill"></i> Iniciar';
+        startStopBtn.classList.replace('btn-danger', 'btn-primary');
+        updateTimerDisplayFromInputs();
+        if (openBtn) {
+            openBtn.classList.remove('is-active');
+            console.log("DEBUG: Classe 'is-active' REMOVIDA"); // ★ ADICIONE ESTA LINHA
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+
+    // ★★★ O ÚNICO E CORRETO LISTENER PARA O BOTÃO PRINCIPAL ★★★
+    startStopBtn.addEventListener('click', () => {
+        if (audioContext.state === 'suspended') audioContext.resume();
+        isPlaying = !isPlaying;
+
+        if (isPlaying) {
+            startStopBtn.innerHTML = '<i class="bi bi-stop-fill"></i> Parar';
+            startStopBtn.classList.replace('btn-primary', 'btn-danger');
+            scheduler();
+            startTimer();
+            if (openBtn) {
+                openBtn.classList.add('is-active');
+                console.log("DEBUG: Classe 'is-active' ADICIONADA"); // ★ ADICIONE ESTA LINHA
+            }
+        } else {
+            stopAll();
+        }
+    });
+
+    // Listeners dos controles de BPM
+    function updateBPM() {
+        bpmSlider.value = bpmInput.value;
+        bpm = parseInt(bpmInput.value, 10);
+        if (isPlaying) scheduler();
+    }
+    function updateBPMSlider() {
+        bpmInput.value = bpmSlider.value;
+        bpm = parseInt(bpmSlider.value, 10);
+        if (isPlaying) scheduler();
+    }
+    bpmInput.addEventListener('change', updateBPM);
+    bpmSlider.addEventListener('change', updateBPMSlider);
+    
+    // Deixamos o evento 'input' apenas para sincronizar o valor visual do slider e do input
+    bpmInput.addEventListener('input', () => { bpmSlider.value = bpmInput.value; });
+    bpmSlider.addEventListener('input', () => { bpmInput.value = bpmSlider.value; });
+  
+    document.getElementById('bpm-minus-10').addEventListener('click', () => { bpmInput.value = Math.max(40, parseInt(bpmInput.value) - 10); updateBPM(); });
+    document.getElementById('bpm-minus-5').addEventListener('click', () => { bpmInput.value = Math.max(40, parseInt(bpmInput.value) - 5); updateBPM(); });
+    document.getElementById('bpm-plus-5').addEventListener('click', () => { bpmInput.value = Math.min(240, parseInt(bpmInput.value) + 5); updateBPM(); });
+    document.getElementById('bpm-plus-10').addEventListener('click', () => { bpmInput.value = Math.min(240, parseInt(bpmInput.value) + 10); updateBPM(); });
+
+    // Listener das subdivisões
+    subdivisionControls.addEventListener('change', (event) => {
+        if (event.target.name === 'subdivision') {
+            subdivision = parseInt(event.target.value, 10);
+            if (isPlaying) scheduler();
+        }
+    });
+
+    // Listeners do temporizador
+    timerMinutesInput.addEventListener('input', updateTimerDisplayFromInputs);
+    timerSecondsInput.addEventListener('input', updateTimerDisplayFromInputs);
+
+    
+
+});
+</script>

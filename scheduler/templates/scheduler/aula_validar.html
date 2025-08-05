@@ -22,6 +22,25 @@
         border: 1px solid var(--bs-primary);
         box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
     }
+    @keyframes beat-pulse {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+        }
+        50% {
+            transform: scale(1.15);
+            box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+        }
+    }
+
+    /* Nova classe que ATIVA a animação de pulso */
+    #btn-open-metronome.is-pulsing {
+  animation: beat-pulse var(--pulse-duration, 200ms) ease-out;
+}
 </style>
 
 <div class="mx-auto" style="max-width: 900px;">
@@ -99,17 +118,62 @@
     </div>
 </div>
 
+<button id="btn-open-metronome" class="btn btn-primary rounded-circle shadow" style="
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  z-index: 1050;
+">
+  <i class="bi bi-music-note-beamed"></i>
+</button>
+
 <div id="empty-forms" style="display:none;">
     {% include 'scheduler/partials/relatorio_form_exercicios_empty.html' %}
 </div>
 
 <div id="historicoOverlay"></div>
+
+<!-- MODAL DO METRÔNOMO -->
+<div id="metronomeModal" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="z-index: 1051; background: rgba(0, 0, 0, 0.6);">
+  <div class="d-flex justify-content-center align-items-center h-100">
+    <div class="bg-body p-4 rounded shadow" style="max-width: 500px; width: 90%;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-music-note-beamed me-2"></i>Metrônomo</h5>
+        <button class="btn-close" id="close-metronome" aria-label="Fechar"></button>
+      </div>
+      {% include 'scheduler/partials/_metronome_component.html' %}
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
+{% include 'scheduler/partials/_metronome_js.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const openBtn = document.getElementById('btn-open-metronome');
+    const modal = document.getElementById('metronomeModal');
+    const closeBtn = document.getElementById('close-metronome');
+
+    if (openBtn && modal && closeBtn) {
+      openBtn.addEventListener('click', () => {
+        modal.classList.remove('d-none');
+      });
+      closeBtn.addEventListener('click', () => {
+        modal.classList.add('d-none');
+      });
+
+      // Fecha ao clicar fora do conteúdo
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('d-none');
+        }
+      });
+    }
     // A lógica dos botões de adicionar/remover só se aplica ao formulário de edição
     const relatorioForm = document.getElementById('relatorio-form');
     if (relatorioForm) {
