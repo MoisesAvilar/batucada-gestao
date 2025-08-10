@@ -890,10 +890,36 @@ def validar_aula(request, pk):
     # Lógica de histórico da última aula
     historico_ultima_aula = None
     if is_ac:
-        ultima_aula = Aula.objects.filter(modalidade=aula.modalidade, status='Realizada', data_hora__lt=aula.data_hora, relatorioaula__isnull=False).order_by('-data_hora').first()
+        # A lógica para Atividade Complementar permanece a mesma
+        ultima_aula = Aula.objects.filter(
+            modalidade=aula.modalidade,
+            status='Realizada',
+            data_hora__lt=aula.data_hora,
+            relatorioaula__isnull=False
+        ).order_by('-data_hora').first()
     else:
+        # Lógica aprimorada para aulas de alunos
         if 'alunos_da_aula' in locals() and alunos_da_aula.exists():
-            ultima_aula = Aula.objects.filter(alunos__in=alunos_da_aula, status__in=['Realizada', 'Aluno Ausente'], data_hora__lt=aula.data_hora, relatorioaula__isnull=False).distinct().order_by('-data_hora').first()
+            # Critérios de busca para uma aula "relevante":
+            # 1. Status deve ser 'Realizada' (aluno estava presente).
+            # 2. O relatório deve ter pelo menos um item de exercício (rudimento, ritmo, etc.)
+            #    OU algum texto nos campos principais (teoria, repertório).
+            
+            query_aula_relevante = Aula.objects.filter(
+                alunos__in=alunos_da_aula,
+                status='Realizada',  # <-- MUDANÇA 1: Apenas aulas realizadas
+                data_hora__lt=aula.data_hora,
+                relatorioaula__isnull=False
+            ).filter(
+                # <-- MUDANÇA 2: Filtro para garantir que o relatório não está vazio
+                Q(relatorioaula__itens_rudimentos__isnull=False) |
+                Q(relatorioaula__itens_ritmo__isnull=False) |
+                Q(relatorioaula__itens_viradas__isnull=False) |
+                ~Q(relatorioaula__conteudo_teorico__exact='') |
+                ~Q(relatorioaula__repertorio_musicas__exact='')
+            ).distinct().order_by('-data_hora').first()
+            
+            ultima_aula = query_aula_relevante
         else:
             ultima_aula = None
             
