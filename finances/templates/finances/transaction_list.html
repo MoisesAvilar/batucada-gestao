@@ -1,0 +1,253 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+
+<style>
+    /* Estilos para as cores da tabela, mantidos como você queria */
+    .transaction-income {
+        --bs-table-bg: var(--bs-success-bg-subtle);
+        --bs-table-color: var(--bs-success-text-emphasis);
+    }
+    .transaction-expense {
+        --bs-table-bg: var(--bs-danger-bg-subtle);
+        --bs-table-color: var(--bs-danger-text-emphasis);
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="h3 mb-0">Dashboard Financeiro</h1>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+        <i class="bi bi-plus-circle me-2"></i>Novo Lançamento
+    </button>
+</div>
+
+<div class="content-block mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-5"><label for="id_start_date" class="form-label small">De:</label><input type="date" name="start_date" id="id_start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}"></div>
+        <div class="col-md-5"><label for="id_end_date" class="form-label small">Até:</label><input type="date" name="end_date" id="id_end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}"></div>
+        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Filtrar</button></div>
+    </form>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-success text-uppercase small">Entradas</h6><h2 class="h1">R$ {{ total_income|floatformat:2 }}</h2></div></div>
+    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-danger text-uppercase small">Saídas</h6><h2 class="h1">R$ {{ total_expenses|floatformat:2 }}</h2></div></div>
+    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-info text-uppercase small">Saldo</h6><h2 class="h1">R$ {{ balance|floatformat:2 }}</h2></div></div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-pie-chart-fill me-2"></i>Saídas por Categoria</h5>
+            {% if chart_data %}<div style="height: 300px;"><canvas id="expensesChart"></canvas></div>{% else %}<p class="text-muted text-center small p-5">Sem dados de saídas para exibir.</p>{% endif %}
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Projeção (Próximos 6 Meses)</h5>
+            <p class="small text-muted mb-3">Estimativa com base na média do período filtrado — saldo exibido é <strong>acumulado</strong>.</p>
+            {% if projection_data %}
+                <p class="small text-muted mb-3">Estimativa com base na média do período filtrado.</p>
+                <div class="table-responsive"><table class="table table-sm small"><thead><tr><th>Mês</th><th class="text-end">Entradas</th><th class="text-end">Saídas</th><th class="text-end">Saldo</th></tr></thead><tbody>{% for proj in projection_data %}<tr><td>{{ proj.month }}</td><td class="text-end text-success">+ R$ {{ proj.income|floatformat:2 }}</td><td class="text-end text-danger">- R$ {{ proj.expenses|floatformat:2 }}</td><td class="text-end fw-bold">R$ {{ proj.balance|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>
+            {% else %}
+                <p class="text-muted text-center small p-4">Filtre por um período de pelo menos 15 dias para calcular a projeção.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="content-block">
+    <h5 class="mb-3"><i class="bi bi-list-ul me-2"></i>Histórico de Transações</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead><tr><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Data</th><th>Ações</th></tr></thead>
+            <tbody>
+                {% for t in page_obj %}<tr id="transaction-row-{{ t.pk }}" class="{% if t.type == 'expense' %}transaction-expense{% elif t.type == 'income' %}transaction-income{% endif %}"><td data-label="description">{{ t.description }}</td><td data-label="amount">R$ {{ t.amount|floatformat:2 }}</td><td data-label="category">{{ t.category.name }}</td><td data-label="date">{{ t.transaction_date|date:"d/m/Y" }}</td><td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editTransactionModal" data-transaction-url="{% url 'finances:edit_transaction' t.pk %}"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_transaction' t.pk %}"><i class="bi bi-trash"></i></button></div></td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">Nenhum lançamento encontrado para o período.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
+</div>
+
+<div class="modal fade" id="addTransactionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Novo Lançamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="addTransactionForm" action="{% url 'finances:transaction_list' %}" method="post">
+            {% csrf_token %}
+            <div class="vstack gap-3">
+                <p>{{ form.description.label_tag }} {{ form.description }}</p>
+                <p>{{ form.amount.label_tag }} {{ form.amount }}</p>
+                <div>
+                    <label for="{{ form.category.id_for_label }}" class="form-label d-block">{{ form.category.label }}</label>
+                    <div class="input-group">
+                        {{ form.category }}
+                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Adicionar Nova Categoria">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <p>{{ form.transaction_date.label_tag }} {{ form.transaction_date }}</p>
+                <p>{{ form.student.label_tag }} {{ form.student }}</p>
+                <p>{{ form.professor.label_tag }} {{ form.professor }}</p>
+                <p>{{ form.observation.label_tag }} {{ form.observation }}</p>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addTransactionForm">Salvar Lançamento</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
+                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editTransactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Editar Lançamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="editTransactionForm" method="post" class="vstack gap-3">
+                    {% csrf_token %}
+                    <div><label for="id_description_edit" class="form-label">Descrição</label><input type="text" name="description" class="form-control" id="id_description_edit" required></div>
+                    <div><label for="id_amount_edit" class="form-label">Valor</label><input type="number" step="0.01" name="amount" class="form-control" id="id_amount_edit" required></div>
+                    <div>
+                        <label for="id_category_edit" class="form-label">Categoria</label>
+                        <select name="category" id="id_category_edit" class="form-select">
+                            {% for value, text in form.category.field.choices %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div><label for="id_transaction_date_edit" class="form-label">Data da Transação</label><input type="date" name="transaction_date" class="form-control" id="id_transaction_date_edit" required></div>
+                    <div>
+                        <label for="id_student_edit" class="form-label">Aluno Relacionado</label>
+                        <select name="student" id="id_student_edit" class="form-select">
+                             {% for student in form.student.field.queryset %}<option value="{{ student.pk }}">{{ student.nome_completo }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="id_professor_edit" class="form-label">Professor Relacionado</label>
+                        <select name="professor" id="id_professor_edit" class="form-select">
+                            {% with form.professor.field as prof_field %}{% for professor in prof_field.queryset %}<option value="{{ professor.pk }}">{{ prof_field.label_from_instance|default:professor.username }}</option>{% endfor %}{% endwith %}
+                        </select>
+                    </div>
+                    <div><label for="id_observation_edit" class="form-label">Observação</label><textarea name="observation" class="form-control" id="id_observation_edit" rows="3"></textarea></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="editTransactionForm">Salvar Alterações</button></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ chart_labels|json_script:"chartLabels" }}
+{{ chart_data|json_script:"chartData" }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryForm = document.getElementById('addCategoryForm');
+    const categorySelect = document.getElementById('{{ form.category.id_for_label }}');
+    const addCategoryModalEl = document.getElementById('addCategoryModal');
+    const addCategoryModal = new bootstrap.Modal(addCategoryModalEl);
+    const editModalEl = document.getElementById('editTransactionModal');
+    const editForm = document.getElementById('editTransactionForm');
+    const editTransactionModal = new bootstrap.Modal(editModalEl);
+    
+    // Gráfico
+    const labels = JSON.parse(document.getElementById('chartLabels').textContent);
+    const data = JSON.parse(document.getElementById('chartData').textContent);
+    const ctx = document.getElementById('expensesChart');
+    if (ctx && data.length > 0) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Despesas', data: data,
+                    backgroundColor: ['#e74a3b', '#f6c23e', '#fd7e14', '#36b9cc', '#1cc88a', '#4e73df', '#858796'],
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    // Modal Adicionar Categoria
+    categoryForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(categoryForm);
+        const url = categoryForm.getAttribute('action');
+        fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const newOption = new Option(data.name, data.id, true, true);
+                categorySelect.appendChild(newOption);
+                // Precisamos adicionar a opção ao select do modal de edição também!
+                document.getElementById('id_category_edit').appendChild(newOption.cloneNode(true));
+                addCategoryModal.hide();
+                categoryForm.reset();
+            } else {
+                alert('Ocorreu um erro ao salvar a categoria.'); console.error(data.errors);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+
+    // Limpa o formulário do modal de categoria quando ele é fechado
+    addCategoryModalEl.addEventListener('hidden.bs.modal', function () {
+      categoryForm.reset();
+    });
+
+    // Modal Editar Lançamento
+    editModalEl.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const url = button.getAttribute('data-transaction-url');
+        editForm.setAttribute('action', url);
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                editForm.querySelector('#id_description_edit').value = data.description;
+                editForm.querySelector('#id_amount_edit').value = data.amount;
+                editForm.querySelector('#id_transaction_date_edit').value = data.transaction_date;
+                editForm.querySelector('#id_observation_edit').value = data.observation || '';
+                editForm.querySelector('#id_category_edit').value = data.category || '';
+                editForm.querySelector('#id_student_edit').value = data.student || '';
+                editForm.querySelector('#id_professor_edit').value = data.professor || '';
+            });
+    });
+
+    editForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const url = editForm.getAttribute('action');
+        const formData = new FormData(editForm);
+        fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Força um recarregamento da página para refletir todas as mudanças
+                // Esta é uma abordagem mais simples e robusta do que atualizar a tabela manualmente
+                // já que os totais, gráficos e paginação também precisam ser atualizados.
+                window.location.reload();
+            } else {
+                alert('Erro ao atualizar. Verifique os dados.'); console.error(data.errors);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
