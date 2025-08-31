@@ -648,6 +648,9 @@ def excluir_aluno(request, pk):
 @login_required
 def detalhe_aluno(request, pk):
     aluno = get_object_or_404(Aluno, pk=pk)
+    historico_financeiro = aluno.financial_transactions.filter(
+        category__type='income'
+    ).order_by('-transaction_date')
     
     # --- LÓGICA DE BASE (SEM ALTERAÇÕES) ---
     aulas_do_aluno = Aula.objects.filter(alunos=aluno).select_related('modalidade', 'relatorioaula__professor_que_validou').prefetch_related('professores', 'presencas')
@@ -749,7 +752,7 @@ def detalhe_aluno(request, pk):
         "chart_data": chart_data, "evolucao_total_aulas": evolucao_total_aulas,
         "evolucao_chart_labels": evolucao_chart_labels,
         "evolucao_chart_datasets": evolucao_chart_datasets,
-        # As variáveis do filtro foram removidas do contexto
+        'historico_financeiro': historico_financeiro,
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
 

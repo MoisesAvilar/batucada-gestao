@@ -1,0 +1,217 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Lançamentos Recorrentes</h1>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="content-block">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Receitas Recorrentes</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addReceitaRecorrenteModal">Nova</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th class="text-center">Valor</th>
+                            <th class="text-center">Dia</th>
+                            <th class="text-center">Ativa?</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in receitas_recorrentes %}
+                        <tr>
+                            <td>
+                                {% if r.aluno %}
+                                    Mensalidade
+                                    <small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>
+                                {% else %}
+                                    {{ r.descricao }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if r.aluno %}
+                                    R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}
+                                {% else %}
+                                    R$ {{ r.valor|floatformat:2 }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if r.aluno %}
+                                    {{ r.aluno.dia_vencimento }}
+                                {% else %}
+                                    {{ r.dia_do_mes }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">{% if r.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editReceitaRecorrenteModal" data-url="{% url 'finances:edit_receita_recorrente' r.pk %}"><i class="bi bi-pencil-square"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita_recorrente' r.pk %}"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted small p-4">Nenhuma receita recorrente cadastrada.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="content-block">
+             <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Despesas Recorrentes</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addDespesaRecorrenteModal">Nova</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead><tr><th>Descrição</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
+                    <tbody>
+                        {% for d in despesas_recorrentes %}
+                        <tr>
+                            <td>{{ d.descricao }}</td>
+                            <td class="text-center">{{ d.dia_do_mes }}</td>
+                            <td class="text-center">{% if d.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editDespesaRecorrenteModal" data-url="{% url 'finances:edit_despesa_recorrente' d.pk %}"><i class="bi bi-pencil-square"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa_recorrente' d.pk %}"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted small p-4">Nenhuma despesa recorrente cadastrada.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addReceitaRecorrenteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Nova Receita Recorrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post">
+            <div class="modal-body">{% csrf_token %}{{ receita_form.as_p }}</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" name="submit_receita">Salvar</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="addDespesaRecorrenteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Nova Despesa Recorrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="post">
+            <div class="modal-body">{% csrf_token %}{{ despesa_form.as_p }}</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" name="submit_despesa">Salvar</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="editReceitaRecorrenteModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Editar Receita Recorrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form id="editReceitaRecorrenteForm" method="post">
+            <div class="modal-body">{% csrf_token %}{{ receita_form.as_p }}</div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="editDespesaRecorrenteModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Editar Despesa Recorrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form id="editDespesaRecorrenteForm" method="post">
+            <div class="modal-body">{% csrf_token %}{{ despesa_form.as_p }}</div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função genérica para lidar com os modais de edição
+    function setupEditModal(modalId, formId) {
+        const editModalEl = document.getElementById(modalId);
+        if (!editModalEl) return;
+
+        const editForm = editModalEl.querySelector('#' + formId);
+        const editModal = new bootstrap.Modal(editModalEl);
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url).then(response => response.json()).then(data => {
+                for (const [key, value] of Object.entries(data)) {
+                    const field = editForm.querySelector(`[name="${key}"]`);
+                    if (field) {
+                        if (field.type === 'checkbox') {
+                            field.checked = value;
+                        } else {
+                            field.value = value;
+                        }
+                    }
+                }
+            });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Ocorreu um erro ao salvar.');
+                    console.error(data.errors);
+                }
+            });
+        });
+    }
+
+    // Inicializa os dois modais de edição
+    setupEditModal('editReceitaRecorrenteModal', 'editReceitaRecorrenteForm');
+    setupEditModal('editDespesaRecorrenteModal', 'editDespesaRecorrenteForm');
+
+    const addReceitaModal = document.getElementById('addReceitaRecorrenteModal');
+        if (addReceitaModal) {
+            const alunoSelect = addReceitaModal.querySelector('[name="aluno"]');
+            const valorInput = addReceitaModal.querySelector('[name="valor"]');
+            const diaInput = addReceitaModal.querySelector('[name="dia_do_mes"]');
+            
+            function toggleReceitaFields() {
+                // Se um aluno (valor diferente de vazio) for selecionado...
+                if (alunoSelect.value) {
+                    valorInput.closest('p').style.display = 'none';
+                    diaInput.closest('p').style.display = 'none';
+                } else {
+                    valorInput.closest('p').style.display = 'block';
+                    diaInput.closest('p').style.display = 'block';
+                }
+            }
+            
+            alunoSelect.addEventListener('change', toggleReceitaFields);
+            toggleReceitaFields(); // Roda uma vez ao carregar
+        }
+});
+</script>
+{% endblock %}

@@ -87,17 +87,26 @@ class ProfessorChoiceForm(forms.Form):
 class AlunoForm(forms.ModelForm):
     class Meta:
         model = Aluno
-        fields = ["nome_completo", "email", "telefone", "data_criacao"]
+        # Adicionamos os novos campos
+        fields = ["status", "nome_completo", "email", "telefone", "cpf", "responsavel_nome", "data_criacao", "valor_mensalidade", "dia_vencimento"]
+        
         widgets = {
+            "status": forms.Select(attrs={"class": "form-select"}),
             "nome_completo": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
-            "telefone": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "(XX) XXXXX-XXXX"}
-            ),
-            "data_criacao": forms.DateInput(
-                attrs={"type": "date", "class": "form-control"},
-                format="%Y-%m-%d",
-            ),
+            "telefone": forms.TextInput(attrs={"class": "form-control", "placeholder": "(XX) XXXXX-XXXX"}),
+            "cpf": forms.TextInput(attrs={"class": "form-control", "placeholder": "000.000.000-00"}), # Widget para CPF
+            "responsavel_nome": forms.TextInput(attrs={"class": "form-control"}), # Widget para Responsável
+            "data_criacao": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
+            "valor_mensalidade": forms.NumberInput(attrs={"class": "form-control", "placeholder": "Ex: 350.00"}),
+            "dia_vencimento": forms.NumberInput(attrs={"class": "form-control", "placeholder": "Ex: 10"}),
+        }
+        # 3. (Opcional) Adicionamos textos de ajuda para guiar o usuário
+        help_texts = {
+            'dia_vencimento': 'Insira apenas o dia (um número de 1 a 31).',
+        }
+        labels = {
+            'valor_mensalidade': 'Valor da Mensalidade (R$)',
         }
 
 

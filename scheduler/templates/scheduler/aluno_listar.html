@@ -63,6 +63,13 @@
                         <td class="ps-3">
                             <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none text-body">
                                 <strong class="d-block">{{ aluno.nome_completo|title }}</strong>
+                                {% if aluno.status == 'ativo' %}
+                                    <span class="badge bg-success ms-2">Ativo</span>
+                                {% elif aluno.status == 'inativo' %}
+                                    <span class="badge bg-danger ms-2">Inativo</span>
+                                {% elif aluno.status == 'trancado' %}
+                                    <span class="badge bg-secondary ms-2">Trancado</span>
+                                {% endif %}
                                 <small class="text-muted">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</small>
                             </a>
                         </td>

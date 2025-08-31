@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Transaction
+from .models import Category, Transaction, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente
 
 
 @admin.register(Category)
@@ -22,3 +22,28 @@ class TransactionAdmin(admin.ModelAdmin):
         if not obj.pk:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Despesa)
+class DespesaAdmin(admin.ModelAdmin):
+    list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
+    list_filter = ('status', 'unidade_negocio', 'data_competencia')
+    search_fields = ('descricao',)
+    ordering = ('-data_competencia',)
+
+
+@admin.register(Receita)
+class ReceitaAdmin(admin.ModelAdmin):
+    list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
+    list_filter = ('status', 'unidade_negocio', 'data_competencia')
+    search_fields = ('descricao', 'aluno__nome_completo')
+    ordering = ('-data_competencia',)
+
+
+@admin.register(DespesaRecorrente)
+class DespesaRecorrenteAdmin(admin.ModelAdmin):
+    list_display = ('descricao', 'valor', 'dia_do_mes', 'ativa', 'unidade_negocio')
+
+@admin.register(ReceitaRecorrente)
+class ReceitaRecorrenteAdmin(admin.ModelAdmin):
+    list_display = ('descricao', 'aluno', 'valor', 'dia_do_mes', 'ativa', 'unidade_negocio')

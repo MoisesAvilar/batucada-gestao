@@ -4,11 +4,26 @@ from .models import (
     RelatorioAula, ItemRudimento, ItemRitmo, ItemVirada
 )
 
+
 @admin.register(Aluno)
 class AlunoAdmin(admin.ModelAdmin):
-    list_display = ('nome_completo', 'email', 'telefone', 'data_criacao')
-    search_fields = ('nome_completo', 'email')
+    # Adicionamos 'cpf' e 'responsavel_nome' à lista
+    list_display = ('status', 'nome_completo', 'email', 'cpf', 'responsavel_nome', 'valor_mensalidade', 'dia_vencimento')
+    search_fields = ('nome_completo', 'email', 'cpf', 'responsavel_nome')
     ordering = ('nome_completo',)
+
+    fieldsets = (
+        ('Informações Pessoais', {
+            # Adicionamos os novos campos aqui
+            'fields': ('status', 'nome_completo', 'email', 'telefone', 'cpf', 'responsavel_nome', 'data_criacao')
+        }),
+        ('Detalhes Financeiros (Mensalistas)', {
+            'classes': ('collapse',),
+            'fields': ('valor_mensalidade', 'dia_vencimento'),
+            'description': "Preencha estes campos apenas para alunos com pagamento mensal recorrente."
+        }),
+    )
+
 
 @admin.register(Modalidade)
 class ModalidadeAdmin(admin.ModelAdmin):

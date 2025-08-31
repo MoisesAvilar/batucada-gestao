@@ -24,13 +24,81 @@ class CustomUser(AbstractUser):
 
 
 class Aluno(models.Model):
+    STATUS_CHOICES = (
+        ('ativo', 'Ativo'),
+        ('inativo', 'Inativo'),
+        ('trancado', 'Trancado'),
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='ativo',
+        verbose_name="Status"
+    )
     nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
     telefone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(unique=True, blank=True, null=True)
+    valor_mensalidade = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        null=True, blank=True,
+        verbose_name="Valor da Mensalidade"
+    )
+    dia_vencimento = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name="Dia do Vencimento",
+        help_text="Dia do mês para o vencimento da mensalidade (ex: 5, 10, 15)."
+    )
     data_criacao = models.DateField(
         default=timezone.now, 
         verbose_name="Data de Criação/Matrícula"
     )
+    cpf = models.CharField(
+        max_length=14,
+        unique=True,
+        null=True, blank=True,
+        verbose_name="CPF"
+    )
+    responsavel_nome = models.CharField(
+        max_length=255,
+        null=True, blank=True,
+        verbose_name="Nome do Responsável",
+        help_text="Preencher caso o aluno seja menor de idade."
+    )
+
+    def get_status_pagamento(self):
+        # Se o aluno não for mensalista, ele está sempre 'N/A'
+        if not self.valor_mensalidade or not self.dia_vencimento:
+            return {'status': 'N/A', 'cor': 'secondary'}
+
+        hoje = timezone.now().date()
+        mes_atual = hoje.month
+        ano_atual = hoje.year
+
+        # Verifica se já existe um pagamento de mensalidade neste mês
+        pagamento_mes = self.financial_transactions.filter(
+            category__type='income',
+            transaction_date__year=ano_atual,
+            transaction_date__month=mes_atual,
+            # Consideramos pago se o valor for igual ou maior que a mensalidade
+            amount__gte=self.valor_mensalidade
+        ).exists()
+
+        if pagamento_mes:
+            return {'status': 'Em Dia', 'cor': 'success'}
+
+        # Se não pagou, vamos verificar o vencimento
+        data_vencimento = hoje.replace(day=self.dia_vencimento)
+
+        if hoje > data_vencimento:
+            return {'status': 'Em Atraso', 'cor': 'danger'}
+        
+        # Verifica se faltam 5 dias ou menos para o vencimento
+        if (data_vencimento - hoje).days <= 5:
+            return {'status': 'Próximo Venc.', 'cor': 'warning'}
+
+        # Se nenhuma das condições acima for atendida, o pagamento está em aberto mas não próximo do vencimento
+        return {'status': 'Aguardando Pag.', 'cor': 'info'}
 
     def __str__(self):
         return self.nome_completo

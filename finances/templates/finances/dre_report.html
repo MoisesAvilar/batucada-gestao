@@ -1,0 +1,91 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Demonstrativo de Resultados (DRE)</h1>
+</div>
+
+<div class="content-block mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-5">
+            <label for="id_start_date" class="form-label small">De:</label>
+            <input type="date" name="start_date" id="id_start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+        </div>
+        <div class="col-md-5">
+            <label for="id_end_date" class="form-label small">Até:</label>
+            <input type="date" name="end_date" id="id_end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
+</div>
+
+<div class="content-block">
+    <h5 class="mb-4">Resultado para o período de {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}</h5>
+    
+    <div class="list-group list-group-flush">
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <strong>(+) Receita Operacional Bruta</strong>
+            <div class="text-end">
+                <strong class="text-success">R$ {{ total_receitas|floatformat:2 }}</strong>
+                <small class="d-block text-muted">100.0%</small>
+            </div>
+        </div>
+
+        <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+                <strong>(-) Custos Diretos</strong>
+                <div class="text-end">
+                    <strong class="text-danger">(R$ {{ total_custos|floatformat:2 }})</strong>
+                    <small class="d-block text-muted">{{ perc_custos|floatformat:1 }}%</small>
+                </div>
+            </div>
+            <ul class="list-unstyled mt-2 ps-4 small">
+                {% for custo in custos_por_categoria %}
+                    <li class="d-flex justify-content-between text-muted">
+                        <span>{{ custo.categoria__name }}</span>
+                        <span>(R$ {{ custo.total_cat|floatformat:2 }})</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="list-group-item d-flex justify-content-between align-items-center list-group-item-light">
+            <h6 class="mb-0">(=) Lucro Bruto</h6>
+            <div class="text-end">
+                <h6 class="mb-0">R$ {{ lucro_bruto|floatformat:2 }}</h6>
+                <small class="d-block text-muted">{{ perc_lucro_bruto|floatformat:1 }}%</small>
+            </div>
+        </div>
+
+        <div class="list-group-item mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <strong>(-) Despesas Operacionais</strong>
+                <div class="text-end">
+                    <strong class="text-danger">(R$ {{ total_despesas|floatformat:2 }})</strong>
+                    <small class="d-block text-muted">{{ perc_despesas|floatformat:1 }}%</small>
+                </div>
+            </div>
+            <ul class="list-unstyled mt-2 ps-4 small">
+                {% for despesa in despesas_por_categoria %}
+                    <li class="d-flex justify-content-between text-muted">
+                        <span>{{ despesa.categoria__name }}</span>
+                        <span>(R$ {{ despesa.total_cat|floatformat:2 }})</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="list-group-item d-flex justify-content-between align-items-center list-group-item-secondary mt-3">
+            <h5 class="mb-0">(=) RESULTADO DO PERÍODO</h5>
+            <div class="text-end">
+                <h5 class="mb-0 {% if resultado >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    R$ {{ resultado|floatformat:2 }}
+                </h5>
+                <small class="d-block text-muted">{{ perc_resultado|floatformat:1 }}%</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

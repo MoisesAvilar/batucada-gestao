@@ -20,13 +20,29 @@
         <div class="content-block">
             <form method="post">
                 {% csrf_token %}
-
+                <h5 class="mb-3">Informações Pessoais</h5>
+                <div class="mb-3">
+                    <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">{{ form.status.label }}</label>
+                    {{ form.status }}
+                </div>
                 <div class="mb-3">
                     <label for="{{ form.nome_completo.id_for_label }}" class="form-label fw-bold">{{ form.nome_completo.label }}</label>
                     {{ form.nome_completo }}
                     {% if form.nome_completo.errors %}<div class="invalid-feedback d-block">{{ form.nome_completo.errors|first }}</div>{% endif %}
                 </div>
-
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.cpf.id_for_label }}" class="form-label fw-bold">{{ form.cpf.label }}</label>
+                        {{ form.cpf }}
+                        {% if form.cpf.errors %}<div class="invalid-feedback d-block">{{ form.cpf.errors|first }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.responsavel_nome.id_for_label }}" class="form-label fw-bold">{{ form.responsavel_nome.label }}</label>
+                        {{ form.responsavel_nome }}
+                        {% if form.responsavel_nome.help_text %}<small class="form-text text-muted">{{ form.responsavel_nome.help_text }}</small>{% endif %}
+                        {% if form.responsavel_nome.errors %}<div class="invalid-feedback d-block">{{ form.responsavel_nome.errors|first }}</div>{% endif %}
+                    </div>
+                </div>
                 <div class="row g-3">
                     <div class="col-md-6 mb-3">
                         <label for="{{ form.email.id_for_label }}" class="form-label fw-bold">{{ form.email.label }}</label>
@@ -39,14 +55,29 @@
                         {% if form.telefone.errors %}<div class="invalid-feedback d-block">{{ form.telefone.errors|first }}</div>{% endif %}
                     </div>
                 </div>
-
-                <div class="mb-3">
+                <div class="mb-4">
                     <label for="{{ form.data_criacao.id_for_label }}" class="form-label fw-bold">{{ form.data_criacao.label }}</label>
                     {{ form.data_criacao }}
                     <small class="form-text text-muted">A data padrão é a atual, mas pode ser editada para registrar alunos antigos.</small>
                     {% if form.data_criacao.errors %}<div class="invalid-feedback d-block">{{ form.data_criacao.errors|first }}</div>{% endif %}
                 </div>
-
+                <div class="pt-4 mt-4 border-top">
+                    <h5 class="mb-3">Detalhes Financeiros (Mensalistas)</h5>
+                     <p class="text-muted small">Preencha estes campos apenas para alunos com pagamento mensal recorrente.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.valor_mensalidade.id_for_label }}" class="form-label fw-bold">{{ form.valor_mensalidade.label }}</label>
+                            {{ form.valor_mensalidade }}
+                            {% if form.valor_mensalidade.errors %}<div class="invalid-feedback d-block">{{ form.valor_mensalidade.errors|first }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.dia_vencimento.id_for_label }}" class="form-label fw-bold">{{ form.dia_vencimento.label }}</label>
+                            {{ form.dia_vencimento }}
+                            {% if form.dia_vencimento.help_text %}<small class="form-text text-muted">{{ form.dia_vencimento.help_text }}</small>{% endif %}
+                            {% if form.dia_vencimento.errors %}<div class="invalid-feedback d-block">{{ form.dia_vencimento.errors|first }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
                 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                     <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-outline-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-primary px-4">Salvar</button>
@@ -55,4 +86,14 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    $(document).ready(function(){
+        // O Django, por padrão, cria o ID do campo como 'id_' + nome_do_campo
+        $('#id_cpf').mask('000.000.000-00');
+    });
+</script>
 {% endblock %}

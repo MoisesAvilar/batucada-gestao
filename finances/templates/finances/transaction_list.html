@@ -3,7 +3,6 @@
 {% block content %}
 
 <style>
-    /* Estilos para as cores da tabela, mantidos como você queria */
     .transaction-income {
         --bs-table-bg: var(--bs-success-bg-subtle);
         --bs-table-color: var(--bs-success-text-emphasis);
@@ -12,13 +11,12 @@
         --bs-table-bg: var(--bs-danger-bg-subtle);
         --bs-table-color: var(--bs-danger-text-emphasis);
     }
+    .kpi-alert { transition: transform 0.2s ease-in-out; }
+    .kpi-alert:hover { transform: translateY(-5px); }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h1 class="h3 mb-0">Dashboard Financeiro</h1>
-    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
-        <i class="bi bi-plus-circle me-2"></i>Novo Lançamento
-    </button>
 </div>
 
 <div class="content-block mb-4">
@@ -30,9 +28,37 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-success text-uppercase small">Entradas</h6><h2 class="h1">R$ {{ total_income|floatformat:2 }}</h2></div></div>
-    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-danger text-uppercase small">Saídas</h6><h2 class="h1">R$ {{ total_expenses|floatformat:2 }}</h2></div></div>
-    <div class="col-md-4"><div class="content-block text-center"><h6 class="text-info text-uppercase small">Saldo</h6><h2 class="h1">R$ {{ balance|floatformat:2 }}</h2></div></div>
+    <div class="col-lg-4">
+        <div class="content-block text-center">
+            <h6 class="text-success text-uppercase small">Entradas (Realizadas)</h6>
+            <h2 class="h1 mb-0">R$ {{ total_income|floatformat:2 }}</h2>
+            <p class="mb-0 mt-2">
+                <a href="{% url 'finances:receita_list' %}" class="text-warning-emphasis text-decoration-none">
+                    <small>(+ R$ {{ total_a_receber|floatformat:2 }} a receber)</small>
+                </a>
+            </p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="content-block text-center">
+            <h6 class="text-danger text-uppercase small">Saídas (Pagas)</h6>
+            <h2 class="h1 mb-0">R$ {{ total_expenses|floatformat:2 }}</h2>
+            <p class="mb-0 mt-2">
+                <a href="{% url 'finances:despesa_list' %}" class="text-danger-emphasis text-decoration-none">
+                    <small>(+ R$ {{ total_a_pagar|floatformat:2 }} a pagar)</small>
+                </a>
+            </p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="content-block text-center">
+            <h6 class="text-info text-uppercase small">Saldo de Caixa (Atual)</h6>
+            <h2 class="h1 mb-0">R$ {{ balance|floatformat:2 }}</h2>
+            <p class="mb-0 mt-2 text-muted">
+                <small>Resultado do período filtrado</small>
+            </p>
+        </div>
+    </div>
 </div>
 
 <div class="row g-4 mb-4">
@@ -45,11 +71,51 @@
     <div class="col-lg-7">
         <div class="content-block h-100">
             <h5 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Projeção (Próximos 6 Meses)</h5>
-            <p class="small text-muted mb-3">Estimativa com base na média do período filtrado — saldo exibido é <strong>acumulado</strong>.</p>
             {% if projection_data %}
-                <p class="small text-muted mb-3">Estimativa com base na média do período filtrado.</p>
-                <div class="table-responsive"><table class="table table-sm small"><thead><tr><th>Mês</th><th class="text-end">Entradas</th><th class="text-end">Saídas</th><th class="text-end">Saldo</th></tr></thead><tbody>{% for proj in projection_data %}<tr><td>{{ proj.month }}</td><td class="text-end text-success">+ R$ {{ proj.income|floatformat:2 }}</td><td class="text-end text-danger">- R$ {{ proj.expenses|floatformat:2 }}</td><td class="text-end fw-bold">R$ {{ proj.balance|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>
-            {% else %}
+                <p class="small text-muted mb-3">Estimativa com base na média do período filtrado — saldo exibido é <strong>acumulado</strong>.</p>
+                
+                <div class="table-responsive d-none d-lg-block">
+                    <table class="table table-sm small">
+                        <thead><tr><th>Mês</th><th class="text-end">Entradas</th><th class="text-end">Saídas</th><th class="text-end">Saldo</th></tr></thead>
+                        <tbody>
+                            {% for proj in projection_data %}
+                            <tr>
+                                <td>{{ proj.month }}</td>
+                                <td class="text-end text-success">+ R$ {{ proj.income|floatformat:2 }}</td>
+                                <td class="text-end text-danger">- R$ {{ proj.expenses|floatformat:2 }}</td>
+                                <td class="text-end fw-bold">R$ {{ proj.balance|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="vstack gap-3 d-lg-none"> {# Usamos gap-3 para um espaçamento maior #}
+                    {% for proj in projection_data %}
+                    
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <h6 class="mb-0">{{ proj.month }}</h6>
+                            <div class="text-end">
+                                <small class="text-muted d-block lh-1">Saldo</small>
+                                <span class="fw-bold">R$ {{ proj.balance|floatformat:2 }}</span>
+                            </div>
+                        </div>
+                        <div class="card-body d-flex justify-content-between small py-2">
+                            <span class="text-success">
+                                <i class="bi bi-arrow-up-circle"></i>
+                                + R$ {{ proj.income|floatformat:2 }}
+                            </span>
+                            <span class="text-danger">
+                                <i class="bi bi-arrow-down-circle"></i>
+                                - R$ {{ proj.expenses|floatformat:2 }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% else %}
                 <p class="text-muted text-center small p-4">Filtre por um período de pelo menos 15 dias para calcular a projeção.</p>
             {% endif %}
         </div>
@@ -67,37 +133,6 @@
         </table>
     </div>
     {% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
-</div>
-
-<div class="modal fade" id="addTransactionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Novo Lançamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <form id="addTransactionForm" action="{% url 'finances:transaction_list' %}" method="post">
-            {% csrf_token %}
-            <div class="vstack gap-3">
-                <p>{{ form.description.label_tag }} {{ form.description }}</p>
-                <p>{{ form.amount.label_tag }} {{ form.amount }}</p>
-                <div>
-                    <label for="{{ form.category.id_for_label }}" class="form-label d-block">{{ form.category.label }}</label>
-                    <div class="input-group">
-                        {{ form.category }}
-                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Adicionar Nova Categoria">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    </div>
-                </div>
-                <p>{{ form.transaction_date.label_tag }} {{ form.transaction_date }}</p>
-                <p>{{ form.student.label_tag }} {{ form.student }}</p>
-                <p>{{ form.professor.label_tag }} {{ form.professor }}</p>
-                <p>{{ form.observation.label_tag }} {{ form.observation }}</p>
-            </div>
-        </form>
-      </div>
-      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addTransactionForm">Salvar Lançamento</button></div>
-    </div>
-  </div>
 </div>
 
 <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">

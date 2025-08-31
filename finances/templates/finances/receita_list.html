@@ -1,0 +1,177 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Contas a Receber</h1>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addReceitaModal">
+        <i class="bi bi-plus-circle me-2"></i>Nova Receita
+    </button>
+</div>
+
+<div class="content-block">
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Descrição</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody>
+                {% for r in receitas %}
+                <tr id="receita-row-{{ r.pk }}">
+                    <td data-label="descricao">{{ r.descricao }} {% if r.aluno %}<small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>{% endif %}</td>
+                    <td data-label="valor">R$ {{ r.valor|floatformat:2 }}</td>
+                    <td data-label="competencia">{{ r.data_competencia|date:"M/Y" }}</td>
+                    <td data-label="status">
+                        {% if r.status == 'recebido' %}
+                            <span class="badge bg-success-subtle text-success-emphasis">Recebido em {{ r.data_recebimento|date:"d/m/Y" }}</span>
+                        {% else %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Ações">
+                        <div class="btn-group">
+                            {% if r.status == 'a_receber' %}
+                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarReceitaModal-{{ r.pk }}">Receber</button>
+                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="visually-hidden">Mais Ações</span>
+                                </button>
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                            {% endif %}
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editReceitaModal" data-receita-url="{% url 'finances:edit_receita' r.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita' r.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addReceitaModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Adicionar Nova Receita</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form id="addReceitaForm" action="{% url 'finances:receita_list' %}" method="post">
+            <div class="modal-body">
+                {% csrf_token %}
+                <div class="vstack gap-3">
+                    <p>{{ form.descricao.label_tag }} {{ form.descricao }}</p>
+                    <p>{{ form.valor.label_tag }} {{ form.valor }}</p>
+                    <div>
+                        <label for="{{ form.categoria.id_for_label }}" class="form-label d-block">{{ form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p>{{ form.data_competencia.label_tag }} {{ form.data_competencia }}</p>
+                    <p>{{ form.data_recebimento.label_tag }} {{ form.data_recebimento }}</p>
+                    <p>{{ form.aluno.label_tag }} {{ form.aluno }}</p>
+                </div>
+                </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addReceitaForm">Salvar</button></div>
+        </form>
+    </div></div>
+</div>
+
+<div class="modal fade" id="editReceitaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Editar Receita</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="editReceitaForm" method="post">
+                <div class="modal-body">{% csrf_token %}{{ form.as_p }}</div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar Alterações</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
+                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
+        </div>
+    </div>
+</div>
+
+{% for r in receitas %}
+<div class="modal fade" id="baixarReceitaModal-{{ r.pk }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Recebimento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'finances:baixar_receita' r.pk %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Confirmar o recebimento de <strong>{{ r.descricao }}</strong> no valor de <strong>R$ {{ r.valor|floatformat:2 }}</strong>?</p>
+                    <div class="mb-3">
+                        <label for="data_recebimento-{{ r.pk }}" class="form-label">Data do Recebimento:</label>
+                        <input type="date" name="data_recebimento" id="data_recebimento-{{ r.pk }}" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Recebimento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editModalEl = document.getElementById('editReceitaModal');
+    if (editModalEl) {
+        const editForm = editModalEl.querySelector('#editReceitaForm');
+        const editReceitaModal = new bootstrap.Modal(editModalEl);
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-receita-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    for (const [key, value] of Object.entries(data)) {
+                        const field = editForm.querySelector(`[name="${key}"]`);
+                        if (field) { field.value = value; }
+                    }
+                });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') { window.location.reload(); } 
+                else { alert('Ocorreu um erro ao salvar as alterações.'); console.error(data.errors); }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Contas a Pagar</h1>
+    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addDespesaModal">
+        <i class="bi bi-plus-circle me-2"></i>Nova Despesa
+    </button>
+</div>
+
+<div class="content-block">
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Descrição</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody>
+                {% for d in despesas %}
+                <tr id="despesa-row-{{ d.pk }}">
+                    <td data-label="descricao">
+                        {{ d.descricao }}
+                        {% if d.professor %}<small class="text-muted d-block">{{ d.professor.get_full_name|title }}</small>{% endif %}
+                    </td>
+                    <td data-label="valor">R$ {{ d.valor|floatformat:2 }}</td>
+                    <td data-label="competencia">{{ d.data_competencia|date:"M/Y" }}</td>
+                    <td data-label="status">
+                        {% if d.status == 'pago' %}<span class="badge bg-success-subtle text-success-emphasis">Pago em {{ d.data_pagamento|date:"d/m/Y" }}</span>
+                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Pagar</span>{% endif %}
+                    </td>
+                    <td data-label="Ações">
+                        <div class="btn-group">
+                            {% if d.status == 'a_pagar' %}
+                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
+                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                            {% endif %}
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addDespesaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Adicionar Nova Despesa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="addDespesaForm" action="{% url 'finances:despesa_list' %}" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="vstack gap-3">
+                        <p>{{ form.descricao.label_tag }} {{ form.descricao }}</p>
+                        <p>{{ form.valor.label_tag }} {{ form.valor }}</p>
+                        <div>
+                            <label for="{{ form.category.id_for_label }}" class="form-label d-block">{{ form.category.label }}</label>
+                            <div class="input-group">
+                                {{ form.categoria }}
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Adicionar Nova Categoria">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p>{{ form.data_competencia.label_tag }} {{ form.data_competencia }}</p>
+                        <p>{{ form.data_pagamento.label_tag }} {{ form.data_pagamento }}</p>
+                        <p>{{ form.professor.label_tag }} {{ form.professor }}</p>
+                    </div>
+                    </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addDespesaForm">Salvar Despesa</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editDespesaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Editar Despesa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="editDespesaForm" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    {# Usamos o mesmo form, os campos serão preenchidos via JS #}
+                    {{ form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
+                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
+        </div>
+    </div>
+</div>
+
+{% for d in despesas %}
+<div class="modal fade" id="baixarDespesaModal-{{ d.pk }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'finances:baixar_despesa' d.pk %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Confirmar o pagamento de <strong>{{ d.descricao }}</strong> no valor de <strong>R$ {{ d.valor|floatformat:2 }}</strong>?</p>
+                    <div class="mb-3">
+                        <label for="data_pagamento-{{ d.pk }}" class="form-label">Data do Pagamento:</label>
+                        <input type="date" name="data_pagamento" id="data_pagamento-{{ d.pk }}" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="juros_multa-{{ d.pk }}" class="form-label">Juros / Multa (Opcional):</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" step="0.01" name="juros_multa" id="juros_multa-{{ d.pk }}" class="form-control" placeholder="0.00">
+                        </div>
+                    </div>
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editModalEl = document.getElementById('editDespesaModal');
+    if (editModalEl) {
+        const editForm = editModalEl.querySelector('#editDespesaForm');
+        const editDespesaModal = new bootstrap.Modal(editModalEl);
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-despesa-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    // Preenche os campos do formulário com os dados da despesa
+                    for (const [key, value] of Object.entries(data)) {
+                        const field = editForm.querySelector(`[name="${key}"]`);
+                        if (field) {
+                            field.value = value;
+                        }
+                    }
+                });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Força um recarregamento da página para refletir as mudanças.
+                    // É a forma mais simples e robusta de garantir que tudo (status, tabela, etc.) seja atualizado.
+                    window.location.reload();
+                } else {
+                    alert('Ocorreu um erro ao salvar as alterações.');
+                    console.error(data.errors);
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -114,6 +114,27 @@
             </div>
 
             <div class="content-block">
+                    <h6 class="mb-3"><i class="bi bi-cash-stack me-2"></i>Histórico Financeiro</h6>
+                    {% if historico_financeiro %}
+                        <ul class="list-group list-group-flush">
+                            {% for transacao in historico_financeiro %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <span class="d-block">{{ transacao.description }}</span>
+                                    <small class="text-muted">{{ transacao.transaction_date|date:"d/m/Y" }}</small>
+                                </div>
+                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
+                                    R$ {{ transacao.amount|floatformat:2 }}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small text-center mb-0 p-3">Nenhum registro de pagamento encontrado.</p>
+                    {% endif %}
+                </div>
+
+            <div class="content-block">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">Histórico de Aulas</h5>
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtros-historico" aria-expanded="false">
@@ -160,6 +181,11 @@
                     <div class="text-center">
                         <div class="initials-avatar mx-auto mb-3">{{ aluno.nome_completo|first|upper }}</div>
                         <h2 class="h4 mb-1">{{ aluno.nome_completo|title }}</h2>
+                        {% with status_pgto=aluno.get_status_pagamento %}
+                            <span class="badge bg-{{ status_pgto.cor }}-subtle text-{{ status_pgto.cor }}-emphasis rounded-pill">
+                                Pagamento: {{ status_pgto.status }}
+                            </span>
+                        {% endwith %}
                         {% if aluno.email %}
                          <p class="text-muted">{{ aluno.email }}</p>
                         {% else %}
