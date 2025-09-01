@@ -9,7 +9,7 @@
 </div>
 
 <div class="content-block">
-    <div class="table-responsive">
+    <div class="table-responsive d-none d-lg-block">
         <table class="table">
             <thead><tr><th>Descrição</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody>
@@ -44,7 +44,43 @@
             </tbody>
         </table>
     </div>
-</div>
+    <div class="d-lg-none">
+        {% for d in despesas %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-1">{{ d.descricao }}</h6>
+                        {% if d.professor %}<small class="text-muted d-block mb-2">{{ d.professor.get_full_name|title }}</small>{% endif %}
+                        <p class="card-text mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
+                    </div>
+                    <div>
+                        {% if d.status == 'pago' %}<span class="badge bg-success-subtle text-success-emphasis">Pago</span>
+                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Pagar</span>{% endif %}
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <small class="text-muted">Competência: {{ d.data_competencia|date:"M/Y" }}</small>
+                    <div class="btn-group">
+                        {% if d.status == 'a_pagar' %}
+                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
+                            <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                        {% endif %}
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                            <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted p-4">Nenhuma despesa encontrada.</div>
+        {% endfor %}
+    </div>
+    </div>
 
 <div class="modal fade" id="addDespesaModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">

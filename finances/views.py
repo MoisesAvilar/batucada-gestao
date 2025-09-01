@@ -1,7 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from .models import Transaction, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente, Category
 from .forms import TransactionForm, CategoryForm, DespesaForm, ReceitaForm, DespesaRecorrenteForm, ReceitaRecorrenteForm
 from decimal import Decimal
@@ -11,6 +10,18 @@ from django.db.models import Sum
 from django.core.paginator import Paginator
 from datetime import date, timedelta
 from django.utils.timezone import now
+from functools import wraps
+from django.contrib.auth.decorators import login_required
+
+
+def admin_required(view_func):
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if getattr(request.user, "tipo", None) == "admin":
+            return view_func(request, *args, **kwargs)
+        return redirect("scheduler:dashboard")  # ou página "acesso negado"
+    return wrapper
 
 
 def add_months(start_date, months):
@@ -21,7 +32,7 @@ def add_months(start_date, months):
     return date(year, month, day)
 
 
-@login_required
+@admin_required
 def transaction_list_view(request):
     MESES_PT = {
         1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr",
@@ -142,7 +153,7 @@ def transaction_list_view(request):
     return render(request, 'finances/transaction_list.html', context)
 
 
-@login_required
+@admin_required
 def add_category_ajax(request):
     if request.method == "POST":
         form = CategoryForm(request.POST)
@@ -156,7 +167,7 @@ def add_category_ajax(request):
     return JsonResponse({"status": "error", "message": "Invalid request method"})
 
 
-@login_required
+@admin_required
 def delete_transaction_view(request, pk):
     if request.method == "POST":
         transaction = get_object_or_404(Transaction, pk=pk)
@@ -165,7 +176,7 @@ def delete_transaction_view(request, pk):
     return redirect("finances:transaction_list")
 
 
-@login_required
+@admin_required
 def edit_transaction_view(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk)
     if request.method == 'POST':
@@ -195,7 +206,7 @@ def edit_transaction_view(request, pk):
     return JsonResponse(data)
 
 
-@login_required
+@admin_required
 def despesa_list_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     if not unidade_ativa_id:
@@ -235,7 +246,7 @@ def despesa_list_view(request):
 
 
 # NOVA VIEW PARA "BAIXAR" UMA DESPESA
-@login_required
+@admin_required
 def baixar_despesa_view(request, pk):
     despesa = get_object_or_404(Despesa, pk=pk)
     if request.method == 'POST':
@@ -286,7 +297,7 @@ def baixar_despesa_view(request, pk):
     return redirect('finances:despesa_list')
 
 
-@login_required
+@admin_required
 def delete_despesa_view(request, pk):
     # Apenas requisições POST podem deletar por segurança
     if request.method == 'POST':
@@ -298,7 +309,8 @@ def delete_despesa_view(request, pk):
         messages.success(request, 'Despesa deletada com sucesso!')
     return redirect('finances:despesa_list')
 
-@login_required
+
+@admin_required
 def edit_despesa_view(request, pk):
     despesa = get_object_or_404(Despesa, pk=pk)
     if request.method == 'POST':
@@ -314,7 +326,7 @@ def edit_despesa_view(request, pk):
     return JsonResponse(data)
 
 
-@login_required
+@admin_required
 def receita_list_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     # ... (verificação da unidade ativa) ...
@@ -349,8 +361,9 @@ def receita_list_view(request):
     context = {'form': form, 'receitas': receitas}
     return render(request, 'finances/receita_list.html', context)
 
+
 # NOVA VIEW PARA "BAIXAR" UMA RECEITA
-@login_required
+@admin_required
 def baixar_receita_view(request, pk):
     receita = get_object_or_404(Receita, pk=pk)
     if request.method == 'POST':
@@ -377,7 +390,7 @@ def baixar_receita_view(request, pk):
     return redirect('finances:receita_list')
 
 
-@login_required
+@admin_required
 def delete_receita_view(request, pk):
     if request.method == 'POST':
         receita = get_object_or_404(Receita, pk=pk)
@@ -389,7 +402,7 @@ def delete_receita_view(request, pk):
     return redirect('finances:receita_list')
 
 
-@login_required
+@admin_required
 def edit_receita_view(request, pk):
     receita = get_object_or_404(Receita, pk=pk)
     if request.method == 'POST':
@@ -405,7 +418,7 @@ def edit_receita_view(request, pk):
     return JsonResponse(data)
 
 
-@login_required
+@admin_required
 def recorrencia_list_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     # ... (verificação da unidade ativa) ...
@@ -446,7 +459,7 @@ def recorrencia_list_view(request):
     return render(request, 'finances/recorrencia_list.html', context)
 
 
-@login_required
+@admin_required
 def delete_despesa_recorrente_view(request, pk):
     if request.method == 'POST':
         recorrente = get_object_or_404(DespesaRecorrente, pk=pk)
@@ -455,7 +468,7 @@ def delete_despesa_recorrente_view(request, pk):
     return redirect('finances:recorrencia_list')
 
 
-@login_required
+@admin_required
 def edit_despesa_recorrente_view(request, pk):
     recorrente = get_object_or_404(DespesaRecorrente, pk=pk)
     if request.method == 'POST':
@@ -469,7 +482,7 @@ def edit_despesa_recorrente_view(request, pk):
     return JsonResponse(data)
 
 
-@login_required
+@admin_required
 def delete_receita_recorrente_view(request, pk):
     if request.method == 'POST':
         recorrente = get_object_or_404(ReceitaRecorrente, pk=pk)
@@ -478,7 +491,7 @@ def delete_receita_recorrente_view(request, pk):
     return redirect('finances:recorrencia_list')
 
 
-@login_required
+@admin_required
 def edit_receita_recorrente_view(request, pk):
     recorrente = get_object_or_404(ReceitaRecorrente, pk=pk)
     if request.method == 'POST':
@@ -492,7 +505,7 @@ def edit_receita_recorrente_view(request, pk):
     return JsonResponse(data)
 
 
-@login_required
+@admin_required
 def dre_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     if not unidade_ativa_id:

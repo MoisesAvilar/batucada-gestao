@@ -12,41 +12,21 @@
                 <h5 class="mb-0">Receitas Recorrentes</h5>
                 <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addReceitaRecorrenteModal">Nova</button>
             </div>
-            <div class="table-responsive">
+            
+            <div class="table-responsive d-none d-lg-block">
                 <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Descrição</th>
-                            <th class="text-center">Valor</th>
-                            <th class="text-center">Dia</th>
-                            <th class="text-center">Ativa?</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Descrição</th><th class="text-center">Valor</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
                     <tbody>
                         {% for r in receitas_recorrentes %}
                         <tr>
                             <td>
-                                {% if r.aluno %}
-                                    Mensalidade
-                                    <small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>
-                                {% else %}
-                                    {{ r.descricao }}
-                                {% endif %}
+                                {% if r.aluno %}Mensalidade<small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>{% else %}{{ r.descricao }}{% endif %}
                             </td>
                             <td class="text-center">
-                                {% if r.aluno %}
-                                    R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}
-                                {% else %}
-                                    R$ {{ r.valor|floatformat:2 }}
-                                {% endif %}
+                                {% if r.aluno and r.aluno.valor_mensalidade %}R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}{% elif r.valor %}R$ {{ r.valor|floatformat:2 }}{% else %}<span class="text-muted">N/A</span>{% endif %}
                             </td>
                             <td class="text-center">
-                                {% if r.aluno %}
-                                    {{ r.aluno.dia_vencimento }}
-                                {% else %}
-                                    {{ r.dia_do_mes }}
-                                {% endif %}
+                                {% if r.aluno and r.aluno.dia_vencimento %}{{ r.aluno.dia_vencimento }}{% elif r.dia_do_mes %}{{ r.dia_do_mes }}{% else %}<span class="text-muted">N/A</span>{% endif %}
                             </td>
                             <td class="text-center">{% if r.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
                             <td>
@@ -60,7 +40,38 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+
+            <div class="d-lg-none">
+                {% for r in receitas_recorrentes %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="card-title mb-1">{% if r.aluno %}Mensalidade{% else %}{{ r.descricao }}{% endif %}</h6>
+                                {% if r.aluno %}<small class="text-muted d-block mb-2">{{ r.aluno.nome_completo|title }}</small>{% endif %}
+                                <p class="card-text mb-0">
+                                    <strong>{% if r.aluno and r.aluno.valor_mensalidade %}R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}{% elif r.valor %}R$ {{ r.valor|floatformat:2 }}{% else %}N/A{% endif %}</strong>
+                                </p>
+                            </div>
+                            <div>
+                                {% if r.ativa %}<span class="badge bg-success-subtle text-success-emphasis">Ativa</span>
+                                {% else %}<span class="badge bg-danger-subtle text-danger-emphasis">Inativa</span>{% endif %}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                            <small class="text-muted">Dia do Lançamento: <strong>{% if r.aluno and r.aluno.dia_vencimento %}{{ r.aluno.dia_vencimento }}{% elif r.dia_do_mes %}{{ r.dia_do_mes }}{% else %}N/A{% endif %}</strong></small>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editReceitaRecorrenteModal" data-url="{% url 'finances:edit_receita_recorrente' r.pk %}"><i class="bi bi-pencil-square"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita_recorrente' r.pk %}"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted p-4">Nenhuma receita recorrente cadastrada.</div>
+                {% endfor %}
+            </div>
+            </div>
     </div>
 
     <div class="col-lg-6">
@@ -69,13 +80,15 @@
                 <h5 class="mb-0">Despesas Recorrentes</h5>
                 <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addDespesaRecorrenteModal">Nova</button>
             </div>
-            <div class="table-responsive">
+            
+            <div class="table-responsive d-none d-lg-block">
                 <table class="table table-hover">
-                    <thead><tr><th>Descrição</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
+                    <thead><tr><th>Descrição</th><th class="text-center">Valor</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
                     <tbody>
                         {% for d in despesas_recorrentes %}
                         <tr>
                             <td>{{ d.descricao }}</td>
+                            <td class="text-center">R$ {{ d.valor|floatformat:2 }}</td>
                             <td class="text-center">{{ d.dia_do_mes }}</td>
                             <td class="text-center">{% if d.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
                             <td>
@@ -84,10 +97,38 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4" class="text-center text-muted small p-4">Nenhuma despesa recorrente cadastrada.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted small p-4">Nenhuma despesa recorrente cadastrada.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <div class="d-lg-none">
+                {% for d in despesas_recorrentes %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="card-title mb-1">{{ d.descricao }}</h6>
+                                <p class="card-text mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
+                            </div>
+                            <div>
+                                {% if d.ativa %}<span class="badge bg-success-subtle text-success-emphasis">Ativa</span>
+                                {% else %}<span class="badge bg-danger-subtle text-danger-emphasis">Inativa</span>{% endif %}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                            <small class="text-muted">Dia do Lançamento: <strong>{{ d.dia_do_mes }}</strong></small>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editDespesaRecorrenteModal" data-url="{% url 'finances:edit_despesa_recorrente' d.pk %}"><i class="bi bi-pencil-square"></i></button>
+                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa_recorrente' d.pk %}"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted p-4">Nenhuma despesa recorrente cadastrada.</div>
+                {% endfor %}
             </div>
         </div>
     </div>

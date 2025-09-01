@@ -9,7 +9,7 @@
 </div>
 
 <div class="content-block">
-    <div class="table-responsive">
+    <div class="table-responsive d-none d-lg-block">
         <table class="table">
             <thead><tr><th>Descrição</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody>
@@ -19,23 +19,16 @@
                     <td data-label="valor">R$ {{ r.valor|floatformat:2 }}</td>
                     <td data-label="competencia">{{ r.data_competencia|date:"M/Y" }}</td>
                     <td data-label="status">
-                        {% if r.status == 'recebido' %}
-                            <span class="badge bg-success-subtle text-success-emphasis">Recebido em {{ r.data_recebimento|date:"d/m/Y" }}</span>
-                        {% else %}
-                            <span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>
-                        {% endif %}
+                        {% if r.status == 'recebido' %}<span class="badge bg-success-subtle text-success-emphasis">Recebido em {{ r.data_recebimento|date:"d/m/Y" }}</span>
+                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>{% endif %}
                     </td>
                     <td data-label="Ações">
                         <div class="btn-group">
                             {% if r.status == 'a_receber' %}
                                 <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarReceitaModal-{{ r.pk }}">Receber</button>
-                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <span class="visually-hidden">Mais Ações</span>
-                                </button>
+                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
                             {% else %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
                             {% endif %}
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editReceitaModal" data-receita-url="{% url 'finances:edit_receita' r.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
@@ -47,6 +40,43 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <div class="d-lg-none">
+        {% for r in receitas %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title mb-1">{{ r.descricao }}</h6>
+                        {% if r.aluno %}<small class="text-muted d-block mb-2">{{ r.aluno.nome_completo|title }}</small>{% endif %}
+                        <p class="card-text mb-0"><strong>R$ {{ r.valor|floatformat:2 }}</strong></p>
+                    </div>
+                    <div>
+                        {% if r.status == 'recebido' %}<span class="badge bg-success-subtle text-success-emphasis">Recebido</span>
+                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>{% endif %}
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <small class="text-muted">Competência: {{ r.data_competencia|date:"M/Y" }}</small>
+                    <div class="btn-group">
+                        {% if r.status == 'a_receber' %}
+                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarReceitaModal-{{ r.pk }}">Receber</button>
+                            <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                        {% endif %}
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editReceitaModal" data-receita-url="{% url 'finances:edit_receita' r.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                            <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita' r.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted p-4">Nenhuma receita encontrada.</div>
+        {% endfor %}
     </div>
 </div>
 
