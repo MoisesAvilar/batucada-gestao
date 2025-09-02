@@ -1,0 +1,297 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Gestão de Produtos</h1>
+    <button class="btn btn-primary d-flex align-items-center" type="button" data-bs-toggle="modal" data-bs-target="#addProdutoModal">
+        <i class="bi bi-plus-circle"></i>
+        <span class="d-none d-sm-inline ms-1">Adicionar Produto</span>
+    </button>
+</div>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+    <form method="get" class="d-flex gap-2">
+        <select name="categoria" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Filtrar por Categoria...</option>
+            {% for cat in categorias %}
+                <option value="{{ cat.pk }}" {% if category_filter == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.nome }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    
+    <a href="?estoque=baixo" class="btn btn-sm {% if stock_filter == 'baixo' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+        <i class="bi bi-exclamation-triangle-fill"></i> Estoque Baixo
+    </a>
+
+    {% if category_filter or stock_filter %}
+        <a href="{% url 'store:produto_list' %}" class="btn btn-sm btn-link text-danger">Limpar Filtros</a>
+    {% endif %}
+</div>
+
+<form method="get" class="mb-4">
+    <div class="input-group">
+        <input type="text" class="form-control" name="q" placeholder="Buscar por nome, SKU ou categoria..." value="{{ search_query }}">
+        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        {% if search_query %}
+            <a href="{% url 'store:produto_list' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-lg"></i></a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="content-block">
+    <div class="table-responsive d-none d-lg-block">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Categoria</th>
+                    <th class="text-center">Estoque</th>
+                    <th class="text-center">Custo</th>
+                    <th class="text-center">Markup</th>
+                    <th class="text-center">Preço de Venda</th>
+                    <th class="text-center">Lucro Bruto</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for produto in produtos %}
+                <tr>
+                    <td><strong>{{ produto.nome }}</strong><small class="text-muted d-block">{{ produto.sku|default:"Sem SKU" }}</small></td>
+                    <td>{{ produto.categoria.nome.title|default:"-" }}</td>
+                    <td class="text-center">{{ produto.quantidade_em_estoque }}</td>
+                    <td class="text-center">R$ {{ produto.custo_de_aquisicao|floatformat:2 }}</td>
+                    <td class="text-center">{{ produto.percentual_markup|floatformat:1 }}%</td>
+                    <td class="text-center fw-bold">R$ {{ produto.preco_de_venda_calculado|floatformat:2 }}</td>
+                    <td class="text-center text-success">R$ {{ produto.lucro_bruto_por_unidade|floatformat:2 }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editProdutoModal" data-url="{% url 'store:produto_edit' produto.pk %}"><i class="bi bi-pencil-square"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'store:produto_delete' produto.pk %}"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center p-5 text-muted">Nenhum produto cadastrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="d-lg-none">
+    {% for produto in produtos %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body p-3 text-center">
+            <!-- Parte principal -->
+            <h6 class="mb-0">{{ produto.nome }}</h6>
+            <small class="text-muted d-block mb-2">SKU: {{ produto.sku|default:"-" }}</small>
+
+            <p class="mb-1 fw-bold">R$ {{ produto.preco_de_venda_calculado|floatformat:2 }}</p>
+
+            {% if produto.quantidade_em_estoque < 10 %}
+                <span class="badge bg-warning text-dark mb-3">Estoque: {{ produto.quantidade_em_estoque }}</span>
+            {% else %}
+                <span class="badge bg-secondary mb-3">Estoque: {{ produto.quantidade_em_estoque }}</span>
+            {% endif %}
+
+            <div class="d-flex justify-content-center gap-2 mb-2">
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editProdutoModal" data-url="{% url 'store:produto_edit' produto.pk %}">Editar</button>
+                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'store:produto_delete' produto.pk %}">Excluir</button>
+            </div>
+
+            <!-- Detalhes extras colapsáveis -->
+            <a class="d-block mt-2 text-decoration-none" data-bs-toggle="collapse" href="#extra-{{ produto.pk }}" role="button" aria-expanded="false" aria-controls="extra-{{ produto.pk }}">
+                Detalhes <i class="bi bi-chevron-down"></i>
+            </a>
+            <div class="collapse mt-1" id="extra-{{ produto.pk }}">
+                <small class="d-block">Categoria: {{ produto.categoria.nome.title|default:"-" }}</small>
+                <small class="d-block">Custo: R$ {{ produto.custo_de_aquisicao|floatformat:2 }}</small>
+                <small class="d-block">Markup: {{ produto.percentual_markup|floatformat:1 }}%</small>
+                <small class="d-block text-success">Lucro: R$ {{ produto.lucro_bruto_por_unidade|floatformat:2 }}</small>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-center p-5 text-muted">Nenhum produto cadastrado.</p>
+    {% endfor %}
+
+</div>
+
+{% if produtos.has_other_pages %}
+    {% include 'scheduler/partials/pagination.html' with page_obj=produtos %}
+{% endif %}
+
+<div class="modal fade" id="addProdutoModal" tabindex="-1" aria-labelledby="addProdutoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addProdutoModalLabel">Adicionar Novo Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'store:produto_list' %}" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.nome.id_for_label }}" class="form-label">Nome do Produto</label>
+                            {{ form.nome }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.categoria.id_for_label }}" class="form-label">Categoria</label>
+                            <div class="input-group">
+                                {{ form.categoria }}
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoriaProdutoModal" title="Adicionar Nova Categoria">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label">Descrição</label>
+                            {{ form.descricao }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.sku.id_for_label }}" class="form-label">SKU / Cód. de Barras</label>
+                            {{ form.sku }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.quantidade_em_estoque.id_for_label }}" class="form-label">Quantidade em Estoque</label>
+                            {{ form.quantidade_em_estoque }}
+                        </div>
+                        <hr class="my-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.custo_de_aquisicao.id_for_label }}" class="form-label">Custo de Aquisição (R$)</label>
+                            {{ form.custo_de_aquisicao }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.percentual_markup.id_for_label }}" class="form-label">Markup (%)</label>
+                            {{ form.percentual_markup }}
+                        </div>
+                        <div class="col-12">
+                             <label for="{{ form.preco_de_venda_manual.id_for_label }}" class="form-label">Preço de Venda Manual (Opcional)</label>
+                            {{ form.preco_de_venda_manual }}
+                        </div>
+                    </div>
+                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addCategoriaProdutoModal" tabindex="-1" aria-hidden="true" style="z-index: 1056;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Categoria de Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addCategoriaProdutoForm" action="{% url 'store:add_categoria_ajax' %}" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_nome_categoria" class="form-label">Nome da Categoria</label>
+                        <input type="text" name="nome" id="id_nome_categoria" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editProdutoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Editar Produto</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form id="editProdutoForm" method="post">
+                <div class="modal-body">{% csrf_token %}{{ form.as_p }}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addCategoriaModalEl = document.getElementById('addCategoriaProdutoModal');
+    if (addCategoriaModalEl) {
+        const addCategoriaModal = new bootstrap.Modal(addCategoriaModalEl);
+        const categoriaForm = document.getElementById('addCategoriaProdutoForm');
+
+        categoriaForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(categoriaForm);
+            const url = categoriaForm.getAttribute('action');
+
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Atualiza TODOS os selects de categoria na página
+                    document.querySelectorAll('select[name="categoria"]').forEach(select => {
+                        const newOption = new Option(data.name, data.id, true, true);
+                        select.appendChild(newOption);
+                    });
+                    addCategoriaModal.hide();
+                    categoriaForm.reset();
+                } else {
+                    alert('Erro ao salvar a categoria.');
+                    console.error(data.errors);
+                }
+            });
+        });
+    }
+
+    const editModalEl = document.getElementById('editProdutoModal');
+    if (editModalEl) {
+        const editForm = editModalEl.querySelector('#editProdutoForm');
+        const editModal = new bootstrap.Modal(editModalEl);
+
+        setupAjaxFormSpinner('editProdutoForm', 'button[type="submit"]');
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url).then(response => response.json()).then(data => {
+                for (const [key, value] of Object.entries(data)) {
+                    const field = editForm.querySelector(`[name="${key}"]`);
+                    if (field) { field.value = value; }
+                }
+            });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+            
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Ocorreu um erro ao salvar.');
+                    console.error(data.errors);
+                }
+            })
+            .finally(() => {
+                // 2. "Avisa" que a operação terminou, para que o botão seja restaurado
+                window.dispatchEvent(new Event('ajax-form-done-editProdutoForm'));
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

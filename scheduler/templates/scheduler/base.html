@@ -297,6 +297,12 @@
                                     </ul>
                                 </div>
                             </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.resolver_match.app_name == 'store' %}active{% endif %}" href="{% url 'store:produto_list' %}">
+                                    <i class="bi bi-box-seam"></i> Produtos <span class="badge bg-success ms-2">Novo</span>
+                                </a>
+                            </li>
                             {% endif %}
                     {% endif %}
                 </ul>
@@ -512,6 +518,31 @@
 
     {# --- Bloco para JS específico da página --- #}
     {% block extra_js %}
+    <script>
+        // Função genérica para adicionar um spinner a um botão de formulário durante o envio AJAX
+        function setupAjaxFormSpinner(formId, submitButtonSelector) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            const submitButton = form.closest('.modal-content').querySelector(submitButtonSelector);
+            if (!submitButton) return;
+
+            const originalButtonHtml = submitButton.innerHTML;
+
+            form.addEventListener('submit', function() {
+                // Desabilita o botão e mostra o spinner
+                submitButton.disabled = true;
+                submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Carregando...`;
+            });
+
+            // Criamos um "ouvinte" global que espera um aviso para restaurar o botão
+            // Usamos um nome de evento único para cada formulário
+            window.addEventListener(`ajax-form-done-${formId}`, function() {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonHtml;
+            });
+        }
+    </script>
     <script>
         $(document).ready(function() {
             $('select[multiple]').select2({
