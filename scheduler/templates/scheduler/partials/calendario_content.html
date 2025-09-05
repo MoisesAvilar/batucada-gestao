@@ -303,19 +303,44 @@
                             {% endif %}
                         </span>
                     </a>
-                    {% if user.tipo == 'admin' %}
-                        <div class="popover-actions">
-                            <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm bg-body-tertiary border text-body" title="Editar"><i class="bi bi-pencil"></i></a>
-                            <button type="button" class="btn btn-sm bg-body-tertiary border text-body" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}"><i class="bi bi-trash"></i></button>
-                        </div>
-                        <div class="dropdown actions-mobile-trigger">
-                            <button class="btn btn-sm border-0 py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Ações" data-bs-container="body"><i class="bi bi-three-dots-vertical"></i></button>
+                    <!-- Desktop: mostra lápis e lixeira -->
+                    <div class="popover-actions d-none d-lg-flex">
+                        <!-- Editar: disponível para admin e professor -->
+                        <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm bg-body-tertiary border text-body" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+
+                        <!-- Excluir: apenas admin -->
+                        {% if user.tipo == 'admin' %}
+                        <button type="button" class="btn btn-sm bg-body-tertiary border text-body" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Mobile: mostra dropdown de 3 pontinhos -->
+                    <div class="popover-actions d-flex d-lg-none">
+                        <div class="dropdown">
+                            <button class="btn btn-sm border-0 py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Ações">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</a></li>
-                                <li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
+                                        <i class="bi bi-pencil-square me-2"></i>Editar
+                                    </a>
+                                </li>
+                                {% if user.tipo == 'admin' %}
+                                <li>
+                                    <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                                        <i class="bi bi-trash me-2"></i>Excluir
+                                    </button>
+                                </li>
+                                {% endif %}
                             </ul>
                         </div>
-                    {% endif %}
+                    </div>
+
                 </li>
             {% endfor %}
         </ul>

@@ -126,9 +126,9 @@
     <h5 class="mb-3"><i class="bi bi-list-ul me-2"></i>Histórico de Transações</h5>
     <div class="table-responsive">
         <table class="table table-hover">
-            <thead><tr><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Data</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Data</th></tr></thead>
             <tbody>
-                {% for t in page_obj %}<tr id="transaction-row-{{ t.pk }}" class="{% if t.type == 'expense' %}transaction-expense{% elif t.type == 'income' %}transaction-income{% endif %}"><td data-label="description">{{ t.description }}</td><td data-label="amount">R$ {{ t.amount|floatformat:2 }}</td><td data-label="category">{{ t.category.name }}</td><td data-label="date">{{ t.transaction_date|date:"d/m/Y" }}</td><td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editTransactionModal" data-transaction-url="{% url 'finances:edit_transaction' t.pk %}"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_transaction' t.pk %}"><i class="bi bi-trash"></i></button></div></td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">Nenhum lançamento encontrado para o período.</td></tr>{% endfor %}
+                {% for t in page_obj %}<tr id="transaction-row-{{ t.pk }}" class="{% if t.type == 'expense' %}transaction-expense{% elif t.type == 'income' %}transaction-income{% endif %}"><td data-label="description">{{ t.description }}</td><td data-label="amount">R$ {{ t.amount|floatformat:2 }}</td><td data-label="category">{{ t.category.name }}</td><td data-label="date">{{ t.transaction_date|date:"d/m/Y" }}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">Nenhum lançamento encontrado para o período.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

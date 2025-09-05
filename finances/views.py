@@ -7,11 +7,13 @@ from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.forms.models import model_to_dict
 from django.db.models import Sum
+from django.db import transaction
 from django.core.paginator import Paginator
 from datetime import date, timedelta
 from django.utils.timezone import now
 from functools import wraps
 from django.contrib.auth.decorators import login_required
+from store.models import Produto
 
 
 def admin_required(view_func):
@@ -20,7 +22,7 @@ def admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if getattr(request.user, "tipo", None) == "admin":
             return view_func(request, *args, **kwargs)
-        return redirect("scheduler:dashboard")  # ou página "acesso negado"
+        return redirect("scheduler:dashboard")
     return wrapper
 
 
@@ -41,27 +43,12 @@ def transaction_list_view(request):
     }
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     if not unidade_ativa_id:
-        messages.warning(request, "Por favor, selecione uma Unidade de Negócio para continuar.")
+        messages.warning(request, "Selecione uma Unidade de Negócio.")
         return redirect('scheduler:dashboard')
 
-    # --- LÓGICA DE FILTRO DE DATA CORRIGIDA ---
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
     today = now().date()
-
-    # Garante que start_date SEMPRE terá um valor
-    if start_date_str:
-        start_date = date.fromisoformat(start_date_str)
-    else:
-        start_date = today.replace(day=1)
-
-    # Garante que end_date SEMPRE terá um valor
-    if end_date_str:
-        end_date = date.fromisoformat(end_date_str)
-    else:
-        next_month = today.replace(day=28) + timedelta(days=4)
-        end_date = next_month - timedelta(days=next_month.day)
-    # --- FIM DA CORREÇÃO ---
+    start_date = date.fromisoformat(request.GET.get('start_date')) if request.GET.get('start_date') else today.replace(day=1)
+    end_date = date.fromisoformat(request.GET.get('end_date')) if request.GET.get('end_date') else (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
 
     total_a_pagar = Despesa.objects.filter(
         unidade_negocio_id=unidade_ativa_id,
@@ -69,54 +56,36 @@ def transaction_list_view(request):
         data_competencia__range=[start_date, end_date]
     ).aggregate(total=Sum('valor'))['total'] or 0
 
-    # Busca o total de receitas "A Receber" com competência no período filtrado
     total_a_receber = Receita.objects.filter(
         unidade_negocio_id=unidade_ativa_id,
         status='a_receber',
         data_competencia__range=[start_date, end_date]
     ).aggregate(total=Sum('valor'))['total'] or 0
 
-    transactions_in_period = Transaction.objects.filter(
+    transactions = Transaction.objects.filter(
         unidade_negocio_id=unidade_ativa_id,
         transaction_date__range=[start_date, end_date]
-    )
+    ).select_related('category')
 
-    total_income = transactions_in_period.filter(category__type='income').aggregate(total=Sum('amount'))['total'] or 0
-    total_expenses = transactions_in_period.filter(category__type='expense').aggregate(total=Sum('amount'))['total'] or 0
+    total_income = transactions.filter(category__type='income').aggregate(total=Sum('amount'))['total'] or 0
+    total_expenses = transactions.filter(category__type='expense').aggregate(total=Sum('amount'))['total'] or 0
     balance = total_income - total_expenses
 
-    expenses_by_category = (
-        transactions_in_period.filter(category__type='expense')
-        .values('category__name')
-        .annotate(total=Sum('amount'))
+    expenses_by_category = transactions.filter(category__type='expense') \
+        .values('category__name') \
+        .annotate(total=Sum('amount')) \
         .order_by('-total')
-    )
+
     chart_labels = [item['category__name'] for item in expenses_by_category]
     chart_data = [float(item['total']) for item in expenses_by_category]
 
-    projection_data = []
-    num_days_in_period = (end_date - start_date).days + 1
-
-    if num_days_in_period >= 15:
-        # Meses em português (nome completo)
-        MESES_PT = {
-            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-        }
-
-    months_spanned = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
-
-    if months_spanned > 0:
-        avg_monthly_income = Decimal(total_income) / Decimal(months_spanned)
-        avg_monthly_expenses = Decimal(total_expenses) / Decimal(months_spanned)
-    else:
-        avg_monthly_income = avg_monthly_expenses = Decimal('0.00')
-
+    months_spanned = max(1, (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1)
+    avg_monthly_income = Decimal(total_income) / months_spanned
+    avg_monthly_expenses = Decimal(total_expenses) / months_spanned
     cumulative_balance = balance
     monthly_net = avg_monthly_income - avg_monthly_expenses
 
-    # Projeção próximos 6 meses
+    projection_data = []
     for i in range(1, 7):
         future_date = add_months(end_date.replace(day=1), i)
         cumulative_balance += monthly_net
@@ -127,30 +96,34 @@ def transaction_list_view(request):
             'balance': cumulative_balance,
         })
 
-    paginator = Paginator(transactions_in_period, 10) 
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
+    paginator = Paginator(transactions, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     form = TransactionForm(initial={'unidade_negocio': unidade_ativa_id})
     if request.method == "POST":
         form = TransactionForm(request.POST)
         if form.is_valid():
-            transaction = form.save(commit=False)
-            transaction.created_by = request.user
-            transaction.unidade_negocio_id = unidade_ativa_id
-            transaction.save()
+            t = form.save(commit=False)
+            t.created_by = request.user
+            t.unidade_negocio_id = unidade_ativa_id
+            t.save()
             messages.success(request, "Lançamento adicionado com sucesso!")
             return redirect(request.get_full_path())
-    
-    context = {
-        'page_obj': page_obj, 'form': form, 'total_income': total_income,
-        'total_expenses': total_expenses, 'balance': balance,
-        'start_date': start_date, 'end_date': end_date,
-        'chart_labels': chart_labels, 'chart_data': chart_data,
+
+    return render(request, 'finances/transaction_list.html', {
+        'page_obj': page_obj,
+        'form': form,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'balance': balance,
+        'start_date': start_date,
+        'end_date': end_date,
+        'chart_labels': chart_labels,
+        'chart_data': chart_data,
         'projection_data': projection_data,
-        'total_a_pagar': total_a_pagar, 'total_a_receber': total_a_receber,
-    }
-    return render(request, 'finances/transaction_list.html', context)
+        'total_a_pagar': total_a_pagar,
+        'total_a_receber': total_a_receber,
+    })
 
 
 @admin_required
@@ -213,16 +186,16 @@ def despesa_list_view(request):
         messages.warning(request, "Selecione uma Unidade de Negócio.")
         return redirect('scheduler:dashboard')
 
+    despesas = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id).select_related('categoria', 'professor').order_by('-data_competencia')
+
     if request.method == 'POST':
         form = DespesaForm(request.POST)
         if form.is_valid():
             despesa = form.save(commit=False)
             despesa.unidade_negocio_id = unidade_ativa_id
-            
-            # Se o usuário já informou a data de pagamento, a despesa já entra como 'paga'
+
             if despesa.data_pagamento:
                 despesa.status = 'pago'
-                # E já criamos a transação no fluxo de caixa
                 transacao = Transaction.objects.create(
                     unidade_negocio_id=unidade_ativa_id,
                     description=f"Pagamento: {despesa.descricao}",
@@ -233,76 +206,76 @@ def despesa_list_view(request):
                     created_by=request.user
                 )
                 despesa.transacao = transacao
-            
+
             despesa.save()
             messages.success(request, 'Despesa registrada com sucesso!')
             return redirect('finances:despesa_list')
     else:
         form = DespesaForm()
 
-    despesas = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id).order_by('-data_competencia')
-    context = {'form': form, 'despesas': despesas}
-    return render(request, 'finances/despesa_list.html', context)
+    return render(request, 'finances/despesa_list.html', {
+        'form': form,
+        'despesas': despesas
+    })
 
 
-# NOVA VIEW PARA "BAIXAR" UMA DESPESA
 @admin_required
 def baixar_despesa_view(request, pk):
     despesa = get_object_or_404(Despesa, pk=pk)
     if request.method == 'POST':
         data_pagamento_str = request.POST.get('data_pagamento')
-        juros_multa_str = request.POST.get('juros_multa') # Pega o valor dos juros
+        juros_multa_str = request.POST.get('juros_multa', '0')
 
         if data_pagamento_str:
             data_pagamento = date.fromisoformat(data_pagamento_str)
-            
-            # --- LÓGICA PRINCIPAL ATUALIZADA ---
-            # 1. Cria a transação para o valor principal
-            transacao_principal = Transaction.objects.create(
-                unidade_negocio_id=despesa.unidade_negocio.id,
-                description=f"Pagamento: {despesa.descricao}",
-                amount=despesa.valor,
-                category=despesa.categoria,
-                transaction_date=data_pagamento,
-                professor=despesa.professor,
-                created_by=request.user
-            )
-            
-            # 2. Atualiza a despesa, ligando-a à transação principal
-            despesa.status = 'pago'
-            despesa.data_pagamento = data_pagamento
-            despesa.transacao = transacao_principal
-            despesa.save()
+            juros_multa = Decimal(juros_multa_str or 0)
 
-            # 3. Se houver juros, cria uma transação separada para eles
-            if juros_multa_str and Decimal(juros_multa_str) > 0:
-                try:
-                    # Busca a categoria "Juros e Multas Pagas" que criamos
-                    categoria_juros = Category.objects.get(name__iexact="Juros e Multas Pagas", type="expense")
-                    Transaction.objects.create(
+            try:
+                with transaction.atomic():
+                    # Cria transação principal
+                    transacao_principal = Transaction.objects.create(
                         unidade_negocio_id=despesa.unidade_negocio.id,
-                        description=f"Juros/Multa Ref: {despesa.descricao}",
-                        amount=Decimal(juros_multa_str),
-                        category=categoria_juros,
+                        description=f"Pagamento: {despesa.descricao}",
+                        amount=despesa.valor,
+                        category=despesa.categoria,
                         transaction_date=data_pagamento,
+                        professor=despesa.professor,
                         created_by=request.user
                     )
-                    messages.success(request, f'Despesa e Juros de R$ {juros_multa_str} baixados com sucesso!')
-                except Category.DoesNotExist:
-                    messages.error(request, 'Categoria "Juros e Multas Pagas" não encontrada. Juros não registrados.')
-            else:
-                messages.success(request, 'Despesa baixada com sucesso!')
-            # --- FIM DA LÓGICA ATUALIZADA ---
-            
+
+                    # Atualiza a despesa
+                    despesa.status = 'pago'
+                    despesa.data_pagamento = data_pagamento
+                    despesa.transacao = transacao_principal
+                    despesa.save()
+
+                    # Cria transação para juros/multa se houver
+                    if juros_multa > 0:
+                        categoria_juros = Category.objects.get(name__iexact="Juros e Multas Pagas", type="expense")
+                        Transaction.objects.create(
+                            unidade_negocio_id=despesa.unidade_negocio.id,
+                            description=f"Juros/Multa Ref: {despesa.descricao}",
+                            amount=juros_multa,
+                            category=categoria_juros,
+                            transaction_date=data_pagamento,
+                            created_by=request.user
+                        )
+                        messages.success(request, f'Despesa e juros de R$ {juros_multa} baixados com sucesso!')
+                    else:
+                        messages.success(request, 'Despesa baixada com sucesso!')
+
+            except Category.DoesNotExist:
+                messages.error(request, 'Categoria "Juros e Multas Pagas" não encontrada. Juros não registrados.')
+            except Exception as e:
+                messages.error(request, f"Ocorreu um erro ao baixar a despesa: {e}")
+
     return redirect('finances:despesa_list')
 
 
 @admin_required
 def delete_despesa_view(request, pk):
-    # Apenas requisições POST podem deletar por segurança
     if request.method == 'POST':
         despesa = get_object_or_404(Despesa, pk=pk)
-        # Se a despesa já tiver uma transação de caixa associada, ela também deve ser deletada
         if despesa.transacao:
             despesa.transacao.delete()
         despesa.delete()
@@ -316,12 +289,25 @@ def edit_despesa_view(request, pk):
     if request.method == 'POST':
         form = DespesaForm(request.POST, instance=despesa)
         if form.is_valid():
-            form.save() # O formulário já lida com a atualização
-            return JsonResponse({'status': 'success', 'despesa': model_to_dict(despesa)})
+            try:
+                with transaction.atomic():
+                    despesa_atualizada = form.save()
+
+                    if despesa_atualizada.transacao:
+                        transacao = despesa_atualizada.transacao
+                        transacao.description = f"Pagamento: {despesa_atualizada.descricao}"
+                        transacao.amount = despesa_atualizada.valor
+                        transacao.category = despesa_atualizada.categoria
+                        transacao.transaction_date = despesa_atualizada.data_pagamento or transacao.transaction_date
+                        transacao.save()
+
+                return JsonResponse({'status': 'success', 'despesa': model_to_dict(despesa_atualizada)})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'errors': str(e)})
         else:
             return JsonResponse({'status': 'error', 'errors': form.errors})
-    
-    # Para GET, retorna os dados para preencher o modal
+
+    # GET: retorna dados para preencher o modal
     data = model_to_dict(despesa)
     return JsonResponse(data)
 
@@ -329,40 +315,60 @@ def edit_despesa_view(request, pk):
 @admin_required
 def receita_list_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
-    # ... (verificação da unidade ativa) ...
+    if not unidade_ativa_id:
+        messages.warning(request, "Selecione uma Unidade de Negócio.")
+        return redirect('scheduler:dashboard')
+
+    receitas = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id).select_related('categoria', 'aluno', 'produto').order_by('-data_competencia')
 
     if request.method == 'POST':
         form = ReceitaForm(request.POST)
         if form.is_valid():
-            receita = form.save(commit=False)
-            receita.unidade_negocio_id = unidade_ativa_id
-            
-            # Se a data de recebimento for informada, já baixa automaticamente
-            if receita.data_recebimento:
-                receita.status = 'recebido'
-                transacao = Transaction.objects.create(
-                    unidade_negocio_id=unidade_ativa_id,
-                    description=f"Recebimento: {receita.descricao}",
-                    amount=receita.valor,
-                    category=receita.categoria,
-                    transaction_date=receita.data_recebimento,
-                    student=receita.aluno, # Associa o aluno à transação de caixa
-                    created_by=request.user
-                )
-                receita.transacao = transacao
-            
-            receita.save()
-            messages.success(request, 'Receita registrada com sucesso!')
+            try:
+                with transaction.atomic():
+                    receita = form.save(commit=False)
+                    receita.unidade_negocio_id = unidade_ativa_id
+
+                    produto_vendido = form.cleaned_data.get('produto')
+                    quantidade_vendida = form.cleaned_data.get('quantidade')
+
+                    if produto_vendido and quantidade_vendida:
+                        produto = Produto.objects.select_for_update().get(pk=produto_vendido.pk)
+                        if produto.quantidade_em_estoque < quantidade_vendida:
+                            messages.error(request, f"Estoque insuficiente para '{produto.nome}'. Disponível: {produto.quantidade_em_estoque}")
+                            return redirect('finances:receita_list')
+                        produto.quantidade_em_estoque -= quantidade_vendida
+                        produto.save()
+
+                    if receita.data_recebimento:
+                        receita.status = 'recebido'
+                        transacao = Transaction.objects.create(
+                            unidade_negocio_id=unidade_ativa_id,
+                            description=f"Recebimento: {receita.descricao}",
+                            amount=receita.valor,
+                            category=receita.categoria,
+                            transaction_date=receita.data_recebimento,
+                            student=receita.aluno,
+                            created_by=request.user
+                        )
+                        receita.transacao = transacao
+
+                    receita.save()
+                    messages.success(request, 'Venda registrada com sucesso!')
+
+            except Exception as e:
+                messages.error(request, f"Ocorreu um erro ao processar a venda: {e}")
+
             return redirect('finances:receita_list')
     else:
         form = ReceitaForm()
 
-    receitas = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id).order_by('-data_competencia')
-    context = {'form': form, 'receitas': receitas}
-    return render(request, 'finances/receita_list.html', context)
+    return render(request, 'finances/receita_list.html', {
+        'form': form,
+        'receitas': receitas
+    })
 
 
-# NOVA VIEW PARA "BAIXAR" UMA RECEITA
 @admin_required
 def baixar_receita_view(request, pk):
     receita = get_object_or_404(Receita, pk=pk)
@@ -370,23 +376,29 @@ def baixar_receita_view(request, pk):
         data_recebimento_str = request.POST.get('data_recebimento')
         if data_recebimento_str:
             data_recebimento = date.fromisoformat(data_recebimento_str)
-            
-            transacao = Transaction.objects.create(
-                unidade_negocio_id=receita.unidade_negocio.id,
-                description=f"Recebimento: {receita.descricao}",
-                amount=receita.valor,
-                category=receita.categoria,
-                transaction_date=data_recebimento,
-                student=receita.aluno,
-                created_by=request.user
-            )
-            
-            receita.status = 'recebido'
-            receita.data_recebimento = data_recebimento
-            receita.transacao = transacao
-            receita.save()
-            messages.success(request, 'Receita baixada com sucesso!')
-            
+
+            try:
+                with transaction.atomic():
+                    transacao = Transaction.objects.create(
+                        unidade_negocio_id=receita.unidade_negocio.id,
+                        description=f"Recebimento: {receita.descricao}",
+                        amount=receita.valor,
+                        category=receita.categoria,
+                        transaction_date=data_recebimento,
+                        student=receita.aluno,
+                        created_by=request.user
+                    )
+
+                    receita.status = 'recebido'
+                    receita.data_recebimento = data_recebimento
+                    receita.transacao = transacao
+                    receita.save()
+
+                    messages.success(request, 'Receita baixada com sucesso!')
+
+            except Exception as e:
+                messages.error(request, f"Ocorreu um erro ao baixar a receita: {e}")
+
     return redirect('finances:receita_list')
 
 
@@ -394,7 +406,6 @@ def baixar_receita_view(request, pk):
 def delete_receita_view(request, pk):
     if request.method == 'POST':
         receita = get_object_or_404(Receita, pk=pk)
-        # Se houver uma transação de caixa associada, também a removemos
         if receita.transacao:
             receita.transacao.delete()
         receita.delete()
@@ -408,22 +419,36 @@ def edit_receita_view(request, pk):
     if request.method == 'POST':
         form = ReceitaForm(request.POST, instance=receita)
         if form.is_valid():
-            form.save()
-            return JsonResponse({'status': 'success', 'receita': model_to_dict(receita)})
+            try:
+                with transaction.atomic():
+                    receita_atualizada = form.save()
+
+                    if receita_atualizada.transacao:
+                        transacao = receita_atualizada.transacao
+                        transacao.description = f"Recebimento: {receita_atualizada.descricao}"
+                        transacao.amount = receita_atualizada.valor
+                        transacao.category = receita_atualizada.categoria
+                        transacao.transaction_date = receita_atualizada.data_recebimento or transacao.transaction_date
+                        transacao.student = receita_atualizada.aluno
+                        transacao.save()
+
+                return JsonResponse({'status': 'success', 'receita': model_to_dict(receita_atualizada)})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'errors': str(e)})
         else:
             return JsonResponse({'status': 'error', 'errors': form.errors})
-    
-    # Para GET, retorna os dados para preencher o modal
+
     data = model_to_dict(receita)
+    data['categoria'] = receita.categoria.id if receita.categoria else None
+    data['aluno'] = receita.aluno.id if receita.aluno else None
+    data['produto'] = receita.produto.id if receita.produto else None
+    data['quantidade'] = receita.quantidade if receita.quantidade else 1
     return JsonResponse(data)
 
 
 @admin_required
 def recorrencia_list_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
-    # ... (verificação da unidade ativa) ...
-
-    # Lógica para adicionar uma nova Despesa Recorrente
     if 'submit_despesa' in request.POST:
         despesa_form = DespesaRecorrenteForm(request.POST)
         if despesa_form.is_valid():
@@ -435,7 +460,6 @@ def recorrencia_list_view(request):
     else:
         despesa_form = DespesaRecorrenteForm()
 
-    # Lógica para adicionar uma nova Receita Recorrente
     if 'submit_receita' in request.POST:
         receita_form = ReceitaRecorrenteForm(request.POST)
         if receita_form.is_valid():
@@ -509,52 +533,12 @@ def edit_receita_recorrente_view(request, pk):
 def dre_view(request):
     unidade_ativa_id = request.session.get('unidade_ativa_id')
     if not unidade_ativa_id:
-        messages.warning(request, "Por favor, selecione uma Unidade de Negócio para continuar.")
+        messages.warning(request, "Selecione uma Unidade de Negócio.")
         return redirect('scheduler:dashboard')
 
-    # Lógica de filtro de data (igual ao dashboard)
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
     today = now().date()
-
-    if start_date_str:
-        start_date = date.fromisoformat(start_date_str)
-    else:
-        start_date = today.replace(day=1)
-
-    if end_date_str:
-        end_date = date.fromisoformat(end_date_str)
-    else:
-        next_month = today.replace(day=28) + timedelta(days=4)
-        end_date = next_month - timedelta(days=next_month.day)
-
-    # --- LÓGICA PRINCIPAL DO DRE ---
-    # Buscamos TODAS as receitas e despesas pela DATA DE COMPETÊNCIA
-    receitas_periodo = Receita.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        data_competencia__range=[start_date, end_date]
-    )
-    despesas_periodo = Despesa.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        data_competencia__range=[start_date, end_date]
-    )
-
-    # Calculamos os totais
-    total_receitas = receitas_periodo.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-    total_despesas = despesas_periodo.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-
-    total_receitas = receitas_periodo.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-    
-    # Separamos os gastos em Custos e Despesas
-    total_custos = despesas_periodo.filter(categoria__tipo_dre='custo').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-    total_despesas = despesas_periodo.filter(categoria__tipo_dre='despesa').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-
-    # Novos cálculos
-    lucro_bruto = total_receitas - total_custos
-    resultado = lucro_bruto - total_despesas
-    
-    # DRE Simplificado: Resultado do Exercício
-    resultado = total_receitas - total_despesas
+    start_date = date.fromisoformat(request.GET.get('start_date')) if request.GET.get('start_date') else today.replace(day=1)
+    end_date = date.fromisoformat(request.GET.get('end_date')) if request.GET.get('end_date') else (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
 
     receitas_periodo = Receita.objects.filter(
         unidade_negocio_id=unidade_ativa_id,
@@ -568,26 +552,26 @@ def dre_view(request):
     total_receitas = receitas_periodo.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
     total_custos = despesas_periodo.filter(categoria__tipo_dre='custo').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
     total_despesas = despesas_periodo.filter(categoria__tipo_dre='despesa').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
     lucro_bruto = total_receitas - total_custos
     resultado = lucro_bruto - total_despesas
 
-    # --- INÍCIO DA CORREÇÃO: CÁLCULO DAS PORCENTAGENS ---
     if total_receitas > 0:
-        perc_custos = (total_custos / total_receitas) * 100
-        perc_lucro_bruto = (lucro_bruto / total_receitas) * 100
-        perc_despesas = (total_despesas / total_receitas) * 100
-        perc_resultado = (resultado / total_receitas) * 100
+        perc_custos = (total_custos / total_receitas * 100).quantize(Decimal('0.01'))
+        perc_lucro_bruto = (lucro_bruto / total_receitas * 100).quantize(Decimal('0.01'))
+        perc_despesas = (total_despesas / total_receitas * 100).quantize(Decimal('0.01'))
+        perc_resultado = (resultado / total_receitas * 100).quantize(Decimal('0.01'))
     else:
-        # Evita divisão por zero se não houver receita
         perc_custos = perc_lucro_bruto = perc_despesas = perc_resultado = Decimal('0.00')
-    # --- FIM DA CORREÇÃO ---
 
     context = {
         'total_receitas': total_receitas,
-        'custos_por_categoria': despesas_periodo.filter(categoria__tipo_dre='custo').values('categoria__name').annotate(total_cat=Sum('valor')),
+        'custos_por_categoria': despesas_periodo.filter(categoria__tipo_dre='custo')
+                                   .values('categoria__name').annotate(total_cat=Sum('valor')),
         'total_custos': total_custos,
         'lucro_bruto': lucro_bruto,
-        'despesas_por_categoria': despesas_periodo.filter(categoria__tipo_dre='despesa').values('categoria__name').annotate(total_cat=Sum('valor')),
+        'despesas_por_categoria': despesas_periodo.filter(categoria__tipo_dre='despesa')
+                                       .values('categoria__name').annotate(total_cat=Sum('valor')),
         'total_despesas': total_despesas,
         'resultado': resultado,
         'perc_custos': perc_custos,

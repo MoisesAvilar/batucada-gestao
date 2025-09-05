@@ -1,5 +1,9 @@
 from django import forms
-from .models import Transaction, Category, Aluno, CustomUser, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente
+from .models import (
+    Transaction, Category, Aluno, CustomUser, Despesa, Receita,
+    DespesaRecorrente, ReceitaRecorrente
+)
+from store.models import Produto
 
 
 class ProfessorChoiceField(forms.ModelChoiceField):
@@ -48,7 +52,6 @@ class CategoryForm(forms.ModelForm):
 
 
 class DespesaForm(forms.ModelForm):
-    # Reutilizamos o campo customizado para exibir os nomes corretamente
     professor = ProfessorChoiceField(
         queryset=CustomUser.objects.filter(tipo__in=['professor', 'admin']).order_by('first_name', 'last_name'),
         required=False
@@ -71,23 +74,43 @@ class DespesaForm(forms.ModelForm):
 
 
 class ReceitaForm(forms.ModelForm):
+    produto = forms.ModelChoiceField(
+        queryset=Produto.objects.filter(quantidade_em_estoque__gt=0).order_by('nome'),
+        required=False, # A venda de um produto é opcional
+        label="Produto Vendido (Opcional)",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    quantidade = forms.IntegerField(
+        initial=1,
+        min_value=1,
+        required=False,
+        label="Quantidade",
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = Receita
-        fields = ['descricao', 'valor', 'categoria', 'data_competencia', 'data_recebimento', 'aluno']
+        fields = [
+            'produto', 'quantidade', 'descricao', 'valor', 'categoria',
+            'data_competencia', 'data_recebimento', 'aluno'
+        ]
         widgets = {
             'data_competencia': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'data_recebimento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
+        labels = {
+            'descricao': 'Item/Serviço',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Filtra para mostrar apenas categorias de 'income' e alunos ordenados
         self.fields['categoria'].queryset = Category.objects.filter(type='income')
         self.fields['aluno'].queryset = Aluno.objects.order_by('nome_completo')
-        self.fields['aluno'].required = False # Aluno é opcional
+        self.fields['aluno'].required = False
 
         for field_name, field in self.fields.items():
-            field.widget.attrs.update({'class': 'form-control'})
+            if not field.widget.attrs.get('class'):
+                field.widget.attrs.update({'class': 'form-control'})
 
 
 class DespesaRecorrenteForm(forms.ModelForm):
@@ -134,11 +157,9 @@ class ReceitaRecorrenteForm(forms.ModelForm):
         aluno = cleaned_data.get('aluno')
         valor = cleaned_data.get('valor')
 
-        # Se não selecionou um aluno, então o valor é obrigatório
         if not aluno and not valor:
             raise forms.ValidationError("Se nenhum aluno for selecionado, o campo 'Valor' é obrigatório.")
 
-        # Se selecionou um aluno, o valor e o dia não devem ser preenchidos (serão ignorados)
         if aluno:
             cleaned_data['valor'] = None
             cleaned_data['dia_do_mes'] = None

@@ -1550,39 +1550,43 @@ def _get_dados_relatorio_agregado(request):
     }
 
 
-
-@user_passes_test(is_admin)
+@user_passes_test(lambda u: u.tipo == 'admin')
 def relatorios_aulas(request):
-    # 1. LÓGICA DE FILTROS GERAIS (EXISTENTE)
+    # --- 1. FILTROS ---
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
-    professor_filtro_id = request.GET.get("professor_filtro", "")
-    modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
-    status_filtro = request.GET.get("status_filtro", "")
-    aluno_filtro_ids = request.GET.getlist("aluno_filtro")
+    professor_filtro_id = request.GET.get("professor_filtro")
+    modalidade_filtro_id = request.GET.get("modalidade_filtro")
+    status_filtro = request.GET.get("status_filtro")
+    aluno_filtro_ids = [int(i) for i in request.GET.getlist("aluno_filtro") if i.isdigit()]
 
-    aulas_queryset = Aula.objects.all()
+    aulas_queryset = Aula.objects.select_related('modalidade').prefetch_related(
+        'alunos', 'professores', 'aulas_validadas_por_mim', 'presencas_registradas'
+    )
 
-    # Aplicação dos filtros
     if data_inicial_str:
-        try: aulas_queryset = aulas_queryset.filter(data_hora__date__gte=datetime.strptime(data_inicial_str, "%Y-%m-%d").date())
-        except ValueError: pass
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_queryset = aulas_queryset.filter(data_hora__date__gte=data_inicial)
+        except ValueError:
+            pass
     if data_final_str:
-        try: aulas_queryset = aulas_queryset.filter(data_hora__date__lte=datetime.strptime(data_final_str, "%Y-%m-%d").date())
-        except ValueError: pass
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_queryset = aulas_queryset.filter(data_hora__date__lte=data_final)
+        except ValueError:
+            pass
     if professor_filtro_id:
-        aulas_queryset = aulas_queryset.filter(Q(professores__id=professor_filtro_id) | Q(relatorioaula__professor_que_validou__id=professor_filtro_id)).distinct()
+        aulas_queryset = aulas_queryset.filter(
+            Q(professores__id=professor_filtro_id) | 
+            Q(relatorioaula__professor_que_validou__id=professor_filtro_id)
+        ).distinct()
     if modalidade_filtro_id:
         aulas_queryset = aulas_queryset.filter(modalidade_id=modalidade_filtro_id)
-    if status_filtro:
-        # A lógica de filtro de status que já corrigimos vai aqui...
-        pass # Mantenha sua lógica if/elif para status aqui
     if aluno_filtro_ids:
-        aluno_filtro_ids_validos = [int(id) for id in aluno_filtro_ids if id.isdigit()]
-        if aluno_filtro_ids_validos:
-            aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids_validos).distinct()
+        aulas_queryset = aulas_queryset.filter(alunos__id__in=aluno_filtro_ids).distinct()
 
-    # 2. CÁLCULO DOS KPIS PARA OS CARDS
+    # --- 2. KPIs ---
     total_aulas = aulas_queryset.count()
     total_realizadas = aulas_queryset.filter(status="Realizada").count()
     total_canceladas = aulas_queryset.filter(status="Cancelada").count()
@@ -1590,19 +1594,43 @@ def relatorios_aulas(request):
     aulas_concluidas = total_realizadas + total_aluno_ausente + total_canceladas
     taxa_sucesso = (total_realizadas / aulas_concluidas * 100) if aulas_concluidas > 0 else 0
 
-    # 3. DADOS PARA GRÁFICOS DE VISÃO GERAL
-    cat_chart_data = aulas_queryset.filter(modalidade__isnull=False).values('modalidade__nome').annotate(contagem=Count('id')).order_by('-contagem')
-    aulas_por_mes = aulas_queryset.filter(status='Realizada').annotate(mes=TruncMonth('data_hora')).values('mes').annotate(contagem=Count('id')).order_by('mes')
+    # --- 3. Gráficos ---
+    # Evolução de aulas por mês
+    aulas_por_mes = aulas_queryset.filter(status='Realizada').annotate(
+        mes=TruncMonth('data_hora')
+    ).values('mes').annotate(contagem=Count('id')).order_by('mes')
     mes_chart_labels = [item['mes'].strftime('%b/%Y') for item in aulas_por_mes]
     mes_chart_data = [item['contagem'] for item in aulas_por_mes]
 
-    # 4. DADOS ENRIQUECIDOS PARA A TABELA DE PROFESSORES
+    # Volume por categoria
+    cat_chart_data_qs = aulas_queryset.filter(modalidade__isnull=False).values('modalidade__nome').annotate(contagem=Count('id')).order_by('-contagem')
+    cat_chart_labels = [item['modalidade__nome'].title() for item in cat_chart_data_qs]
+    cat_chart_data = [item['contagem'] for item in cat_chart_data_qs]
+
+    # Desempenho modalidades por mês
+    dados_agrupados = aulas_queryset.filter(status='Realizada').annotate(
+        mes=TruncMonth('data_hora')
+    ).values('mes', 'modalidade__nome').annotate(contagem=Count('id')).order_by('mes')
+
+    meses = sorted(set(d['mes'].strftime('%b/%Y') for d in dados_agrupados))
+    modalidades = sorted(set(d['modalidade__nome'] for d in dados_agrupados))
+    dados_pivotados = {mod: {mes: 0 for mes in meses} for mod in modalidades}
+    for item in dados_agrupados:
+        mes_str = item['mes'].strftime('%b/%Y')
+        dados_pivotados[item['modalidade__nome']][mes_str] = item['contagem']
+
+    cores_grafico = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14']
+    desempenho_modalidades_datasets = [
+        {'label': mod, 'data': list(dados_pivotados[mod].values()), 'backgroundColor': cores_grafico[i % len(cores_grafico)]}
+        for i, mod in enumerate(modalidades)
+    ]
+
+    # --- 4. Professores ---
     professores_queryset = CustomUser.objects.filter(tipo__in=['professor', 'admin']).annotate(
         total_atribuidas=Count('aulas_lecionadas', distinct=True, filter=Q(aulas_lecionadas__in=aulas_queryset)),
         realizadas_normal=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_queryset, aulas_validadas_por_mim__aula__status='Realizada') & ~Q(aulas_validadas_por_mim__aula__modalidade__nome__icontains="atividade complementar")),
-        realizadas_ac=Count('presencas_registradas', distinct=True, filter=Q(presencas_registradas__aula__in=aulas_queryset, presencas_registradas__status='presente', presencas_registradas__aula__modalidade__nome__icontains="atividade complementar")),
-        total_ausencias=Count('aulas_validadas_por_mim', distinct=True, filter=Q(aulas_validadas_por_mim__aula__in=aulas_queryset, aulas_validadas_por_mim__aula__status='Aluno Ausente'))
-    ).filter(Q(total_atribuidas__gt=0) | Q(aulas_validadas_por_mim__aula__in=aulas_queryset)).distinct()
+        realizadas_ac=Count('presencas_registradas', distinct=True, filter=Q(presencas_registradas__aula__in=aulas_queryset, presencas_registradas__status='presente', presencas_registradas__aula__modalidade__nome__icontains="atividade complementar"))
+    )
 
     professores_tabela = []
     for p in professores_queryset:
@@ -1612,42 +1640,12 @@ def relatorios_aulas(request):
             professores_tabela.append(p)
     professores_tabela.sort(key=lambda x: x.total_realizadas, reverse=True)
 
-    # --- 5. NOVA LÓGICA: DESEMPENHO DE MODALIDADES POR MÊS ---
-    aulas_realizadas_qs = aulas_queryset.filter(status='Realizada')
-    
-    # 1. Agrupar dados por mês e modalidade
-    dados_agrupados = aulas_realizadas_qs.annotate(
-        mes=TruncMonth('data_hora')
-    ).values('mes', 'modalidade__nome').annotate(
-        contagem=Count('id')
-    ).order_by('mes')
-
-    # 2. Estruturar dados para o gráfico de barras empilhadas
-    meses = sorted(list(set(d['mes'].strftime('%b/%Y') for d in dados_agrupados)))
-    modalidades = sorted(list(set(d['modalidade__nome'] for d in dados_agrupados)))
-    dados_pivotados = {mod: {mes: 0 for mes in meses} for mod in modalidades}
-
-    for item in dados_agrupados:
-        mes_str = item['mes'].strftime('%b/%Y')
-        dados_pivotados[item['modalidade__nome']][mes_str] = item['contagem']
-
-    # 3. Preparar o dataset final para o Chart.js
-    cores_grafico = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14']
-    desempenho_modalidades_datasets = []
-    for i, modalidade in enumerate(modalidades):
-        desempenho_modalidades_datasets.append({
-            'label': modalidade,
-            'data': list(dados_pivotados[modalidade].values()),
-            'backgroundColor': cores_grafico[i % len(cores_grafico)],
-        })
-
-
-    # --- 6. MONTAGEM FINAL DO CONTEXTO ---
+    # --- 5. Contexto ---
     contexto = {
         "titulo": "Relatórios de Aulas",
         "data_inicial": data_inicial_str, "data_final": data_final_str,
         "professor_filtro": professor_filtro_id, "modalidade_filtro": modalidade_filtro_id,
-        "status_filtro": status_filtro, "aluno_filtro_ids": [int(i) for i in aluno_filtro_ids if i.isdigit()],
+        "status_filtro": status_filtro, "aluno_filtro_ids": aluno_filtro_ids,
         "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
         "modalidades_list": Modalidade.objects.all().order_by("nome"),
         "alunos_list": Aluno.objects.all().order_by("nome_completo"),
@@ -1655,15 +1653,16 @@ def relatorios_aulas(request):
         "total_aulas": total_aulas, "total_realizadas": total_realizadas,
         "total_canceladas": total_canceladas, "total_aluno_ausente": total_aluno_ausente,
         "taxa_sucesso": f"{taxa_sucesso:.1f}",
-        "cat_chart_labels": [item['modalidade__nome'].title() for item in cat_chart_data],
-        "cat_chart_data": [item['contagem'] for item in cat_chart_data],
-        "mes_chart_labels": mes_chart_labels, "mes_chart_data": mes_chart_data,
+        "cat_chart_labels": cat_chart_labels,
+        "cat_chart_data": cat_chart_data,
+        "mes_chart_labels": mes_chart_labels,
+        "mes_chart_data": mes_chart_data,
         "aulas_por_professor": professores_tabela,
         "desempenho_modalidades_labels": meses,
         "desempenho_modalidades_datasets": desempenho_modalidades_datasets,
     }
-    return render(request, "scheduler/relatorios_aulas.html", contexto)
 
+    return render(request, "scheduler/relatorios_aulas.html", contexto)
 
 # --- NOVA VIEW DE EXPORTAÇÃO ---
 @user_passes_test(is_admin)

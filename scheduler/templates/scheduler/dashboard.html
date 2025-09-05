@@ -45,6 +45,22 @@
         color: var(--bs-danger-text-emphasis);
         border-bottom: 1px solid var(--bs-danger-border-subtle);
     }
+    #pending-card .card-body {
+        background-color: var(--bs-body-bg); /* se adapta ao modo claro/escuro */
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* sombra leve */
+        border: 1px solid var(--bs-border-color-translucent); /* contorno suave */
+    }
+    #pending-card .list-group-item:hover {
+        background-color: var(--bs-secondary-bg); /* sutil contraste, se adapta ao dark mode */
+    }
+
+    /* Badge de pendente com cores que respeitam dark mode */
+    #pending-card .badge.bg-danger-subtle {
+        background-color: var(--bs-danger-bg-subtle);
+        color: var(--bs-danger-emphasis);
+    }
 </style>
 
 {# O botão de filtro para admin permanece como está #}
@@ -151,48 +167,74 @@
     {% endif %}
 
     {% if aulas_pendentes_validacao %}
-    <div class="card alert-card shadow-sm border-0" id="pending-card">
-        <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i><h5 class="mb-0 fs-6 fw-bold">Ação Necessária: Aulas Pendentes</h5></div>
-        <div class="card-body">
-            <p class="text-muted small mb-3">Aulas que ocorreram mas não tiveram o relatório preenchido.</p>
-            <div class="list-group list-group-flush">
-                {% for aula in aulas_pendentes_validacao %}
-                <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action px-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ aula.modalidade.nome|title }}</strong>
-                            <div class="text-muted small">{{ aula.data_hora|date:"d/m/Y H:i" }} • {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}Atividade Complementar{% endfor %}</div>
+        <div class="card alert-card shadow-sm border-0" id="pending-card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <h5 class="mb-0 fs-6 fw-bold">Ação Necessária: Aulas Pendentes</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">Aulas que ocorreram mas não tiveram o relatório preenchido.</p>
+                <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                    {% for aula in aulas_pendentes_validacao %}
+                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="list-group-item list-group-item-action px-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ aula.modalidade.nome|title }}</strong>
+                                <div class="text-muted small">{{ aula.data_hora|date:"d/m/Y H:i" }} • {% for aluno in aula.alunos.all %}{{ aluno.nome_completo|title }}{% if not forloop.last %}, {% endif %}{% empty %}Atividade Complementar{% endfor %}</div>
+                            </div>
+                            <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill">Pendente</span>
                         </div>
-                        <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill">Pendente</span>
-                    </div>
-                </a>
-                {% endfor %}
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
         </div>
-    </div>
     {% endif %}
 
     <div class="content-block shadow-sm p-0">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 border-bottom">
-            <h5 class="text-center text-md-start mb-3 mb-md-0 w-100 w-md-auto">
-                {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
-            </h5>
-            
-            {% if user.tipo == 'admin' %}
-            <div class="text-center w-100 w-md-auto">
-                <select id="professor_calendario_filtro" class="form-select form-select-sm mx-auto mx-md-0" style="max-width: 200px;">
-                    <option value="">Todos os Professores</option>
-                    {% for prof in professores_list %}
-                    <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
+    <!-- Desktop -->
+    <div class="d-none d-md-flex position-relative align-items-center p-3 border-bottom">
+        <!-- Título centralizado -->
+        <h5 class="position-absolute top-50 start-50 translate-middle text-center mb-0">
+            {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
+        </h5>
+
+        <!-- Filtro de professores à direita -->
+        {% if user.tipo == 'admin' %}
+        <div class="ms-auto">
+            <select id="professor_calendario_filtro_desktop" class="form-select form-select-sm" style="max-width: 200px;">
+                <option value="">Todos os Professores</option>
+                {% for prof in professores_list %}
+                <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                {% endfor %}
+            </select>
         </div>
-        <div class="p-3" id="calendario-wrapper">
-            {% include 'scheduler/partials/calendario_content.html' %}
-        </div>
+        {% endif %}
     </div>
+
+    <!-- Mobile -->
+    <div class="d-flex d-md-none flex-column align-items-center p-3 border-bottom">
+        <!-- Título -->
+        <h5 class="text-center mb-2">
+            {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
+        </h5>
+
+        <!-- Filtro de professores abaixo -->
+        {% if user.tipo == 'admin' %}
+        <select id="professor_calendario_filtro_mobile" class="form-select form-select-sm w-75 mx-auto" style="max-width: 200px;">
+            <option value="">Todos os Professores</option>
+            {% for prof in professores_list %}
+            <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+    </div>
+
+    <div class="p-3" id="calendario-wrapper">
+        {% include 'scheduler/partials/calendario_content.html' %}
+    </div>
+</div>
+
 </div>
 
 <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">

@@ -46,6 +46,7 @@
                     <th>Produto</th>
                     <th>Categoria</th>
                     <th class="text-center">Estoque</th>
+                    <th class="text-center">Qtd. Vendida</th>
                     <th class="text-center">Custo</th>
                     <th class="text-center">Markup</th>
                     <th class="text-center">Preço de Venda</th>
@@ -59,6 +60,7 @@
                     <td><strong>{{ produto.nome }}</strong><small class="text-muted d-block">{{ produto.sku|default:"Sem SKU" }}</small></td>
                     <td>{{ produto.categoria.nome.title|default:"-" }}</td>
                     <td class="text-center">{{ produto.quantidade_em_estoque }}</td>
+                    <td class="text-center">{{ produto.quantidade_vendida|default:0 }}</td>
                     <td class="text-center">R$ {{ produto.custo_de_aquisicao|floatformat:2 }}</td>
                     <td class="text-center">{{ produto.percentual_markup|floatformat:1 }}%</td>
                     <td class="text-center fw-bold">R$ {{ produto.preco_de_venda_calculado|floatformat:2 }}</td>
@@ -101,6 +103,7 @@
             </a>
             <div class="collapse mt-1" id="extra-{{ produto.pk }}">
                 <small class="d-block">Categoria: {{ produto.categoria.nome.title|default:"-" }}</small>
+                <small class="d-block">Vendidos: {{ produto.quantidade_vendida|default:0 }}</small>
                 <small class="d-block">Custo: R$ {{ produto.custo_de_aquisicao|floatformat:2 }}</small>
                 <small class="d-block">Markup: {{ produto.percentual_markup|floatformat:1 }}%</small>
                 <small class="d-block text-success">Lucro: R$ {{ produto.lucro_bruto_por_unidade|floatformat:2 }}</small>

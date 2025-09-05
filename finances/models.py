@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from scheduler.models import Aluno, CustomUser
 from core.models import UnidadeNegocio
+from store.models import Produto
 
 
 class Category(models.Model):
@@ -66,7 +67,6 @@ class Transaction(models.Model):
 
     observation = models.TextField(blank=True, null=True, verbose_name="Observação")
 
-    # Campos de auditoria
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
@@ -105,7 +105,6 @@ class Despesa(models.Model):
         verbose_name="Professor Relacionado",
         limit_choices_to={'tipo__in': ['professor', 'admin']}
     )
-    # Link para a transação de caixa quando a despesa for paga
     transacao = models.OneToOneField(Transaction, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
@@ -131,7 +130,20 @@ class Receita(models.Model):
         related_name="receitas",
         verbose_name="Aluno Relacionado"
     )
-    # Link para a transação de caixa quando a receita for recebida
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="receitas",
+        verbose_name="Produto Relacionado"
+    )
+    quantidade = models.PositiveIntegerField(
+        default=1,
+        null=True,
+        blank=True,
+        verbose_name="Quantidade Vendida"
+    )
     transacao = models.OneToOneField(Transaction, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):

@@ -8,7 +8,7 @@ from .models import Produto, CategoriaProduto
 from .forms import ProdutoForm, CategoriaProdutoForm
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Sum, Q
 
 
 def admin_required(view_func):
@@ -20,8 +20,6 @@ def admin_required(view_func):
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
-
-# View para listar os produtos
 
 @admin_required
 def produto_list_view(request):
@@ -41,10 +39,12 @@ def produto_list_view(request):
     else:
         form = ProdutoForm()
 
-    # --- INÍCIO DA CORREÇÃO ---
-    # 1. Usamos apenas uma variável para a lista de produtos.
     produtos_list = Produto.objects.filter(unidade_negocio_id=unidade_ativa_id).order_by('nome')
-    
+
+    produtos_list = produtos_list.annotate(
+        quantidade_vendida=Sum('receitas__quantidade', filter=Q(receitas__unidade_negocio_id=unidade_ativa_id))
+    )
+
     search_query = request.GET.get('q', '')
     category_filter = request.GET.get('categoria', '')
     stock_filter = request.GET.get('estoque', '')
@@ -60,10 +60,8 @@ def produto_list_view(request):
         produtos_list = produtos_list.filter(categoria__id=category_filter)
 
     if stock_filter == 'baixo':
-        # Consideramos 'baixo estoque' como 5 unidades ou menos.
         produtos_list = produtos_list.filter(quantidade_em_estoque__lte=5)
 
-    # 2. A paginação é feita sobre a lista já filtrada.
     paginator = Paginator(produtos_list, 15)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -71,18 +69,15 @@ def produto_list_view(request):
     categorias = CategoriaProduto.objects.filter(unidade_negocio_id=unidade_ativa_id)
     
     context = {
-        'produtos': page_obj, # 3. Enviamos o objeto da página na variável 'produtos'.
+        'produtos': page_obj,
         'search_query': search_query,
-        'categorias': categorias, # <-- Novo contexto
-        'category_filter': category_filter, # <-- Novo contexto
+        'categorias': categorias,
+        'category_filter': category_filter,
         'stock_filter': stock_filter,
         'form': form,
     }
-    # --- FIM DA CORREÇÃO ---
     return render(request, 'store/produto_list.html', context)
 
-
-# View para criar um novo produto
 
 class ProdutoCreateView(CreateView):
     model = Produto
@@ -101,8 +96,6 @@ class ProdutoCreateView(CreateView):
         return super().form_valid(form)
 
 
-# View para editar um produto
-
 @admin_required
 def produto_edit_view(request, pk):
     produto = get_object_or_404(Produto, pk=pk)
@@ -114,7 +107,6 @@ def produto_edit_view(request, pk):
         else:
             return JsonResponse({'status': 'error', 'errors': form.errors.as_json()})
     
-    # Para GET, retorna os dados do produto para preencher o modal
     data = model_to_dict(produto)
     return JsonResponse(data)
 
@@ -131,7 +123,6 @@ def produto_delete_view(request, pk):
         return redirect('store:produto_list')
 
 
-# View AJAX para criar Categoria de Produto
 def add_categoria_produto_ajax(request):
     if request.method == "POST":
         form = CategoriaProdutoForm(request.POST)
@@ -145,3 +136,15 @@ def add_categoria_produto_ajax(request):
         else:
             return JsonResponse({"status": "error", "errors": form.errors})
     return JsonResponse({"status": "error"})
+
+
+def get_produto_details_ajax(request, pk):
+    try:
+        produto = Produto.objects.get(pk=pk)
+        data = {
+            'preco': produto.preco_de_venda_calculado,
+            'estoque': produto.quantidade_em_estoque
+        }
+        return JsonResponse(data)
+    except Produto.DoesNotExist:
+        return JsonResponse({'error': 'Produto não encontrado'}, status=404)
