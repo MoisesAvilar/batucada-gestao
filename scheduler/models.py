@@ -174,6 +174,22 @@ class Aula(models.Model):
             
         # Retorna True se o professor que validou NÃO EXISTE na lista de professores atribuídos.
         return not self.professores.filter(pk=professor_validou.pk).exists()
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_status = None
+        if not is_new:
+            old_status = Aula.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+
+        super().save(*args, **kwargs)
+
+        if self.status == "Aluno Ausente" and old_status != "Aluno Ausente":
+            from .models import PresencaAluno
+            for aluno in self.alunos.all():
+                presenca, created = PresencaAluno.objects.get_or_create(aula=self, aluno=aluno)
+                presenca.status = "ausente"
+                presenca.save()
+
 
 
 class RelatorioAula(models.Model):

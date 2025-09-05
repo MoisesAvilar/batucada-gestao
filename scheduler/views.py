@@ -1328,6 +1328,10 @@ def detalhe_professor(request, pk):
     q_realizadas_ac = Q(status='Realizada', modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='presente')
     aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(q_realizadas_normal | q_realizadas_ac).distinct()
     total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
+    alunos_atendidos = PresencaAluno.objects.filter(
+        aula__in=aulas_realizadas_pelo_professor_no_periodo,
+        status="presente"
+    ).count()
 
     total_ausencias_professor = aulas_kpi.filter(modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status='ausente').count()
     total_agendadas = aulas_kpi.filter(status='Agendada', professores=professor).count()
@@ -1380,6 +1384,7 @@ def detalhe_professor(request, pk):
         "status_filtro": status_filtro,
         "status_filtro_display": status_filtro_display,
         "total_realizadas": total_realizadas,
+        "alunos_atendidos": alunos_atendidos,
         "total_agendadas": total_agendadas,
         "total_canceladas": total_canceladas,
         "total_aluno_ausente": total_aluno_ausente,
