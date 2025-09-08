@@ -21,7 +21,6 @@ db.sqlite3
 
 # Logs
 *.log
-logs/
 
 # Environment Variables / Sensitive Data
 .env

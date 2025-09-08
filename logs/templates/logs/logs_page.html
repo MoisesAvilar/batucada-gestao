@@ -1,0 +1,289 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <!-- Título -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start mb-3">
+        <h3 class="mb-3 mb-md-0">Dashboard de Logs</h3>
+        <div class="btn-group mb-3" role="group" aria-label="Filtro de dias">
+            <button class="btn btn-outline-primary" onclick="fetchLogs(7)">Últimos 7 dias</button>
+            <button class="btn btn-outline-primary" onclick="fetchLogs(30)">Últimos 30 dias</button>
+            <button class="btn btn-outline-primary" onclick="fetchLogs(90)">Últimos 90 dias</button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-3 g-2">
+        <div class="col-12 col-md-4">
+            <input type="text" id="userFilter" class="form-control" placeholder="Filtrar por usuário" oninput="applyFilters()">
+        </div>
+        <div class="col-12 col-md-4">
+            <input type="text" id="resourceFilter" class="form-control" placeholder="Filtrar por recurso/página" oninput="applyFilters()">
+        </div>
+        <div class="col-12 col-md-4">
+            <input type="text" id="tagsFilter" class="form-control" placeholder="Filtrar por tags" oninput="applyFilters()">
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Logs</h5>
+                    <p class="card-text" id="totalLogs">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Criações</h5>
+                    <p class="card-text text-success" id="totalCriou">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Atualizações</h5>
+                    <p class="card-text text-warning" id="totalAtualizou">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Deleções</h5>
+                    <p class="card-text text-danger" id="totalDeletou">0</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de ações -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <canvas id="actionsChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabela de logs -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle" id="logsTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>Data/Hora</th>
+                    <th>Usuário</th>
+                    <th>Ação</th>
+                    <th>Recurso</th>
+                    <th>Detalhes</th>
+                    <th>Método</th>
+                    <th>IP</th>
+                    <th>Tags</th>
+                </tr>
+            </thead>
+            <tbody id="logsTableBody">
+                <!-- preenchido via JS -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let allLogs = [];
+let displayedLogs = [];
+let batchSize = 50;
+let currentIndex = 0;
+let actionsChart;
+
+// Fetch de logs
+async function fetchLogs(days=30) {
+    const res = await fetch(`/logs/api/?days=${days}`);
+    const data = await res.json();
+    allLogs = data.logs;
+    currentIndex = 0;
+    displayedLogs = [];
+    document.getElementById("logsTableBody").innerHTML = "";
+    renderNextBatch();
+    updateKPIs();
+    renderChart();
+}
+
+// Renderiza próximo lote de logs
+function renderNextBatch() {
+    const tbody = document.getElementById("logsTableBody");
+    const nextBatch = allLogs.slice(currentIndex, currentIndex + batchSize);
+
+    nextBatch.forEach(log => {
+        const tr = document.createElement("tr");
+
+        // 👇 trata anon
+        const username = (log.username && log.username !== "anon") 
+            ? log.username 
+            : "";
+
+        // 👇 se for "Página ..." estiliza em cinza/itálico
+        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
+            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
+            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
+
+        tr.innerHTML = `
+            <td>${log.timestamp}</td>
+            <td>${username}</td>
+            <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
+            <td>${resourceDisplay}</td>
+            <td>
+                <span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">
+                    ${log.detail}
+                </span>
+            </td>
+            <td>${log.method || "-"}</td>
+            <td>${log.ip_address || "-"}</td>
+            <td>${log.tags || ""}</td>
+        `;
+        tbody.appendChild(tr);
+        displayedLogs.push(log);
+    });
+
+    currentIndex += batchSize;
+}
+
+function getActionColor(action) {
+    switch(action) {
+        case "criou": return "success";
+        case "atualizou": return "warning";
+        case "deletou": return "danger";
+        case "visualizou": return "secondary"; // 👈 cor cinza p/ páginas acessadas
+        default: return "primary";
+    }
+}
+
+// Scroll infinito
+window.addEventListener("scroll", () => {
+    const scrollTop = window.scrollY;
+    const windowHeight = window.innerHeight;
+    const fullHeight = document.body.scrollHeight;
+
+    if(scrollTop + windowHeight > fullHeight - 100 && currentIndex < allLogs.length) {
+        renderNextBatch();
+    }
+});
+
+// Filtros dinâmicos
+function applyFilters() {
+    const userTerm = document.getElementById("userFilter").value.toLowerCase();
+    const resourceTerm = document.getElementById("resourceFilter").value.toLowerCase();
+    const tagsTerm = document.getElementById("tagsFilter").value.toLowerCase();
+    const tbody = document.getElementById("logsTableBody");
+    tbody.innerHTML = "";
+
+    displayedLogs
+        .filter(log => {
+            const username = log.username.toLowerCase();
+            const tags = (log.tags || "").toLowerCase();
+
+            // 👇 se for "Página /xxx/", remove prefixo "Página " para facilitar busca
+            let resource = log.resource_name.toLowerCase();
+            if (resource.startsWith("página ")) {
+                resource = resource.replace("página ", "").trim();
+            }
+
+            return username.includes(userTerm) &&
+                   resource.includes(resourceTerm) &&
+                   tags.includes(tagsTerm);
+        })
+        .forEach(log => {
+            const tr = document.createElement("tr");
+
+            const username = (log.username && log.username !== "anon") 
+                ? log.username 
+                : "";
+
+            const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
+                ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
+                : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
+
+            tr.innerHTML = `
+                <td>${log.timestamp}</td>
+                <td>${username}</td>
+                <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
+                <td>${resourceDisplay}</td>
+                <td>
+                    <span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">
+                        ${log.detail}
+                    </span>
+                </td>
+                <td>${log.method || "-"}</td>
+                <td>${log.ip_address || "-"}</td>
+                <td>${log.tags || ""}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+}
+
+// KPIs
+function updateKPIs() {
+    let total = allLogs.length;
+    let criou = allLogs.filter(l => l.action === "criou").length;
+    let atualizou = allLogs.filter(l => l.action === "atualizou").length;
+    let deletou = allLogs.filter(l => l.action === "deletou").length;
+
+    document.getElementById("totalLogs").textContent = total;
+    document.getElementById("totalCriou").textContent = criou;
+    document.getElementById("totalAtualizou").textContent = atualizou;
+    document.getElementById("totalDeletou").textContent = deletou;
+}
+
+// Gráfico de ações
+function renderChart() {
+    const ctx = document.getElementById('actionsChart').getContext('2d');
+    const grouped = {};
+
+    allLogs.forEach(log => {
+        const day = log.timestamp.split(' ')[0];
+        if(!grouped[day]) grouped[day] = {criou:0, atualizou:0, deletou:0, acessou:0};
+
+        if (log.action === "criou") grouped[day].criou++;
+        else if (log.action === "atualizou") grouped[day].atualizou++;
+        else if (log.action === "deletou") grouped[day].deletou++;
+        else if (log.action === "get") grouped[day].acessou++;   // 👈 novo contador para GET
+    });
+
+    const labels = Object.keys(grouped).sort();
+    const dataCriou = labels.map(day => grouped[day].criou || 0);
+    const dataAtualizou = labels.map(day => grouped[day].atualizou || 0);
+    const dataDeletou = labels.map(day => grouped[day].deletou || 0);
+    const dataAcessou = labels.map(day => grouped[day].acessou || 0);
+
+    if(actionsChart) actionsChart.destroy();
+
+    actionsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {label: 'Criações', data: dataCriou, borderColor: 'green', backgroundColor: 'rgba(0,255,0,0.2)'},
+                {label: 'Atualizações', data: dataAtualizou, borderColor: 'orange', backgroundColor: 'rgba(255,165,0,0.2)'},
+                {label: 'Deleções', data: dataDeletou, borderColor: 'red', backgroundColor: 'rgba(255,0,0,0.2)'},
+                {label: 'Acessos (GET)', data: dataAcessou, borderColor: 'blue', backgroundColor: 'rgba(0,0,255,0.2)'}
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {legend:{position:'top'}}
+        }
+    });
+}
+
+// Inicializa
+fetchLogs();
+</script>
+
+{% endblock %}
