@@ -37,6 +37,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
+from leads.models import Lead
+
 
 # --- Funções de Teste para Permissões ---
 def is_admin(user):
@@ -607,12 +609,42 @@ def criar_aluno(request):
     if request.method == "POST":
         form = AlunoForm(request.POST)
         if form.is_valid():
-            form.save()
+            novo_aluno = form.save() # Salva o aluno e o armazena em uma variável
+
+            # --- LÓGICA DE CONVERSÃO ---
+            lead_id = request.POST.get('lead_id')
+            if lead_id:
+                try:
+                    lead = Lead.objects.get(id=lead_id)
+                    lead.status = 'convertido'
+                    lead.aluno_convertido = novo_aluno # AQUI FAZEMOS A LIGAÇÃO
+                    lead.save()
+                    messages.info(request, f"Lead '{lead.nome_interessado}' convertido com sucesso!")
+                except Lead.DoesNotExist:
+                    pass # Opcional: logar um erro se o lead_id for inválido
+            
             messages.success(request, "Aluno criado com sucesso!")
             return redirect("scheduler:aluno_listar")
     else:
-        form = AlunoForm()
+        # --- LÓGICA PARA PRÉ-POPULAR O FORMULÁRIO ---
+        # Verifica se há dados do lead na URL (GET request)
+        initial_data = {}
+        if 'lead_id' in request.GET:
+            initial_data['nome_completo'] = request.GET.get('nome_completo')
+            initial_data['responsavel'] = request.GET.get('responsavel')
+            initial_data['email'] = request.GET.get('email')
+            initial_data['telefone'] = request.GET.get('telefone')
+            # Adicione outros campos se necessário
+        
+        # Passa os dados iniciais para o formulário
+        form = AlunoForm(initial=initial_data)
+
     contexto = {"form": form, "titulo": "Adicionar Novo Aluno"}
+    
+    # Passa o lead_id para o template para o campo oculto
+    if 'lead_id' in request.GET:
+        contexto['lead_id'] = request.GET.get('lead_id')
+        
     return render(
         request,
         "scheduler/aluno_form.html",

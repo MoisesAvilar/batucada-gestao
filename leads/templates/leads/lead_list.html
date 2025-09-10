@@ -1,0 +1,245 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+    <div class="content-block">
+    {% include 'leads/_leads_nav.html' %}
+    <form method="get" class="row mb-3">
+        <div class="col-md-4 mb-2">
+            <input type="text" class="form-control" name="nome" placeholder="Filtrar por nome" value="{{ nome }}">
+        </div>
+        <div class="col-md-4 mb-2">
+            <input type="text" class="form-control" name="curso" placeholder="Filtrar por curso" value="{{ curso }}">
+        </div>
+        <div class="col-md-4 mb-2">
+            <input type="text" class="form-control" name="contato" placeholder="Filtrar por contato" value="{{ contato }}">
+        </div>
+        <div class="col-md-12 mb-2 text-end">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+        </div>
+    </form>
+
+
+    <div class="card d-none d-md-block">
+        <div class="card-body">
+            <h5 class="card-title">Leads Cadastrados</h5>
+            <small id="leadCount" class="text-muted">Mostrando {{ page_obj|length }} de {{ page_obj.paginator.count }} leads</small>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nome do Interessado</th>
+                            <th>Contato</th>
+                            <th>Status</th>
+                            <th>Data de Criação</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lead in page_obj %}
+                        <tr>
+                            <td><a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration link-body-emphasis ">{{ lead.nome_interessado.title }}</a></td>
+                            <td>{{ lead.contato }}</td>
+                            <td><span class="badge bg-primary">{{ lead.get_status_display }}</span></td>
+                            <td>{{ lead.data_criacao|date:"d/m/Y H:i" }}</td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    {% if lead.status != 'convertido' %}
+                                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-sm btn-success">Converter</a>
+                                        <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                                    {% endif %}
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal" data-lead-url="{% url 'leads:lead_edit' lead.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'leads:lead_delete' lead.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">Nenhum lead cadastrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-block d-md-none">
+        <div class="d-flex justify-content-end mb-2">
+            <small id="leadCountMobile" class="text-muted">Mostrando {{ page_obj|length }} de {{ page_obj.paginator.count }} leads</small>
+        </div>
+    {% for lead in page_obj %}
+        <div class="card shadow-sm mb-3 border-0 rounded-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="mb-1 fw-bold">
+                            <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                                {{ lead.nome_interessado.title }}
+                            </a>
+                        </h6>
+                        <small class="text-muted">
+                            <i class="bi bi-phone me-1"></i>{{ lead.contato }}
+                        </small>
+                    </div>
+                    {% if lead.status == 'convertido' %}
+                        <span class="badge text-bg-success">{{ lead.get_status_display }}</span>
+                    {% elif lead.status == 'perdido' %}
+                        <span class="badge text-bg-danger">{{ lead.get_status_display }}</span>
+                    {% elif lead.status == 'em_contato' %}
+                        <span class="badge text-bg-warning text-dark">{{ lead.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge text-bg-primary">{{ lead.get_status_display }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="text-muted small mb-3">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    Criado em: {{ lead.data_criacao|date:"d/m/Y H:i" }}
+                </div>
+
+                <div class="btn-group w-100" role="group">
+                    {% if lead.status != 'convertido' %}
+                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-success btn-sm w-75">
+                            <i class="bi bi-check-circle me-1"></i>Converter
+                        </a>
+                        <button type="button" class="btn btn-outline-success btn-sm dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown">
+                            <span class="visually-hidden">Mais ações</span>
+                        </button>
+                    {% else %}
+                        <button class="btn btn-outline-secondary btn-sm w-75 disabled">
+                            <i class="bi bi-check-circle-fill me-1"></i>Convertido
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown">
+                            <span class="visually-hidden">Mais ações</span>
+                        </button>
+                    {% endif %}
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal" data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                <i class="bi bi-pencil me-2"></i>Editar
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                <i class="bi bi-trash me-2"></i>Excluir
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="alert alert-secondary text-center">Nenhum lead cadastrado.</div>
+    {% endfor %}
+</div>
+
+</div>
+
+<div class="modal fade" id="editLeadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editLeadForm" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Você tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteForm" method="post">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de editar lead
+    const editModalEl = document.getElementById('editLeadModal');
+    if (editModalEl) {
+        const editForm = editModalEl.querySelector('#editLeadForm');
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-lead-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    for (const [key, value] of Object.entries(data)) {
+                        const field = editForm.querySelector(`[name="${key}"]`);
+                        if (field) {
+                            field.value = value;
+                        }
+                    }
+                });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Ocorreu um erro ao salvar. Verifique os campos.');
+                    console.error(data.errors);
+                }
+            });
+        });
+    }
+
+    // Modal de exclusão
+    const deleteModalEl = document.getElementById('confirmDeleteModal');
+    if (deleteModalEl) {
+        deleteModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-delete-url');
+            const deleteForm = deleteModalEl.querySelector('#deleteForm');
+            deleteForm.setAttribute('action', url);
+        });
+    }
+});
+</script>
+{% endblock %}

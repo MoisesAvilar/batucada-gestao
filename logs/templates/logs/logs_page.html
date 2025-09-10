@@ -69,8 +69,8 @@
         </div>
     </div>
 
-    <!-- Tabela de logs -->
-    <div class="table-responsive">
+    <!-- Tabela para desktop/tablet -->
+    <div class="table-responsive d-none d-md-block">
         <table class="table table-striped table-hover align-middle" id="logsTable">
             <thead class="table-dark">
                 <tr>
@@ -88,6 +88,11 @@
                 <!-- preenchido via JS -->
             </tbody>
         </table>
+    </div>
+
+    <!-- Versão mobile em cards -->
+    <div class="d-block d-md-none" id="logsCardsContainer">
+        <!-- preenchido via JS -->
     </div>
 
 </div>
@@ -123,12 +128,7 @@ function renderNextBatch() {
     nextBatch.forEach(log => {
         const tr = document.createElement("tr");
 
-        // 👇 trata anon
-        const username = (log.username && log.username !== "anon") 
-            ? log.username 
-            : "";
-
-        // 👇 se for "Página ..." estiliza em cinza/itálico
+        const username = (log.username && log.username !== "anon") ? log.username : "";
         const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
             ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
             : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
@@ -151,15 +151,50 @@ function renderNextBatch() {
         displayedLogs.push(log);
     });
 
+    // Atualiza cards mobile após renderizar o batch
+    renderMobileCards(displayedLogs);
+
     currentIndex += batchSize;
 }
 
+// Renderiza cards para mobile
+function renderMobileCards(logs) {
+    const container = document.getElementById("logsCardsContainer");
+    container.innerHTML = "";
+
+    logs.forEach(log => {
+        const username = (log.username && log.username !== "anon") ? log.username : "";
+        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
+            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
+            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
+
+        const card = document.createElement("div");
+        card.className = "card mb-2 shadow-sm";
+        card.innerHTML = `
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">${log.timestamp}</small>
+                    <span class="badge bg-${getActionColor(log.action)}">${log.action}</span>
+                </div>
+                <p class="mb-1"><strong>Usuário:</strong> ${username}</p>
+                <p class="mb-1"><strong>Recurso:</strong> ${resourceDisplay}</p>
+                <p class="mb-1"><strong>Detalhes:</strong> ${log.detail}</p>
+                <p class="mb-1"><strong>Método:</strong> ${log.method || "-"}</p>
+                <p class="mb-1"><strong>IP:</strong> ${log.ip_address || "-"}</p>
+                <p class="mb-0"><strong>Tags:</strong> ${log.tags || ""}</p>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// Cores das ações
 function getActionColor(action) {
     switch(action) {
         case "criou": return "success";
         case "atualizou": return "warning";
         case "deletou": return "danger";
-        case "visualizou": return "secondary"; // 👈 cor cinza p/ páginas acessadas
+        case "visualizou": return "secondary";
         default: return "primary";
     }
 }
@@ -180,59 +215,49 @@ function applyFilters() {
     const userTerm = document.getElementById("userFilter").value.toLowerCase();
     const resourceTerm = document.getElementById("resourceFilter").value.toLowerCase();
     const tagsTerm = document.getElementById("tagsFilter").value.toLowerCase();
+
+    const filteredLogs = displayedLogs.filter(log => {
+        const username = log.username.toLowerCase();
+        const tags = (log.tags || "").toLowerCase();
+        let resource = log.resource_name.toLowerCase();
+        if(resource.startsWith("página ")) resource = resource.replace("página ", "").trim();
+
+        return username.includes(userTerm) &&
+               resource.includes(resourceTerm) &&
+               tags.includes(tagsTerm);
+    });
+
+    // Atualiza tabela e cards mobile
     const tbody = document.getElementById("logsTableBody");
     tbody.innerHTML = "";
+    filteredLogs.forEach(log => {
+        const tr = document.createElement("tr");
+        const username = (log.username && log.username !== "anon") ? log.username : "";
+        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
+            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
+            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
+        tr.innerHTML = `
+            <td>${log.timestamp}</td>
+            <td>${username}</td>
+            <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
+            <td>${resourceDisplay}</td>
+            <td><span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">${log.detail}</span></td>
+            <td>${log.method || "-"}</td>
+            <td>${log.ip_address || "-"}</td>
+            <td>${log.tags || ""}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 
-    displayedLogs
-        .filter(log => {
-            const username = log.username.toLowerCase();
-            const tags = (log.tags || "").toLowerCase();
-
-            // 👇 se for "Página /xxx/", remove prefixo "Página " para facilitar busca
-            let resource = log.resource_name.toLowerCase();
-            if (resource.startsWith("página ")) {
-                resource = resource.replace("página ", "").trim();
-            }
-
-            return username.includes(userTerm) &&
-                   resource.includes(resourceTerm) &&
-                   tags.includes(tagsTerm);
-        })
-        .forEach(log => {
-            const tr = document.createElement("tr");
-
-            const username = (log.username && log.username !== "anon") 
-                ? log.username 
-                : "";
-
-            const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
-                ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
-                : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
-
-            tr.innerHTML = `
-                <td>${log.timestamp}</td>
-                <td>${username}</td>
-                <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
-                <td>${resourceDisplay}</td>
-                <td>
-                    <span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">
-                        ${log.detail}
-                    </span>
-                </td>
-                <td>${log.method || "-"}</td>
-                <td>${log.ip_address || "-"}</td>
-                <td>${log.tags || ""}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+    renderMobileCards(filteredLogs);
 }
 
 // KPIs
 function updateKPIs() {
-    let total = allLogs.length;
-    let criou = allLogs.filter(l => l.action === "criou").length;
-    let atualizou = allLogs.filter(l => l.action === "atualizou").length;
-    let deletou = allLogs.filter(l => l.action === "deletou").length;
+    const total = allLogs.length;
+    const criou = allLogs.filter(l => l.action === "criou").length;
+    const atualizou = allLogs.filter(l => l.action === "atualizou").length;
+    const deletou = allLogs.filter(l => l.action === "deletou").length;
 
     document.getElementById("totalLogs").textContent = total;
     document.getElementById("totalCriou").textContent = criou;
@@ -249,17 +274,17 @@ function renderChart() {
         const day = log.timestamp.split(' ')[0];
         if(!grouped[day]) grouped[day] = {criou:0, atualizou:0, deletou:0, acessou:0};
 
-        if (log.action === "criou") grouped[day].criou++;
-        else if (log.action === "atualizou") grouped[day].atualizou++;
-        else if (log.action === "deletou") grouped[day].deletou++;
-        else if (log.action === "get") grouped[day].acessou++;   // 👈 novo contador para GET
+        if(log.action === "criou") grouped[day].criou++;
+        else if(log.action === "atualizou") grouped[day].atualizou++;
+        else if(log.action === "deletou") grouped[day].deletou++;
+        else if(log.action === "get") grouped[day].acessou++;
     });
 
     const labels = Object.keys(grouped).sort();
-    const dataCriou = labels.map(day => grouped[day].criou || 0);
-    const dataAtualizou = labels.map(day => grouped[day].atualizou || 0);
-    const dataDeletou = labels.map(day => grouped[day].deletou || 0);
-    const dataAcessou = labels.map(day => grouped[day].acessou || 0);
+    const dataCriou = labels.map(day => grouped[day].criou);
+    const dataAtualizou = labels.map(day => grouped[day].atualizou);
+    const dataDeletou = labels.map(day => grouped[day].deletou);
+    const dataAcessou = labels.map(day => grouped[day].acessou);
 
     if(actionsChart) actionsChart.destroy();
 
@@ -274,11 +299,7 @@ function renderChart() {
                 {label: 'Acessos (GET)', data: dataAcessou, borderColor: 'blue', backgroundColor: 'rgba(0,0,255,0.2)'}
             ]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {legend:{position:'top'}}
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{position:'top'}} }
     });
 }
 

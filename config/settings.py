@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-p1_n=mw()f=18fu9&!=8g4n5eq2*io3^%9p^yk4o99%lv+c%*6'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'accounts',
     'core',
     'finances',
+    'leads',
     'logs',
     'scheduler',
     'store',
@@ -79,6 +80,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.unidades_negocio_processor',
+                'core.context_processors.add_lead_form_processor',
             ],
         },
     },

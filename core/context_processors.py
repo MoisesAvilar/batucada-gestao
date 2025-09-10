@@ -1,4 +1,5 @@
 from .models import UnidadeNegocio
+from leads.forms import LeadForm
 
 
 def unidades_negocio_processor(request):
@@ -14,3 +15,13 @@ def unidades_negocio_processor(request):
             request.session.pop("unidade_ativa_id", None)
 
     return {"unidades_de_negocio": unidades, "unidade_ativa": unidade_ativa}
+
+
+def add_lead_form_processor(request):
+    """
+    Disponibiliza o formulário de adição de lead em todas as páginas.
+    """
+    # Só adiciona o formulário se o usuário estiver logado
+    if request.user.is_authenticated:
+        return {'add_lead_form': LeadForm()}
+    return {}

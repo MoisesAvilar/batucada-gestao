@@ -1,0 +1,37 @@
+<div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-4 pb-3 border-bottom gap-3">
+
+    <!-- Título -->
+    <h2 class="h4 text-center text-md-start mb-0">Gestão de Leads</h2>
+
+    <!-- Botões: Desktop -->
+    <div class="d-none d-md-flex gap-2 align-items-center">
+        <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-list me-1"></i> Lista
+        </a>
+        <a href="{% url 'leads:kanban_board' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-columns-gap me-1"></i> Kanban
+        </a>
+        <a href="{% url 'leads:dashboard_leads' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-bar-chart-line me-1"></i> Dashboard
+        </a>
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addLeadModal">
+            <i class="bi bi-plus-circle me-1"></i> Adicionar Novo Lead
+        </button>
+    </div>
+</div>
+
+<!-- Botões: Mobile (ícones + texto curto) -->
+<div class="d-flex d-md-none flex-wrap justify-content-center gap-2 mb-3">
+    <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-list me-1"></i> Lista
+    </a>
+    <a href="{% url 'leads:kanban_board' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-columns-gap me-1"></i> Kanban
+    </a>
+    <a href="{% url 'leads:dashboard_leads' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-bar-chart-line me-1"></i> Dash
+    </a>
+    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addLeadModal">
+        <i class="bi bi-plus-circle me-1"></i> Novo
+    </button>
+</div>

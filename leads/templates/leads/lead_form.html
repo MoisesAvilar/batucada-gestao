@@ -1,0 +1,20 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    {% include 'leads/_leads_nav.html' %}
+    <div class="card">
+        <div class="card-header">
+            <h3>{{ titulo }}</h3>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-success">Salvar</button>
+                <a href="{% url 'leads:lead_listar' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
