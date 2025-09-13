@@ -1,0 +1,98 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    {% include 'leads/_leads_nav.html' %}
+
+    <!-- Card principal do lead -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+                <h4 class="mb-0">Lead: {{ lead.nome_interessado.title }}</h4>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Voltar
+                    </a>
+                    {% if lead.status != 'convertido' %}
+                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-check-circle"></i> Converter
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Informações principais do lead -->
+            <div class="row gy-3">
+                <div class="col-12 col-md-6">
+                    <p><strong>Contato:</strong> {{ lead.contato }}</p>
+                    <p>
+                        <strong>Status:</strong> 
+                        <span class="badge text-bg-primary">{{ lead.get_status_display }}</span>
+                    </p>
+                    <p><strong>Fonte:</strong> {{ lead.fonte|default:"Não informada" }}</p>
+                </div>
+                <div class="col-12 col-md-6">
+                    <p><strong>Curso de Interesse:</strong> {{ lead.get_curso_interesse_display|default:"Não informado" }}</p>
+                    <p><strong>Nível de Experiência:</strong> {{ lead.get_nivel_experiencia_display|default:"Não informado" }}</p>
+                    <p><strong>Melhor Horário p/ Contato:</strong> {{ lead.get_melhor_horario_contato_display|default:"Não informado" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nova interação + Histórico -->
+    <div class="row gy-4">
+        <!-- Formulário de nova interação -->
+        <div class="col-12 col-md-5">
+            {% if lead.status == 'convertido' %}
+                <h5 class="mb-3">Status do Lead</h5>
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="bi bi-person-check-fill fs-1 text-success"></i>
+                        <h6 class="mt-3">Lead Convertido</h6>
+                        <p class="text-muted small">Este lead já foi convertido em aluno. Novas interações devem ser registradas no perfil do aluno.</p>
+                        {% if lead.aluno_convertido %}
+                        <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-success w-100">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>Ver Perfil do Aluno
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <h5 class="mb-3">Registrar Nova Interação</h5>
+                <div class="card">
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            {{ form_interacao.as_p }}
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-plus-circle me-1"></i> Adicionar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Histórico de interações -->
+        <div class="col-12 col-md-7">
+            <h5 class="mb-3">Histórico de Contatos</h5>
+            {% for interacao in interacoes %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <p class="card-text">{{ interacao.notas.capitalize }}</p>
+                        <small class="text-muted">
+                            <strong>{{ interacao.get_tipo_display }}</strong> por 
+                            <em>{{ interacao.responsavel.get_full_name|default:"Usuário" }}</em> em 
+                            {{ interacao.data_interacao|date:"d/m/Y à\s H:i" }}
+                        </small>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="alert alert-secondary">Nenhuma interação registrada ainda.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

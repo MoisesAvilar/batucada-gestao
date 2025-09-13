@@ -1,0 +1,184 @@
+{% extends "scheduler/base.html" %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    .kanban-board {
+        display: flex;
+        gap: 1.5rem;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        flex-wrap: nowrap;
+    }
+
+    .kanban-column {
+        min-width: 300px;
+        max-width: 300px;
+        flex-shrink: 0;
+        background-color: var(--bs-light);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+    }
+
+    .kanban-cards {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .kanban-card {
+        background-color: var(--bs-white);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        transition: box-shadow 0.2s ease-in-out;
+    }
+
+    .kanban-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .kanban-card a {
+        text-decoration: none;
+        color: var(--bs-dark);
+    }
+
+    .kanban-column[data-status="novo"] {
+        background-color: #007bff; /* azul */
+        color: white;
+    }
+
+    .kanban-column[data-status="em_contato"] {
+        background-color: #ffc107; /* amarelo */
+        color: black;
+    }
+
+    .kanban-column[data-status="negociando"] {
+        background-color: #17a2b8; /* ciano */
+        color: white;
+    }
+
+    .kanban-column[data-status="convertido"] {
+        background-color: #28a745; /* verde */
+        color: white;
+    }
+
+    .kanban-column[data-status="perdido"] {
+        background-color: #dc3545; /* vermelho */
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .kanban-board {
+            flex-direction: column;
+            overflow-x: hidden;
+            gap: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        .kanban-column {
+            max-width: 100%;
+        }
+
+        .kanban-card {
+            margin-bottom: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    {% include 'leads/_leads_nav.html' %}
+
+    <div class="kanban-board">
+    {% for column in kanban_columns %}
+    <div class="kanban-column" data-status="{{ column.id }}">
+        <div class="content-block mb-3">
+            <h6 class="text-center fw-bold text-uppercase">{{ column.name }}</h6>
+
+            <ul class="kanban-cards" data-status="{{ column.id }}" id="kanban-{{ column.id }}">
+                {% for lead in column.leads %}
+                <li class="kanban-card" data-lead-id="{{ lead.pk }}">
+                    <h6 class="mb-1 fw-semibold">
+                        <a href="{% url 'leads:lead_detalhe' lead.pk %}">{{ lead.nome_interessado.title }}</a>
+                    </h6>
+                    <p class="mb-1 text-muted small"><i class="bi bi-phone me-1"></i>{{ lead.contato }}</p>
+                    <small class="text-muted"><i class="bi bi-bookmark me-1"></i>Curso: {{ lead.get_curso_interesse_display|default:'N/A' }}</small>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const csrftoken = getCookie('csrftoken');
+    const kanbanColumns = document.querySelectorAll(".kanban-cards");
+    const updateUrl = "{% url 'leads:update_lead_status' %}";
+
+    kanbanColumns.forEach((column) => {
+        new Sortable(column, {
+            group: "kanban",
+            animation: 150,
+            onEnd: function (evt) {
+                const leadCard = evt.item;
+                const leadId = leadCard.dataset.leadId;
+                const newStatus = evt.to.dataset.status;
+
+                fetch(updateUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: JSON.stringify({
+                        lead_id: leadId,
+                        new_status: newStatus,
+                    }),
+                })
+                .then((response) => response.json())
+                .then((result) => {
+                    if (result.status !== "success") {
+                        console.error('Erro ao atualizar:', result.message);
+                        evt.from.appendChild(leadCard);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erro de rede:", error);
+                    evt.from.appendChild(leadCard);
+                });
+            },
+        });
+    });
+});
+</script>
+{% endblock %}

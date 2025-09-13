@@ -1,0 +1,302 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+    {% include 'leads/_leads_nav.html' %}
+    <div class="d-flex justify-content-end mb-3">
+        <div class="d-grid d-lg-none w-100">
+            <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasFilters">
+                <i class="bi bi-funnel me-1"></i> Filtros e Busca
+            </button>
+        </div>
+        <div class="d-none d-lg-block">
+            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltersDesktop" aria-expanded="false" aria-controls="collapseFiltersDesktop">
+                <i class="bi bi-funnel me-1"></i> Filtros e Busca
+            </button>
+        </div>
+    </div>
+
+    <div class="collapse" id="collapseFiltersDesktop">
+        <form method="get" class="content-block mb-4">
+            {% include 'leads/partials/_lead_filters.html' %}
+            <div class="pt-3 mt-3 border-top text-end">
+                <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary">Limpar</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Aplicar Filtros
+                </button>
+            </div>
+        </form>
+    </div>
+
+  {% if page_obj.paginator.count > 0 %}
+    <div class="mb-3">
+        <p class="text-muted mb-0 small">
+            {% if page_obj.paginator.count == 1 %}
+                Mostrando <strong>1</strong> de <strong>1</strong> lead encontrado.
+            {% else %}
+                Mostrando <strong>{{ page_obj.start_index }}</strong> a 
+                <strong>{{ page_obj.end_index }}</strong> de 
+                <strong>{{ page_obj.paginator.count }}</strong> leads encontrados.
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+
+
+
+<div class="content-block">
+    <div class="row">
+        {% for lead in page_obj %}
+
+        <div class="col-12 col-xl-6 mb-4 d-none d-md-block">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-circle" style="width: 48px; height: 48px;">
+                                <i class="bi bi-person-circle fs-4 text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h6 class="card-title mb-0 fw-bold">
+                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                                    {{ lead.nome_interessado.title }}
+                                </a>
+                            </h6>
+                            <p class="card-text text-muted mb-0">{{ lead.contato }}</p>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-3">
+                        {% if lead.curso_interesse %}
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="bi bi-book me-2"></i>
+                            <span>{{ lead.get_curso_interesse_display }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-calendar-event me-2"></i>
+                            <span>Criado em {{ lead.data_criacao|date:"d/m/Y" }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        {% include 'leads/partials/_status_badge.html' with status=lead.status %}
+                    </div>
+                    
+                    <div>
+                        {% if lead.status == 'convertido' and lead.aluno_convertido %}
+                            <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-sm btn-info">
+                                <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
+                            </a>
+                        {% else %}
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" data-bs-target="#editLeadModal"
+                                        data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                    Editar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="visually-hidden">Mais Ações</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'leads:converter_lead' lead.pk %}">
+                                            <i class="bi bi-check2-circle me-2"></i>Converter
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button class="dropdown-item text-danger" type="button"
+                                                data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                                                data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                            <i class="bi bi-trash me-2"></i>Excluir
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </div>
+                    </div>
+            </div>
+        </div>
+
+        <div class="d-md-none">
+            <div class="card shadow-sm mb-3 border-0 rounded-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1 fw-bold">
+                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                                    {{ lead.nome_interessado.title }}
+                                </a>
+                            </h6>
+                            <small class="text-muted">
+                                <i class="bi bi-phone me-1"></i>{{ lead.contato }}
+                            </small>
+                        </div>
+                        {% include 'leads/partials/_status_badge.html' with status=lead.status %}
+                    </div>
+
+                    <div class="text-muted small mb-3">
+                        <i class="bi bi-calendar3 me-1"></i>
+                        Criado em: {{ lead.data_criacao|date:"d/m/Y H:i" }}
+                    </div>
+
+                    {% if lead.status == 'convertido' and lead.aluno_convertido %}
+                         <div class="d-grid">
+                            <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-info btn-sm">
+                                <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-success btn-sm w-75">
+                                <i class="bi bi-check-circle me-1"></i>Converter
+                            </a>
+                            <button type="button" class="btn btn-outline-success btn-sm dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="visually-hidden">Mais ações</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal" data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                        <i class="bi bi-pencil me-2"></i>Editar
+                                    </button>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                        <i class="bi bi-trash me-2"></i>Excluir
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                    </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col">
+            <div class="text-center text-muted p-4">Nenhum lead encontrado.</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal fade" id="editLeadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editLeadForm" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Você tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteForm" method="post">
+                    {% csrf_token %}
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasFilters" aria-labelledby="offcanvasFiltersLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="offcanvasFiltersLabel"><i class="bi bi-funnel me-2"></i>Filtros de Leads</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form method="get">
+        {% include 'leads/partials/_lead_filters.html' %}
+        <div class="d-grid gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+            <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary">Limpar Filtros</a>
+        </div>
+    </form>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de editar lead
+    const editModalEl = document.getElementById('editLeadModal');
+    if (editModalEl) {
+        const editForm = editModalEl.querySelector('#editLeadForm');
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-lead-url');
+            editForm.setAttribute('action', url);
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    for (const [key, value] of Object.entries(data)) {
+                        const field = editForm.querySelector(`[name="${key}"]`);
+                        if (field) {
+                            field.value = value;
+                        }
+                    }
+                });
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const url = editForm.getAttribute('action');
+            const formData = new FormData(editForm);
+
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Ocorreu um erro ao salvar. Verifique os campos.');
+                    console.error(data.errors);
+                }
+            });
+        });
+    }
+
+    // Modal de exclusão
+    const deleteModalEl = document.getElementById('confirmDeleteModal');
+    if (deleteModalEl) {
+        deleteModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const url = button.getAttribute('data-delete-url');
+            const deleteForm = deleteModalEl.querySelector('#deleteForm');
+            deleteForm.setAttribute('action', url);
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,136 +1,112 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
     <h1 class="h3 mb-0">Lançamentos Recorrentes</h1>
+    <p class="text-muted mb-0">Crie regras para lançar despesas e receitas automaticamente.</p>
 </div>
 
 <div class="row g-4">
     <div class="col-lg-6">
-        <div class="content-block">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Receitas Recorrentes</h5>
-                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addReceitaRecorrenteModal">Nova</button>
-            </div>
-            
-            <div class="table-responsive d-none d-lg-block">
-                <table class="table table-hover">
-                    <thead><tr><th>Descrição</th><th class="text-center">Valor</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
-                    <tbody>
-                        {% for r in receitas_recorrentes %}
-                        <tr>
-                            <td>
-                                {% if r.aluno %}Mensalidade<small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>{% else %}{{ r.descricao }}{% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if r.aluno and r.aluno.valor_mensalidade %}R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}{% elif r.valor %}R$ {{ r.valor|floatformat:2 }}{% else %}<span class="text-muted">N/A</span>{% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if r.aluno and r.aluno.dia_vencimento %}{{ r.aluno.dia_vencimento }}{% elif r.dia_do_mes %}{{ r.dia_do_mes }}{% else %}<span class="text-muted">N/A</span>{% endif %}
-                            </td>
-                            <td class="text-center">{% if r.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editReceitaRecorrenteModal" data-url="{% url 'finances:edit_receita_recorrente' r.pk %}"><i class="bi bi-pencil-square"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita_recorrente' r.pk %}"><i class="bi bi-trash"></i></button>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="5" class="text-center text-muted small p-4">Nenhuma receita recorrente cadastrada.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="d-lg-none">
-                {% for r in receitas_recorrentes %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="card-title mb-1">{% if r.aluno %}Mensalidade{% else %}{{ r.descricao }}{% endif %}</h6>
-                                {% if r.aluno %}<small class="text-muted d-block mb-2">{{ r.aluno.nome_completo|title }}</small>{% endif %}
-                                <p class="card-text mb-0">
-                                    <strong>{% if r.aluno and r.aluno.valor_mensalidade %}R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}{% elif r.valor %}R$ {{ r.valor|floatformat:2 }}{% else %}N/A{% endif %}</strong>
-                                </p>
-                            </div>
-                            <div>
-                                {% if r.ativa %}<span class="badge bg-success-subtle text-success-emphasis">Ativa</span>
-                                {% else %}<span class="badge bg-danger-subtle text-danger-emphasis">Inativa</span>{% endif %}
-                            </div>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                            <small class="text-muted">Dia do Lançamento: <strong>{% if r.aluno and r.aluno.dia_vencimento %}{{ r.aluno.dia_vencimento }}{% elif r.dia_do_mes %}{{ r.dia_do_mes }}{% else %}N/A{% endif %}</strong></small>
-                            <div>
-                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editReceitaRecorrenteModal" data-url="{% url 'finances:edit_receita_recorrente' r.pk %}"><i class="bi bi-pencil-square"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita_recorrente' r.pk %}"><i class="bi bi-trash"></i></button>
-                            </div>
-                        </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-success">Receitas Recorrentes</h5>
+            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addReceitaRecorrenteModal">
+                <i class="bi bi-plus-circle me-1"></i>Nova Regra
+            </button>
+        </div>
+        
+        {% for r in receitas_recorrentes %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title fw-bold">
+                            {% if r.aluno %}Mensalidade{% else %}{{ r.descricao|title }}{% endif %}
+                        </h6>
+                        {% if r.aluno %}<small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>{% endif %}
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Editar" data-bs-toggle="modal" data-bs-target="#editReceitaRecorrenteModal" data-url="{% url 'finances:edit_receita_recorrente' r.pk %}"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita_recorrente' r.pk %}"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
-                {% empty %}
-                <div class="text-center text-muted p-4">Nenhuma receita recorrente cadastrada.</div>
-                {% endfor %}
+
+                <div class="d-flex align-items-center bg-body-tertiary p-2 rounded mt-3">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold fs-5">
+                            {% if r.aluno and r.aluno.valor_mensalidade %}
+                                R$ {{ r.aluno.valor_mensalidade|floatformat:2 }}
+                            {% elif r.valor %}
+                                R$ {{ r.valor|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted">
+                             <i class="bi bi-calendar-check me-1"></i>
+                            Todo dia <strong>{% if r.aluno and r.aluno.dia_vencimento %}{{ r.aluno.dia_vencimento }}{% elif r.dia_do_mes %}{{ r.dia_do_mes }}{% else %}N/A{% endif %}</strong>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch fs-5">
+                        <input class="form-check-input Categoria " type="checkbox" role="switch" 
+                               id="toggle-receita-{{ r.pk }}" 
+                               data-model="ReceitaRecorrente"
+                               data-pk="{{ r.pk }}"
+                               {% if r.ativa %}checked{% endif %}>
+                        <label class="form-check-label" for="toggle-receita-{{ r.pk }}"></label>
+                    </div>
+                </div>
             </div>
-            </div>
+        </div>
+        {% empty %}
+        <div class="card card-body text-center text-muted small p-4">Nenhuma regra de receita recorrente.</div>
+        {% endfor %}
     </div>
 
     <div class="col-lg-6">
-        <div class="content-block">
-             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Despesas Recorrentes</h5>
-                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addDespesaRecorrenteModal">Nova</button>
-            </div>
-            
-            <div class="table-responsive d-none d-lg-block">
-                <table class="table table-hover">
-                    <thead><tr><th>Descrição</th><th class="text-center">Valor</th><th class="text-center">Dia</th><th class="text-center">Ativa?</th><th>Ações</th></tr></thead>
-                    <tbody>
-                        {% for d in despesas_recorrentes %}
-                        <tr>
-                            <td>{{ d.descricao }}</td>
-                            <td class="text-center">R$ {{ d.valor|floatformat:2 }}</td>
-                            <td class="text-center">{{ d.dia_do_mes }}</td>
-                            <td class="text-center">{% if d.ativa %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editDespesaRecorrenteModal" data-url="{% url 'finances:edit_despesa_recorrente' d.pk %}"><i class="bi bi-pencil-square"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa_recorrente' d.pk %}"><i class="bi bi-trash"></i></button>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="5" class="text-center text-muted small p-4">Nenhuma despesa recorrente cadastrada.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0 text-danger">Despesas Recorrentes</h5>
+            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addDespesaRecorrenteModal">
+                 <i class="bi bi-plus-circle me-1"></i>Nova Regra
+            </button>
+        </div>
 
-            <div class="d-lg-none">
-                {% for d in despesas_recorrentes %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="card-title mb-1">{{ d.descricao }}</h6>
-                                <p class="card-text mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
-                            </div>
-                            <div>
-                                {% if d.ativa %}<span class="badge bg-success-subtle text-success-emphasis">Ativa</span>
-                                {% else %}<span class="badge bg-danger-subtle text-danger-emphasis">Inativa</span>{% endif %}
-                            </div>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                            <small class="text-muted">Dia do Lançamento: <strong>{{ d.dia_do_mes }}</strong></small>
-                            <div>
-                                <button class="btn btn-sm btn-outline-primary" title="Editar" data-bs-toggle="modal" data-bs-target="#editDespesaRecorrenteModal" data-url="{% url 'finances:edit_despesa_recorrente' d.pk %}"><i class="bi bi-pencil-square"></i></button>
-                                <button class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa_recorrente' d.pk %}"><i class="bi bi-trash"></i></button>
-                            </div>
-                        </div>
+        {% for d in despesas_recorrentes %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title fw-bold">{{ d.descricao|title }}</h6>
+                        {% if d.professor %}<small class="text-muted d-block">{{ d.professor.get_full_name|title }}</small>{% endif %}
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Editar" data-bs-toggle="modal" data-bs-target="#editDespesaRecorrenteModal" data-url="{% url 'finances:edit_despesa_recorrente' d.pk %}"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa_recorrente' d.pk %}"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
-                {% empty %}
-                <div class="text-center text-muted p-4">Nenhuma despesa recorrente cadastrada.</div>
-                {% endfor %}
+                
+                <div class="d-flex align-items-center bg-body-tertiary p-2 rounded mt-3">
+                    <div class="flex-grow-1">
+                        <div class="fw-bold fs-5">R$ {{ d.valor|floatformat:2 }}</div>
+                        <div class="small text-muted">
+                            <i class="bi bi-calendar-check me-1"></i>
+                            Todo dia <strong>{{ d.dia_do_mes }}</strong>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch fs-5">
+                        <input class="form-check-input" type="checkbox" role="switch" 
+                               id="toggle-despesa-{{ d.pk }}"
+                               data-model="DespesaRecorrente"
+                               data-pk="{{ d.pk }}"
+                               {% if d.ativa %}checked{% endif %}>
+                        <label class="form-check-label" for="toggle-despesa-{{ d.pk }}"></label>
+                    </div>
+                </div>
             </div>
         </div>
+        {% empty %}
+        <div class="card card-body text-center text-muted small p-4">Nenhuma regra de despesa recorrente.</div>
+        {% endfor %}
     </div>
 </div>
 
@@ -161,13 +137,58 @@
 </div>
 
 <div class="modal fade" id="editReceitaRecorrenteModal" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Editar Receita Recorrente</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <form id="editReceitaRecorrenteForm" method="post">
-            <div class="modal-body">{% csrf_token %}{{ receita_form.as_p }}</div>
-            <div class="modal-footer"><button type="submit" class="btn btn-primary">Salvar</button></div>
-        </form>
-    </div></div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Receita Recorrente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editReceitaRecorrenteForm" method="post">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_aluno_edit" class="form-label">{{ receita_form.aluno.label }}</label>
+                        {{ receita_form.aluno }}
+                    </div>
+
+                    <div class="mb-3" data-receita-field="valor">
+                        <label for="id_valor_edit" class="form-label">{{ receita_form.valor.label }}</label>
+                        {{ receita_form.valor }}
+                    </div>
+                    <div class="mb-3" data-receita-field="dia_do_mes">
+                        <label for="id_dia_do_mes_edit" class="form-label">{{ receita_form.dia_do_mes.label }}</label>
+                        {{ receita_form.dia_do_mes }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_descricao_edit" class="form-label">{{ receita_form.descricao.label }}</label>
+                        {{ receita_form.descricao }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_categoria_edit" class="form-label">{{ receita_form.categoria.label }}</label>
+                        {{ receita_form.categoria }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_data_inicio_edit" class="form-label">{{ receita_form.data_inicio.label }}</label>
+                            {{ receita_form.data_inicio }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_data_fim_edit" class="form-label">{{ receita_form.data_fim.label }}</label>
+                            {{ receita_form.data_fim }}
+                        </div>
+                    </div>
+                     <div class="mb-3 form-check">
+                        {{ receita_form.ativa }}
+                        <label for="id_ativa_edit" class="form-check-label">{{ receita_form.ativa.label }}</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="editDespesaRecorrenteModal" tabindex="-1">
@@ -185,13 +206,55 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Função genérica para lidar com os modais de edição
+    
+    // --- LÓGICA PARA O MODAL DE ADICIONAR RECEITA RECORRENTE ---
+    const addReceitaModal = document.getElementById('addReceitaRecorrenteModal');
+    if (addReceitaModal) {
+        const alunoSelect = addReceitaModal.querySelector('[name="aluno"]');
+        const valorInput = addReceitaModal.querySelector('[name="valor"]');
+        const diaInput = addReceitaModal.querySelector('[name="dia_do_mes"]');
+        
+        function toggleAddReceitaFields() {
+            // Se um aluno (valor diferente de vazio) for selecionado...
+            if (alunoSelect.value) {
+                valorInput.closest('p').style.display = 'none';
+                diaInput.closest('p').style.display = 'none';
+            } else {
+                valorInput.closest('p').style.display = 'block';
+                diaInput.closest('p').style.display = 'block';
+            }
+        }
+        alunoSelect.addEventListener('change', toggleAddReceitaFields);
+        
+        // Garante que o estado inicial esteja correto ao abrir o modal
+        addReceitaModal.addEventListener('show.bs.modal', toggleAddReceitaFields);
+    }
+
+    // --- LÓGICA PARA O MODAL DE EDITAR RECEITA RECORRENTE (AGORA INTELIGENTE) ---
+    const editReceitaModal = document.getElementById('editReceitaRecorrenteModal');
+    if (editReceitaModal) {
+        const alunoSelect = editReceitaModal.querySelector('[name="aluno"]');
+        const valorField = editReceitaModal.querySelector('[data-receita-field="valor"]');
+        const diaField = editReceitaModal.querySelector('[data-receita-field="dia_do_mes"]');
+
+        function toggleEditReceitaFields() {
+            if (alunoSelect.value) {
+                valorField.style.display = 'none';
+                diaField.style.display = 'none';
+            } else {
+                valorField.style.display = 'block';
+                diaField.style.display = 'block';
+            }
+        }
+        alunoSelect.addEventListener('change', toggleEditReceitaFields);
+    }
+    
+    // --- FUNÇÃO GENÉRICA PARA CONFIGURAR MODAIS DE EDIÇÃO ---
     function setupEditModal(modalId, formId) {
         const editModalEl = document.getElementById(modalId);
         if (!editModalEl) return;
 
         const editForm = editModalEl.querySelector('#' + formId);
-        const editModal = new bootstrap.Modal(editModalEl);
 
         editModalEl.addEventListener('show.bs.modal', function(event) {
             const button = event.relatedTarget;
@@ -208,6 +271,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             field.value = value;
                         }
                     }
+                }
+                
+                // ATUALIZAÇÃO: Se estamos no modal de receita, chama a função para ajustar os campos
+                if (modalId === 'editReceitaRecorrenteModal') {
+                    // Dispara o evento 'change' no select do aluno para garantir que a lógica de visibilidade rode
+                    const alunoSelect = editReceitaModal.querySelector('[name="aluno"]');
+                    alunoSelect.dispatchEvent(new Event('change'));
                 }
             });
         });
@@ -233,26 +303,41 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEditModal('editReceitaRecorrenteModal', 'editReceitaRecorrenteForm');
     setupEditModal('editDespesaRecorrenteModal', 'editDespesaRecorrenteForm');
 
-    const addReceitaModal = document.getElementById('addReceitaRecorrenteModal');
-        if (addReceitaModal) {
-            const alunoSelect = addReceitaModal.querySelector('[name="aluno"]');
-            const valorInput = addReceitaModal.querySelector('[name="valor"]');
-            const diaInput = addReceitaModal.querySelector('[name="dia_do_mes"]');
+    // --- SCRIPT PARA O TOGGLE DE ATIVAÇÃO ---
+    const toggleSwitches = document.querySelectorAll('.form-check-input[role="switch"]');
+    
+    toggleSwitches.forEach(sw => {
+        sw.addEventListener('change', function() {
+            const model = this.dataset.model;
+            const pk = this.dataset.pk;
+            const isActive = this.checked;
             
-            function toggleReceitaFields() {
-                // Se um aluno (valor diferente de vazio) for selecionado...
-                if (alunoSelect.value) {
-                    valorInput.closest('p').style.display = 'none';
-                    diaInput.closest('p').style.display = 'none';
-                } else {
-                    valorInput.closest('p').style.display = 'block';
-                    diaInput.closest('p').style.display = 'block';
+            const formData = new FormData();
+            formData.append('model', model);
+            formData.append('pk', pk);
+            formData.append('is_active', isActive);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch("{% url 'finances:toggle_recorrencia_ativa' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'success') {
+                    console.error('Erro ao atualizar:', data.message);
+                    alert('Ocorreu um erro ao tentar atualizar o status.');
+                    this.checked = !isActive;
                 }
-            }
-            
-            alunoSelect.addEventListener('change', toggleReceitaFields);
-            toggleReceitaFields(); // Roda uma vez ao carregar
-        }
+            })
+            .catch(err => {
+                console.error('Erro de rede:', err);
+                alert('Ocorreu um erro de rede.');
+                this.checked = !isActive;
+            });
+        });
+    });
 });
 </script>
 {% endblock %}

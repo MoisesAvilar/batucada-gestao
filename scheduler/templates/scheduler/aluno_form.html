@@ -20,6 +20,9 @@
         <div class="content-block">
             <form method="post">
                 {% csrf_token %}
+                {% if lead_id %}
+                    <input type="hidden" name="lead_id" value="{{ lead_id }}">
+                {% endif %}
                 <h5 class="mb-3">Informações Pessoais</h5>
                 <div class="mb-3">
                     <label for="{{ form.status.id_for_label }}" class="form-label fw-bold">{{ form.status.label }}</label>
@@ -75,6 +78,11 @@
                             {{ form.dia_vencimento }}
                             {% if form.dia_vencimento.help_text %}<small class="form-text text-muted">{{ form.dia_vencimento.help_text }}</small>{% endif %}
                             {% if form.dia_vencimento.errors %}<div class="invalid-feedback d-block">{{ form.dia_vencimento.errors|first }}</div>{% endif %}
+                        </div>
+                        <div class="mb-3 form-check form-switch">
+                            {{ form.criar_recorrencia }}
+                            <label class="form-check-label" for="{{ form.criar_recorrencia.id_for_label }}">{{ form.criar_recorrencia.label }}</label>
+                            <div class="form-text">{{ form.criar_recorrencia.help_text }}</div>
                         </div>
                     </div>
                 </div>

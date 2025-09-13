@@ -38,10 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.humanize',
 
     'accounts',
     'core',
     'finances',
+    'leads',
     'logs',
     'scheduler',
     'store',
@@ -79,6 +81,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.unidades_negocio_processor',
+                'core.context_processors.add_lead_form_processor',
+                'core.context_processors.notificacoes_vencimento',
             ],
         },
     },
@@ -126,7 +130,13 @@ TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 
+USE_L10N = True
+
 USE_TZ = True
+
+USE_THOUSAND_SEPARATOR = True
+DECIMAL_SEPARATOR = ','
+THOUSAND_SEPARATOR = '.'
 
 
 # Static files (CSS, JavaScript, Images)

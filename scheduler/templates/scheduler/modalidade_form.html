@@ -24,9 +24,22 @@
                 <div class="mb-3">
                     <label for="{{ form.nome.id_for_label }}" class="form-label fw-bold">{{ form.nome.label }}</label>
                     {{ form.nome }}
-                    {% if form.nome.errors %}<div class="invalid-feedback d-block">{{ form.nome.errors|first }}</div>{% endif %}
                 </div>
 
+                <div class="mb-3">
+                    <label for="{{ form.valor_pagamento_professor.id_for_label }}" class="form-label fw-bold">{{ form.valor_pagamento_professor.label }}</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        {{ form.valor_pagamento_professor }}
+                    </div>
+                    <div class="form-text">Valor padrão pago ao professor.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.tipo_pagamento.id_for_label }}" class="form-label fw-bold">{{ form.tipo_pagamento.label }}</label>
+                    {{ form.tipo_pagamento }}
+                    <div class="form-text">{{ form.tipo_pagamento.help_text }}</div>
+                </div>
                 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
                     <a href="{% url 'scheduler:modalidade_listar' %}" class="btn btn-outline-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-primary px-4">Salvar</button>

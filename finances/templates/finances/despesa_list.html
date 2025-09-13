@@ -1,66 +1,130 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0">Contas a Pagar</h1>
-    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addDespesaModal">
-        <i class="bi bi-plus-circle me-2"></i>Nova Despesa
-    </button>
+<div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-0">{{ titulo }}</h1>
+        {% if filtro_ativo == 'a_vencer' %}
+            <p class="text-muted mb-0">Mostrando apenas contas com vencimento nos próximos 5 dias.</p>
+        {% endif %}
+    </div>
+    <div class="d-grid d-lg-block d-flex gap-2">
+        {% if filtro_ativo == 'a_vencer' %}
+            <a href="{% url 'finances:despesa_list' %}" class="btn btn-outline-secondary"><i class="bi bi-x-lg me-1"></i> Limpar Filtro</a>
+        {% endif %}
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addDespesaModal">
+            <i class="bi bi-plus-circle me-2"></i>Nova Despesa
+        </button>
+    </div>
+</div>
+
+<div class="accordion mb-4" id="accordionFiltros">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltros" aria-expanded="false" aria-controls="collapseFiltros">
+                <i class="bi bi-funnel me-2"></i> Filtros de Pesquisa
+            </button>
+        </h2>
+        <div id="collapseFiltros" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionFiltros">
+            <div class="accordion-body bg-body">
+                <form method="GET" action="{% url 'finances:despesa_list' %}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <input type="text" name="descricao" id="descricao" class="form-control" value="{{ filtros_aplicados.descricao }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for value, display in status_choices %}
+                                <option value="{{ value }}" {% if filtros_aplicados.status == value %}selected{% endif %}>{{ display }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                         <div class="col-md-3">
+                            <label for="categoria" class="form-label">Categoria</label>
+                            <select name="categoria" id="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.pk }}" {% if filtros_aplicados.categoria|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="professor" class="form-label">Professor</label>
+                            <select name="professor" id="professor" class="form-select">
+                                <option value="">Todos</option>
+                                {% for prof in professores %}
+                                <option value="{{ prof.pk }}" {% if filtros_aplicados.professor|stringformat:"s" == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.get_full_name|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="data_inicial" class="form-label">De</label>
+                            <input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ filtros_aplicados.data_inicial }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="data_final" class="form-label">Até</label>
+                            <input type="date" name="data_final" id="data_final" class="form-control" value="{{ filtros_aplicados.data_final }}">
+                        </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <a href="{% url 'finances:despesa_list' %}" class="btn btn-outline-secondary">Limpar Filtros</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-2"></i>Filtrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="content-block">
-    <div class="table-responsive d-none d-lg-block">
-        <table class="table">
-            <thead><tr><th>Descrição</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
-            <tbody>
-                {% for d in despesas %}
-                <tr id="despesa-row-{{ d.pk }}">
-                    <td data-label="descricao">
-                        {{ d.descricao }}
-                        {% if d.professor %}<small class="text-muted d-block">{{ d.professor.get_full_name|title }}</small>{% endif %}
-                    </td>
-                    <td data-label="valor">R$ {{ d.valor|floatformat:2 }}</td>
-                    <td data-label="competencia">{{ d.data_competencia|date:"M/Y" }}</td>
-                    <td data-label="status">
-                        {% if d.status == 'pago' %}<span class="badge bg-success-subtle text-success-emphasis">Pago em {{ d.data_pagamento|date:"d/m/Y" }}</span>
-                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Pagar</span>{% endif %}
-                    </td>
-                    <td data-label="Ações">
-                        <div class="btn-group">
-                            {% if d.status == 'a_pagar' %}
-                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
-                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
-                            {% else %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
-                            {% endif %}
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
-                                <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
-                            </ul>
+    <div class="row">
+        {% for d in page_obj %} {# <<< ALTERADO #}
+        <div class="col-12 col-xl-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-circle" style="width: 48px; height: 48px;">
+                                <i class="bi bi-receipt fs-4 text-danger"></i> </div>
                         </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="d-lg-none">
-        {% for d in despesas %}
-        <div class="card mb-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h6 class="card-title mb-1">{{ d.descricao }}</h6>
-                        {% if d.professor %}<small class="text-muted d-block mb-2">{{ d.professor.get_full_name|title }}</small>{% endif %}
-                        <p class="card-text mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
+
+                        <div class="col">
+                            <h6 class="card-title mb-0 fw-bold">{{ d.descricao|title }}</h6>
+                            <p class="card-text fs-5 mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
+                        </div>
                     </div>
-                    <div>
-                        {% if d.status == 'pago' %}<span class="badge bg-success-subtle text-success-emphasis">Pago</span>
-                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Pagar</span>{% endif %}
+
+                    <div class="text-muted small mt-3">
+                        {% if d.professor %}
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="bi bi-person-badge me-2"></i> <span>{{ d.professor.get_full_name|title }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-calendar-event me-2"></i>
+                            <span>Competência: {{ d.data_competencia|date:"M/Y" }}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                    <small class="text-muted">Competência: {{ d.data_competencia|date:"M/Y" }}</small>
+
+                <div class="card-footer d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        {% if d.status == 'pago' %}
+                            <span class="badge fs-6 bg-success-subtle text-success-emphasis rounded-pill">
+                                <i class="bi bi-check-circle-fill me-1"></i>
+                                Pago
+                            </span>
+                        {% else %}
+                            <span class="badge fs-6 bg-warning-subtle text-warning-emphasis rounded-pill">
+                                <i class="bi bi-hourglass-split me-1"></i>
+                                A Pagar
+                            </span>
+                        {% endif %}
+                    </div>
+
                     <div class="btn-group">
                         {% if d.status == 'a_pagar' %}
                             <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
@@ -77,50 +141,142 @@
             </div>
         </div>
         {% empty %}
-        <div class="text-center text-muted p-4">Nenhuma despesa encontrada.</div>
+        <div class="col">
+            <div class="text-center text-muted p-4">Nenhuma despesa encontrada.</div>
+        </div>
         {% endfor %}
     </div>
-    </div>
+    
+    {% include "scheduler/partials/pagination.html" %}
+</div>
 
 <div class="modal fade" id="addDespesaModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Adicionar Nova Despesa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Nova Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <form id="addDespesaForm" action="{% url 'finances:despesa_list' %}" method="post">
                 <div class="modal-body">
                     {% csrf_token %}
-                    <div class="vstack gap-3">
-                        <p>{{ form.descricao.label_tag }} {{ form.descricao }}</p>
-                        <p>{{ form.valor.label_tag }} {{ form.valor }}</p>
-                        <div>
-                            <label for="{{ form.category.id_for_label }}" class="form-label d-block">{{ form.category.label }}</label>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
+                            {{ form.descricao }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
                             <div class="input-group">
-                                {{ form.categoria }}
-                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" title="Adicionar Nova Categoria">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
+                                <span class="input-group-text">R$</span>
+                                {{ form.valor }}
                             </div>
                         </div>
-                        <p>{{ form.data_competencia.label_tag }} {{ form.data_competencia }}</p>
-                        <p>{{ form.data_pagamento.label_tag }} {{ form.data_pagamento }}</p>
-                        <p>{{ form.professor.label_tag }} {{ form.professor }}</p>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" data-category-type="expense" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addDespesaForm">Salvar Despesa</button></div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.data_competencia.id_for_label }}" class="form-label">{{ form.data_competencia.label }}</label>
+                            {{ form.data_competencia }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.data_pagamento.id_for_label }}" class="form-label">{{ form.data_pagamento.label }} (Opcional)</label>
+                            {{ form.data_pagamento }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.professor.id_for_label }}" class="form-label">{{ form.professor.label }}</label>
+                        <div class="input-group">
+                            {{ form.professor }}
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    id="open-calculator-add-btn"
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#calculatorModal" 
+                                    title="Calcular Pagamento do Professor">
+                                <i class="bi bi-calculator"></i>
+                            </button>
+                        </div>
+</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Despesa</button>
+                </div>
             </form>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="editDespesaModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Editar Despesa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Despesa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <form id="editDespesaForm" method="post">
                 <div class="modal-body">
                     {% csrf_token %}
-                    {# Usamos o mesmo form, os campos serão preenchidos via JS #}
-                    {{ form.as_p }}
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
+                            {{ form.descricao }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
+                             <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                {{ form.valor }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" data-category-type="expense" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.data_competencia.id_for_label }}" class="form-label">{{ form.data_competencia.label }}</label>
+                            {{ form.data_competencia }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.data_pagamento.id_for_label }}" class="form-label">{{ form.data_pagamento.label }} (Opcional)</label>
+                            {{ form.data_pagamento }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.professor.id_for_label }}" class="form-label">{{ form.professor.label }}</label>
+                        <div class="input-group">
+                            {{ form.professor }}
+                            <button type="button" class="btn btn-outline-secondary"
+                                    id="open-calculator-edit-btn" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#calculatorModal" 
+                                    title="Calcular Pagamento do Professor">
+                                <i class="bi bi-calculator"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -134,20 +290,41 @@
 <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalTitle">Nova Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <div class="modal-body">
                 <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
                     {% csrf_token %}
-                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
-                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
+                    <input type="hidden" name="type" id="id_type_modal">
+
+                    <div class="mb-3">
+                        <label for="id_name_modal" class="form-label">Nome da Categoria</label>
+                        <input type="text" name="name" class="form-control" id="id_name_modal" required>
+                    </div>
+
+                    <div id="tipo-dre-container" class="mb-3" style="display: none;">
+                        <label class="form-label">Classificar como:</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tipo_dre" id="id_tipo_dre_custo" value="custo" autocomplete="off">
+                            <label for="id_tipo_dre_custo" class="btn btn-outline-primary w-100">Custo Direto</label>
+
+                            <input type="radio" class="btn-check" name="tipo_dre" id="id_tipo_dre_despesa" value="despesa" autocomplete="off" checked>
+                            <label for="id_tipo_dre_despesa" class="btn btn-outline-primary w-100">Despesa Operacional</label>
+                        </div>
+                    </div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="submitCategoryFormBtn" form="addCategoryForm">Salvar Categoria</button>
+            </div>
         </div>
     </div>
 </div>
 
-{% for d in despesas %}
+{% for d in page_obj %} {# <<< ALTERADO #}
 <div class="modal fade" id="baixarDespesaModal-{{ d.pk }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -180,6 +357,53 @@
     </div>
 </div>
 {% endfor %}
+
+<div class="modal fade" id="calculatorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-calculator me-2"></i>Calculadora de Pagamento de Professor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 align-items-end p-3 bg-body-tertiary rounded mb-4">
+                    <div class="col-md-6">
+                        <label for="calculator-professor-select" class="form-label">Professor</label>
+                        <select id="calculator-professor-select" class="form-select"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="calculator-data-inicial" class="form-label">De</label>
+                        <input type="date" id="calculator-data-inicial" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="calculator-data-final" class="form-label">Até</label>
+                        <input type="date" id="calculator-data-final" class="form-control">
+                    </div>
+                </div>
+
+                <div class="d-grid mb-4">
+                    <button type="button" id="run-calculation-btn" class="btn btn-primary">
+                        <i class="bi bi-arrow-down-circle me-2"></i>Calcular Aulas
+                    </button>
+                </div>
+
+                <div id="calculator-results">
+                    </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+                <div class="text-end">
+                    <span class="text-muted">TOTAL A PAGAR</span>
+                    <div class="h3 mb-0" id="grand-total">R$ 0,00</div>
+                </div>
+                <button type="button" id="apply-calculation-btn" class="btn btn-success btn-lg" disabled>
+                    <i class="bi bi-check-circle-fill me-2"></i>Aplicar ao Lançamento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -227,6 +451,285 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error(data.errors);
                 }
             });
+        });
+    }
+
+    // Script para preencher data de hoje no modal de pagamento
+    const baixarModals = document.querySelectorAll('[id^="baixarDespesaModal-"]');
+    baixarModals.forEach(modal => {
+        modal.addEventListener('show.bs.modal', function(event) {
+            const dateInput = modal.querySelector('input[name="data_pagamento"]');
+            if (dateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                dateInput.value = today;
+            }
+        });
+    });
+
+    const calculatorModalEl = document.getElementById('calculatorModal');
+    if (calculatorModalEl) {
+        const calculatorModal = new bootstrap.Modal(calculatorModalEl);
+        
+        // Elementos da Calculadora
+        const professorSelect = document.getElementById('calculator-professor-select');
+        const dataInicialInput = document.getElementById('calculator-data-inicial');
+        const dataFinalInput = document.getElementById('calculator-data-final');
+        const runBtn = document.getElementById('run-calculation-btn');
+        const resultsContainer = document.getElementById('calculator-results');
+        const grandTotalSpan = document.getElementById('grand-total');
+        const applyBtn = document.getElementById('apply-calculation-btn');
+
+        // Elementos do Formulário Principal (Adicionar e Editar)
+        const addDespesaForm = document.getElementById('addDespesaForm');
+        const editDespesaForm = document.getElementById('editDespesaForm');
+        
+        let activeDespesaForm = null; // Guardará qual formulário (add/edit) abriu a calculadora
+        let professorNameForDescription = '';
+
+        // --- 1. QUANDO A CALCULADORA ABRE ---
+        calculatorModalEl.addEventListener('show.bs.modal', function(event) {
+            // Identifica qual formulário está ativo
+            const triggerButtonId = event.relatedTarget.id;
+            activeDespesaForm = (triggerButtonId === 'open-calculator-add-btn') ? addDespesaForm : editDespesaForm;
+            
+            const mainProfessorSelect = activeDespesaForm.querySelector('[name="professor"]');
+            
+            // Popula o select de professor da calculadora com as mesmas opções do form principal
+            professorSelect.innerHTML = mainProfessorSelect.innerHTML;
+            professorSelect.value = mainProfessorSelect.value;
+
+            // Sugere o mês anterior como período padrão
+            const today = new Date();
+            const firstDayOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDayOfLastMonth = new Date(firstDayOfThisMonth - 1);
+            const firstDayOfLastMonth = new Date(lastDayOfLastMonth.getFullYear(), lastDayOfLastMonth.getMonth(), 1);
+
+            dataInicialInput.value = firstDayOfLastMonth.toISOString().split('T')[0];
+            dataFinalInput.value = lastDayOfLastMonth.toISOString().split('T')[0];
+
+            // Reseta o estado da calculadora
+            resultsContainer.innerHTML = '';
+            grandTotalSpan.textContent = 'R$ 0,00';
+            applyBtn.disabled = true;
+        });
+
+        // --- 2. QUANDO O USUÁRIO CLICA EM "CALCULAR AULAS" ---
+        runBtn.addEventListener('click', function() {
+            const professorId = professorSelect.value;
+            const dataInicial = dataInicialInput.value;
+            const dataFinal = dataFinalInput.value;
+
+            if (!professorId || !dataInicial || !dataFinal) {
+                alert('Por favor, selecione um professor e o período de datas.');
+                return;
+            }
+
+            // Mostra um estado de carregamento
+            runBtn.disabled = true;
+            runBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Calculando...`;
+            resultsContainer.innerHTML = '<div class="text-center p-3">Buscando aulas...</div>';
+            applyBtn.disabled = true;
+            
+            const url = `{% url 'finances:ajax_calcular_pagamento_professor' %}?professor_id=${professorId}&data_inicial=${dataInicial}&data_final=${dataFinal}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    runBtn.disabled = false;
+                    runBtn.innerHTML = `<i class="bi bi-arrow-down-circle me-2"></i>Calcular Aulas`;
+
+                    if (data.status === 'success') {
+                        professorNameForDescription = data.professor_name;
+                        renderCalculationResults(data.calculo);
+                        if (data.calculo.length > 0) {
+                            applyBtn.disabled = false;
+                        }
+                    } else {
+                        resultsContainer.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro na requisição:', err);
+                    resultsContainer.innerHTML = `<div class="alert alert-danger">Ocorreu um erro de comunicação com o servidor.</div>`;
+                    runBtn.disabled = false;
+                    runBtn.innerHTML = `<i class="bi bi-arrow-down-circle me-2"></i>Calcular Aulas`;
+                });
+        });
+
+        // --- 3. FUNÇÃO PARA RENDERIZAR OS RESULTADOS E ATUALIZAR TOTAIS ---
+        function renderCalculationResults(calculo) {
+            resultsContainer.innerHTML = ''; // Limpa resultados anteriores
+            if (calculo.length === 0) {
+                resultsContainer.innerHTML = '<div class="alert alert-info">Nenhuma aula concluída encontrada para este professor no período selecionado.</div>';
+                updateGrandTotal();
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'table table-sm';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        <th class="text-center">Quantidade</th>
+                        <th>Valor Unitário (R$)</th>
+                        <th class="text-end">Subtotal (R$)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>`;
+            
+            const tbody = table.querySelector('tbody');
+            calculo.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'calculator-row';
+                row.innerHTML = `
+                    <td>
+                        ${item.modalidade_nome}
+                        <small class="d-block text-muted">${item.tipo_pagamento_display}</small>
+                    </td>
+                    <td class="text-center">${item.quantidade} <span class="d-none d-md-inline">${item.unidade_contagem}</span></td>
+                    <td>
+                        <input type="number" step="0.01" class="form-control form-control-sm valor-unitario" value="${item.valor_unitario}" data-quantidade="${item.quantidade}">
+                    </td>
+                    <td class="text-end fw-bold subtotal">${parseFloat(item.subtotal).toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            resultsContainer.appendChild(table);
+            updateGrandTotal(); // Calcula o total inicial
+        }
+
+        // --- 4. ATUALIZAÇÃO EM TEMPO REAL QUANDO O VALOR UNITÁRIO MUDA ---
+        resultsContainer.addEventListener('input', function(event) {
+            if (event.target.classList.contains('valor-unitario')) {
+                updateGrandTotal();
+            }
+        });
+
+        function updateGrandTotal() {
+            let total = 0;
+            const rows = resultsContainer.querySelectorAll('.calculator-row');
+            rows.forEach(row => {
+                const valorInput = row.querySelector('.valor-unitario');
+                const quantidade = parseFloat(valorInput.dataset.quantidade);
+                const valorUnitario = parseFloat(valorInput.value) || 0;
+                const subtotal = quantidade * valorUnitario;
+                row.querySelector('.subtotal').textContent = subtotal.toFixed(2);
+                total += subtotal;
+            });
+            grandTotalSpan.textContent = `R$ ${total.toFixed(2)}`;
+        }
+
+        // --- 5. QUANDO O USUÁRIO CLICA EM "APLICAR AO LANÇAMENTO" ---
+        applyBtn.addEventListener('click', function() {
+            const totalFinal = parseFloat(grandTotalSpan.textContent.replace('R$ ', '')) || 0;
+            const dataInicial = new Date(dataInicialInput.value + 'T00:00:00').toLocaleDateString('pt-BR');
+            const dataFinal = new Date(dataFinalInput.value + 'T00:00:00').toLocaleDateString('pt-BR');
+
+            // Preenche os campos no formulário de despesa que está ativo
+            const valorField = activeDespesaForm.querySelector('[name="valor"]');
+            const descricaoField = activeDespesaForm.querySelector('[name="descricao"]');
+
+            valorField.value = totalFinal.toFixed(2);
+            descricaoField.value = `Pagamento Prof. ${professorNameForDescription} - Período ${dataInicial} a ${dataFinal}`;
+            
+            calculatorModal.hide();
+
+            setTimeout(() => {
+                if (activeDespesaForm === addDespesaForm) {
+                    new bootstrap.Modal(document.getElementById('addDespesaModal')).show();
+                } else if (activeDespesaForm === editDespesaForm) {
+                    new bootstrap.Modal(document.getElementById('editDespesaModal')).show();
+                }
+            }, 400);
+        });
+    }
+
+    const addCategoryModal = document.getElementById('addCategoryModal');
+    if (addCategoryModal) {
+        const categoryForm = document.getElementById('addCategoryForm');
+        const addCategoryModalInstance = new bootstrap.Modal(addCategoryModal);
+        const nameInput = addCategoryModal.querySelector('#id_name_modal');
+        let activeParentModal = null;       // Guarda o modal que abriu o de categoria
+        let activeCategorySelect = null;    // Guarda o <select> específico a ser atualizado
+
+        // 1. ANTES DO MODAL DE CATEGORIA ABRIR
+        addCategoryModal.addEventListener('show.bs.modal', function(event) {
+            // Busca os elementos do formulário dentro do modal
+            const typeInput = document.getElementById('id_type_modal'); // Busca pelo ID direto
+            const tipoDreContainer = document.getElementById('tipo-dre-container');
+            const modalTitle = addCategoryModal.querySelector('#addCategoryModalTitle');
+            const button = event.relatedTarget;
+            
+            if (button) {
+                activeParentModal = button.closest('.modal');
+                activeCategorySelect = button.closest('.input-group').querySelector('select');
+
+                const categoryType = button.getAttribute('data-category-type');
+                typeInput.value = categoryType; // Sem erro aqui agora
+                
+                if (categoryType === 'expense') {
+                    tipoDreContainer.style.display = 'block';
+                } else {
+                    tipoDreContainer.style.display = 'none';
+                }
+                modalTitle.textContent = (categoryType === 'expense') ? 'Nova Categoria de Saída' : 'Nova Categoria de Entrada';
+            }
+        });
+
+        // 2. AO ENVIAR O FORMULÁRIO DE NOVA CATEGORIA (CORRIGIDO)
+        categoryForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(categoryForm);
+            const url = categoryForm.action;
+            // Encontra o botão pelo seu novo ID, fora do formulário
+            const submitButton = document.getElementById('submitCategoryFormBtn');
+
+            submitButton.disabled = true; // Sem erro aqui agora
+            submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...`;
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const newOption = new Option(data.name, data.id, false, true);
+                    document.querySelectorAll('select[name="categoria"]').forEach(select => {
+                        select.appendChild(newOption.cloneNode(true));
+                    });
+
+                    if (activeCategorySelect) {
+                        activeCategorySelect.value = data.id;
+                    }
+                    
+                    addCategoryModalInstance.hide();
+                } else {
+                    alert('Erro ao criar categoria: ' + JSON.stringify(data.errors));
+                }
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Salvar Categoria';
+            });
+        });
+
+        // 3. APÓS O MODAL DE CATEGORIA SER FECHADO
+        addCategoryModal.addEventListener('hidden.bs.modal', function() {
+            // Limpa o campo de nome para a próxima vez
+            nameInput.value = '';
+
+            // Reabre o modal pai que estava ativo
+            if (activeParentModal) {
+                const parentModalInstance = bootstrap.Modal.getOrCreateInstance(activeParentModal);
+                parentModalInstance.show();
+            }
+
+            // Reseta as variáveis de estado
+            activeParentModal = null;
+            activeCategorySelect = null;
         });
     }
 });
