@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 from django.utils import timezone
+from decimal import Decimal
 
 
 class CustomUser(AbstractUser):
@@ -16,24 +17,18 @@ class CustomUser(AbstractUser):
         verbose_name="Tipo de Usuário",
     )
     profile_picture_url = models.URLField(
-        max_length=500,
-        blank=True,
-        null=True,
-        verbose_name="URL da Foto de Perfil"
+        max_length=500, blank=True, null=True, verbose_name="URL da Foto de Perfil"
     )
 
 
 class Aluno(models.Model):
     STATUS_CHOICES = (
-        ('ativo', 'Ativo'),
-        ('inativo', 'Inativo'),
-        ('trancado', 'Trancado'),
+        ("ativo", "Ativo"),
+        ("inativo", "Inativo"),
+        ("trancado", "Trancado"),
     )
     status = models.CharField(
-        max_length=10,
-        choices=STATUS_CHOICES,
-        default='ativo',
-        verbose_name="Status"
+        max_length=10, choices=STATUS_CHOICES, default="ativo", verbose_name="Status"
     )
     nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
     telefone = models.CharField(max_length=20, blank=True, null=True)
@@ -41,35 +36,34 @@ class Aluno(models.Model):
     valor_mensalidade = models.DecimalField(
         max_digits=7,
         decimal_places=2,
-        null=True, blank=True,
-        verbose_name="Valor da Mensalidade"
+        null=True,
+        blank=True,
+        verbose_name="Valor da Mensalidade",
     )
     dia_vencimento = models.PositiveIntegerField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Dia do Vencimento",
-        help_text="Dia do mês para o vencimento da mensalidade (ex: 5, 10, 15)."
+        help_text="Dia do mês para o vencimento da mensalidade (ex: 5, 10, 15).",
     )
     data_criacao = models.DateField(
-        default=timezone.now, 
-        verbose_name="Data de Criação/Matrícula"
+        default=timezone.now, verbose_name="Data de Criação/Matrícula"
     )
     cpf = models.CharField(
-        max_length=14,
-        unique=True,
-        null=True, blank=True,
-        verbose_name="CPF"
+        max_length=14, unique=True, null=True, blank=True, verbose_name="CPF"
     )
     responsavel_nome = models.CharField(
         max_length=255,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Nome do Responsável",
-        help_text="Preencher caso o aluno seja menor de idade."
+        help_text="Preencher caso o aluno seja menor de idade.",
     )
 
     def get_status_pagamento(self):
         # Se o aluno não for mensalista, ele está sempre 'N/A'
         if not self.valor_mensalidade or not self.dia_vencimento:
-            return {'status': 'N/A', 'cor': 'secondary'}
+            return {"status": "N/A", "cor": "secondary"}
 
         hoje = timezone.now().date()
         mes_atual = hoje.month
@@ -77,35 +71,56 @@ class Aluno(models.Model):
 
         # Verifica se já existe um pagamento de mensalidade neste mês
         pagamento_mes = self.financial_transactions.filter(
-            category__type='income',
+            category__type="income",
             transaction_date__year=ano_atual,
             transaction_date__month=mes_atual,
             # Consideramos pago se o valor for igual ou maior que a mensalidade
-            amount__gte=self.valor_mensalidade
+            amount__gte=self.valor_mensalidade,
         ).exists()
 
         if pagamento_mes:
-            return {'status': 'Em Dia', 'cor': 'success'}
+            return {"status": "Em Dia", "cor": "success"}
 
         # Se não pagou, vamos verificar o vencimento
         data_vencimento = hoje.replace(day=self.dia_vencimento)
 
         if hoje > data_vencimento:
-            return {'status': 'Em Atraso', 'cor': 'danger'}
-        
+            return {"status": "Em Atraso", "cor": "danger"}
+
         # Verifica se faltam 5 dias ou menos para o vencimento
         if (data_vencimento - hoje).days <= 5:
-            return {'status': 'Próximo Venc.', 'cor': 'warning'}
+            return {"status": "Próximo Venc.", "cor": "warning"}
 
         # Se nenhuma das condições acima for atendida, o pagamento está em aberto mas não próximo do vencimento
-        return {'status': 'Aguardando Pag.', 'cor': 'info'}
+        return {"status": "Aguardando Pag.", "cor": "info"}
 
     def __str__(self):
         return self.nome_completo
 
 
 class Modalidade(models.Model):
+    TIPO_PAGAMENTO_CHOICES = (
+        ('aula', 'Por Aula (Valor Fixo)'),
+        ('aluno', 'Por Aluno (Valor por Presença)'),
+    )
+
     nome = models.CharField(max_length=100, unique=True)
+    
+    valor_pagamento_professor = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="Valor do Pagamento por Aula/Aluno",
+        help_text="Valor padrão pago ao professor."
+    )
+    tipo_pagamento = models.CharField(
+        max_length=10,
+        choices=TIPO_PAGAMENTO_CHOICES,
+        default='aula',
+        verbose_name="Método de Cálculo do Pagamento",
+        help_text="Define se o pagamento é um valor fixo por aula ou multiplicado pelo número de alunos presentes."
+    )
+    # =======================================================
 
     def __str__(self):
         return self.nome
@@ -121,10 +136,7 @@ class Aula(models.Model):
 
     # --- CORRIGIDO ---
     alunos = models.ManyToManyField(
-        "Aluno",
-        blank=True,
-        verbose_name="Alunos",
-        related_name="aulas_aluno"
+        "Aluno", blank=True, verbose_name="Alunos", related_name="aulas_aluno"
     )
 
     # --- CORRIGIDO ---
@@ -133,7 +145,7 @@ class Aula(models.Model):
         blank=True,
         limit_choices_to={"tipo__in": ["admin", "professor"]},
         verbose_name="Professores Atribuídos",
-        related_name="aulas_lecionadas"
+        related_name="aulas_lecionadas",
     )
 
     modalidade = models.ForeignKey(
@@ -146,13 +158,18 @@ class Aula(models.Model):
 
     def __str__(self):
         # This method is now consistent with the field name 'alunos'
-        nomes_alunos = ", ".join([aluno.nome_completo.title() for aluno in self.alunos.all()])
+        nomes_alunos = ", ".join(
+            [aluno.nome_completo.title() for aluno in self.alunos.all()]
+        )
         if not nomes_alunos:
-            if hasattr(self, 'modalidade') and self.modalidade.nome == "Atividade Complementar":
+            if (
+                hasattr(self, "modalidade")
+                and self.modalidade.nome == "Atividade Complementar"
+            ):
                 return f"Atividade Complementar em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
             return f"{getattr(self, 'modalidade', 'Aula')} (sem alunos) em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
         return f"{self.modalidade.nome} com {nomes_alunos} em {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
-    
+
     @property
     def foi_substituida(self):
         """
@@ -163,33 +180,37 @@ class Aula(models.Model):
         # Se for uma AC, nunca é uma substituição.
         if "atividade complementar" in self.modalidade.nome.lower():
             return False
-            
+
         # Se a aula não foi 'Realizada' ou não tem relatório, não pode ter sido substituída.
-        if self.status != 'Realizada' or not hasattr(self, 'relatorioaula'):
+        if self.status != "Realizada" or not hasattr(self, "relatorioaula"):
             return False
-        
+
         professor_validou = self.relatorioaula.professor_que_validou
         if not professor_validou:
             return False
-            
+
         # Retorna True se o professor que validou NÃO EXISTE na lista de professores atribuídos.
         return not self.professores.filter(pk=professor_validou.pk).exists()
-    
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         old_status = None
         if not is_new:
-            old_status = Aula.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            old_status = (
+                Aula.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            )
 
         super().save(*args, **kwargs)
 
         if self.status == "Aluno Ausente" and old_status != "Aluno Ausente":
             from .models import PresencaAluno
+
             for aluno in self.alunos.all():
-                presenca, created = PresencaAluno.objects.get_or_create(aula=self, aluno=aluno)
+                presenca, created = PresencaAluno.objects.get_or_create(
+                    aula=self, aluno=aluno
+                )
                 presenca.status = "ausente"
                 presenca.save()
-
 
 
 class RelatorioAula(models.Model):
@@ -235,11 +256,16 @@ class RelatorioAula(models.Model):
 
 # --- NOVOS MODELOS PARA OS ITENS DINÂMICOS ---
 class ItemRudimento(models.Model):
-    """ Armazena um único exercício de rudimento associado a um relatório. """
-    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_rudimentos', on_delete=models.CASCADE)
+    """Armazena um único exercício de rudimento associado a um relatório."""
+
+    relatorio = models.ForeignKey(
+        RelatorioAula, related_name="itens_rudimentos", on_delete=models.CASCADE
+    )
     descricao = models.CharField(max_length=255, verbose_name="Exercício")
     bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="BPM")
-    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    duracao_min = models.IntegerField(
+        verbose_name="Duração (min)", null=True, blank=True
+    )
     observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
@@ -247,12 +273,21 @@ class ItemRudimento(models.Model):
 
 
 class ItemRitmo(models.Model):
-    """ Armazena um único exercício de ritmo associado a um relatório. """
-    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_ritmo', on_delete=models.CASCADE)
+    """Armazena um único exercício de ritmo associado a um relatório."""
+
+    relatorio = models.ForeignKey(
+        RelatorioAula, related_name="itens_ritmo", on_delete=models.CASCADE
+    )
     descricao = models.CharField(max_length=255, verbose_name="Exercício")
-    livro_metodo = models.CharField(max_length=200, blank=True, null=True, verbose_name="Livro/Método")
-    bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
-    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    livro_metodo = models.CharField(
+        max_length=200, blank=True, null=True, verbose_name="Livro/Método"
+    )
+    bpm = models.CharField(
+        max_length=50, blank=True, null=True, verbose_name="Clique/BPM"
+    )
+    duracao_min = models.IntegerField(
+        verbose_name="Duração (min)", null=True, blank=True
+    )
     observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
@@ -260,11 +295,18 @@ class ItemRitmo(models.Model):
 
 
 class ItemVirada(models.Model):
-    """ Armazena um único exercício de virada associado a um relatório. """
-    relatorio = models.ForeignKey(RelatorioAula, related_name='itens_viradas', on_delete=models.CASCADE)
+    """Armazena um único exercício de virada associado a um relatório."""
+
+    relatorio = models.ForeignKey(
+        RelatorioAula, related_name="itens_viradas", on_delete=models.CASCADE
+    )
     descricao = models.CharField(max_length=255, verbose_name="Exercício")
-    bpm = models.CharField(max_length=50, blank=True, null=True, verbose_name="Clique/BPM")
-    duracao_min = models.IntegerField(verbose_name="Duração (min)", null=True, blank=True)
+    bpm = models.CharField(
+        max_length=50, blank=True, null=True, verbose_name="Clique/BPM"
+    )
+    duracao_min = models.IntegerField(
+        verbose_name="Duração (min)", null=True, blank=True
+    )
     observacoes = models.TextField(verbose_name="Observações", blank=True, null=True)
 
     def __str__(self):
@@ -273,36 +315,40 @@ class ItemVirada(models.Model):
 
 class PresencaAluno(models.Model):
     STATUS_CHOICES = (
-        ('presente', 'Presente'),
-        ('ausente', 'Ausente'),
+        ("presente", "Presente"),
+        ("ausente", "Ausente"),
     )
     aula = models.ForeignKey(Aula, on_delete=models.CASCADE, related_name="presencas")
     aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='presente')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="presente")
 
     class Meta:
         # Garante que um aluno não pode ter dois status de presença para a mesma aula
-        unique_together = ('aula', 'aluno')
+        unique_together = ("aula", "aluno")
 
     def __str__(self):
-        return f"{self.aluno.nome_completo} - {self.get_status_display()} em {self.aula}"
+        return (
+            f"{self.aluno.nome_completo} - {self.get_status_display()} em {self.aula}"
+        )
 
 
 class PresencaProfessor(models.Model):
     STATUS_CHOICES = (
-        ('presente', 'Presente'),
-        ('ausente', 'Ausente'),
+        ("presente", "Presente"),
+        ("ausente", "Ausente"),
     )
-    aula = models.ForeignKey(Aula, on_delete=models.CASCADE, related_name="presencas_professores")
+    aula = models.ForeignKey(
+        Aula, on_delete=models.CASCADE, related_name="presencas_professores"
+    )
     professor = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='presencas_registradas' # Nome explícito para a relação
+        related_name="presencas_registradas",  # Nome explícito para a relação
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='presente')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="presente")
 
     class Meta:
-        unique_together = ('aula', 'professor')
+        unique_together = ("aula", "professor")
 
     def __str__(self):
         return f"{self.professor.username} - {self.get_status_display()} em {self.aula}"

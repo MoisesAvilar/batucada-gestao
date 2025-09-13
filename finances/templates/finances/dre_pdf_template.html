@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>DRE</title>
+    <style>
+        @page { size: A4 landscape; margin: 1.5cm; } /* MUDADO PARA PAISAGEM */
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #333; } /* FONTE MENOR */
+        h1 { font-size: 16pt; text-align: center; margin-bottom: 0; }
+        p { text-align: center; margin-top: 5px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; } /* PADDING MENOR */
+        th { background-color: #f2f2f2; font-size: 8pt; }
+        .text-end { text-align: right; }
+        .text-success { color: #198754; }
+        .text-danger { color: #dc3545; }
+        .fw-bold { font-weight: bold; }
+        .sub-item { padding-left: 15px; font-style: italic; color: #666; }
+        .total-row { background-color: #e9ecef; font-weight: bold; }
+        .final-row { background-color: #343A40; color: #fff; font-weight: bold; }
+        .final-row .text-end { color: #afafaf; }
+    </style>
+</head>
+<body>
+    <h1>Demonstrativo de Resultados (DRE)</h1>
+    <p>Período de {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40%;">Descrição</th>
+                <th class="text-end">Período Principal</th>
+                {% if dre_comp %}
+                <th class="text-end">Período Comparativo</th>
+                <th class="text-end">Variação (R$)</th>
+                <th class="text-end">Variação (%)</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="fw-bold">(+) Receita Operacional Bruta</td>
+                <td class="text-end fw-bold text-success">{{ dre_data.total_receitas|floatformat:2 }}</td>
+                {% if dre_comp %}
+                <td class="text-end text-success">{{ dre_comp.total_receitas|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.total_receitas.abs|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.total_receitas.perc|floatformat:1 }}%</td>
+                {% endif %}
+            </tr>
+            {% for r in dre_data.receitas_por_categoria %}
+            <tr>
+                <td class="sub-item">+ {{ r.categoria__name }}</td>
+                <td class="text-end text-success">{{ r.total_cat|floatformat:2 }}</td>
+                {% if dre_comp %}<td colspan="3"></td>{% endif %}
+            </tr>
+            {% endfor %}
+
+            <tr>
+                <td class="fw-bold">(-) Custos Diretos</td>
+                <td class="text-end fw-bold text-danger">({{ dre_data.total_custos|floatformat:2 }})</td>
+                {% if dre_comp %}
+                <td class="text-end text-danger">({{ dre_comp.total_custos|floatformat:2 }})</td>
+                <td class="text-end">{{ variacoes.total_custos.abs|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.total_custos.perc|floatformat:1 }}%</td>
+                {% endif %}
+            </tr>
+            {% for c in dre_data.custos_por_categoria %}
+            <tr>
+                <td class="sub-item">- {{ c.categoria__name }}</td>
+                <td class="text-end text-danger">({{ c.total_cat|floatformat:2 }})</td>
+                {% if dre_comp %}<td colspan="3"></td>{% endif %}
+            </tr>
+            {% endfor %}
+
+            <tr class="total-row">
+                <td>(=) Lucro Bruto</td>
+                <td class="text-end">{{ dre_data.lucro_bruto|floatformat:2 }}</td>
+                {% if dre_comp %}
+                <td class="text-end">{{ dre_comp.lucro_bruto|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.lucro_bruto.abs|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.lucro_bruto.perc|floatformat:1 }}%</td>
+                {% endif %}
+            </tr>
+
+            <tr>
+                <td class="fw-bold">(-) Despesas Operacionais</td>
+                <td class="text-end fw-bold text-danger">({{ dre_data.total_despesas|floatformat:2 }})</td>
+                {% if dre_comp %}
+                <td class="text-end text-danger">({{ dre_comp.total_despesas|floatformat:2 }})</td>
+                <td class="text-end">{{ variacoes.total_despesas.abs|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.total_despesas.perc|floatformat:1 }}%</td>
+                {% endif %}
+            </tr>
+            {% for d in dre_data.despesas_por_categoria %}
+            <tr>
+                <td class="sub-item">- {{ d.categoria__name }}</td>
+                <td class="text-end text-danger">({{ d.total_cat|floatformat:2 }})</td>
+                {% if dre_comp %}<td colspan="3"></td>{% endif %}
+            </tr>
+            {% endfor %}
+
+            <tr class="final-row">
+                <td>(=) RESULTADO DO PERÍODO</td>
+                <td class="text-end">{{ dre_data.resultado|floatformat:2 }}</td>
+                {% if dre_comp %}
+                <td class="text-end">{{ dre_comp.resultado|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.resultado.abs|floatformat:2 }}</td>
+                <td class="text-end">{{ variacoes.resultado.perc|floatformat:1 }}%</td>
+                {% endif %}
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

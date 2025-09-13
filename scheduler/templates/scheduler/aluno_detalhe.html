@@ -55,6 +55,46 @@
     }
 </style>
 
+<div class="accordion mb-4" id="accordionFiltros">
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltros" aria-expanded="false">
+                <i class="bi bi-funnel me-2"></i> Filtrar Período e Status
+            </button>
+        </h2>
+        <div id="collapseFiltros" class="accordion-collapse collapse">
+            <div class="accordion-body bg-body">
+                <form method="GET" action="{% url 'scheduler:aluno_detalhe' aluno.pk %}">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="data_inicial" class="form-label">De</label>
+                            <input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ data_inicial }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="data_final" class="form-label">Até</label>
+                            <input type="date" name="data_final" id="data_final" class="form-control" value="{{ data_final }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="status_filtro" class="form-label">Status da Aula</label>
+                            <select name="status_filtro" id="status_filtro" class="form-select">
+                                <option value="">Todos</option>
+                                <option value="Realizada" {% if status_filtro == 'Realizada' %}selected{% endif %}>Realizada</option>
+                                <option value="Aluno Ausente" {% if status_filtro == 'Aluno Ausente' %}selected{% endif %}>Aluno Ausente</option>
+                                <option value="Cancelada" {% if status_filtro == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                                <option value="Agendada" {% if status_filtro == 'Agendada' %}selected{% endif %}>Agendada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-outline-secondary">Limpar</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-2"></i>Aplicar Filtros</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="vstack gap-4">
@@ -90,27 +130,45 @@
             </div>
 
             <div class="content-block">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <h5 class="mb-0">Evolução de BPM por Exercício</h5>
-                        {% if evolucao_chart_datasets %}
-                            <p class="text-muted small mb-0">Baseado em {{ evolucao_total_aulas }} aula{{ evolucao_total_aulas|pluralize:"s" }} com prática registrada.</p>
-                        {% endif %}
-                    </div>
+                <h5 class="mb-0">Evolução de BPM por Exercício</h5>
+                {% if lista_exercicios_unicos %}
+                    <p class="text-muted small mb-3">Baseado em {{ evolucao_total_aulas }} aula{{ evolucao_total_aulas|pluralize:"s" }} com prática registrada.</p>
 
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Tipo de Gráfico">
-                        <input type="radio" class="btn-check" name="chartType" id="chart-type-line" autocomplete="off" checked>
-                        <label class="btn btn-outline-secondary" for="chart-type-line"><i class="bi bi-graph-up"></i> Linha</label>
-                    
-                        <input type="radio" class="btn-check" name="chartType" id="chart-type-bar" autocomplete="off">
-                        <label class="btn btn-outline-secondary" for="chart-type-bar"><i class="bi bi-bar-chart-line"></i> Barras</label>
+                    <div class="p-3 rounded mb-3" style="background-color: var(--bs-body-bg);">
+                        <strong class="d-block mb-2">Exercícios para Comparar:</strong>
+                        <div id="exercise-checkboxes" class="d-flex flex-wrap gap-3">
+                            {% for exercicio in lista_exercicios_unicos %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="{{ exercicio }}" id="check-{{ forloop.counter }}">
+                                <label class="form-check-label" for="check-{{ forloop.counter }}">
+                                    {{ exercicio }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <hr>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="show-trendline-toggle">
+                            <label class="form-check-label" for="show-trendline-toggle">Mostrar Linha de Tendência (Média Móvel)</label>
+                        </div>
                     </div>
-                    </div>
+                {% endif %}
                 
-                {% if evolucao_chart_datasets %}
-                    <div class="mt-3" style="height: 350px;"><canvas id="studentEvolutionChart"></canvas></div>
-                {% else %}
-                    {% endif %}
+                <div class="mt-3" style="height: 350px;">
+                    <canvas id="studentEvolutionChart"></canvas>
+                    <div id="chart-placeholder" class="d-flex h-100 align-items-center justify-content-center text-center text-muted p-4">
+                        <div>
+                            <i class="bi bi-graph-up fs-1"></i>
+                            <p class="mt-2">
+                                {% if lista_exercicios_unicos %}
+                                Selecione um ou mais exercícios acima para comparar a evolução.
+                                {% else %}
+                                Nenhum dado de evolução de BPM encontrado para este aluno.
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="content-block">
@@ -134,41 +192,7 @@
                     {% endif %}
                 </div>
 
-            <div class="content-block">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Histórico de Aulas</h5>
-                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtros-historico" aria-expanded="false">
-                        <i class="bi bi-filter"></i> Filtros
-                    </button>
-                </div>
-
-                <div class="collapse" id="filtros-historico">
-                    <form method="get" class="card card-body mb-3">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label for="status_filtro" class="form-label small">Filtrar por Status</label>
-                                <select name="status_filtro" id="status_filtro" class="form-select form-select-sm">
-                                    <option value="">Todos os Status</option>
-                                    <option value="Realizada" {% if request.GET.status_filtro == 'Realizada' %}selected{% endif %}>Realizada</option>
-                                    <option value="Aluno Ausente" {% if request.GET.status_filtro == 'Aluno Ausente' %}selected{% endif %}>Aluno Ausente</option>
-                                    <option value="Cancelada" {% if request.GET.status_filtro == 'Cancelada' %}selected{% endif %}>Cancelada</option>
-                                    <option value="Agendada" {% if request.GET.status_filtro == 'Agendada' %}selected{% endif %}>Agendada</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="data_filtro" class="form-label small">Filtrar por Data (Mês/Ano)</label>
-                                <input type="month" name="data_filtro" id="data_filtro" value="{{ request.GET.data_filtro }}" class="form-control form-control-sm">
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
-                            <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-light btn-sm">Limpar</a>
-                        </div>
-                    </form>
-                </div>
-
                 {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_aluno %}
-            </div>
 
 
         </div>
@@ -263,44 +287,36 @@
 {# Passando dados para o JavaScript de forma segura #}
 {{ chart_labels|json_script:"status-chart-labels-data" }}
 {{ chart_data|json_script:"status-chart-data-data" }}
-{{ evolucao_chart_labels|json_script:"evolucao-labels-data" }}
-{{ evolucao_chart_datasets|json_script:"evolucao-datasets-data" }}
+{{ dados_grafico_por_exercicio|json_script:"evolucao-data-por-exercicio" }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ★★★ INÍCIO DO SCRIPT DE GRÁFICOS COM TEMA INTELIGENTE E REATIVO ★★★
     let statusChartInstance = null;
     let evolutionChartInstance = null;
+    
+    // Referências aos elementos do DOM
+    const evolutionChartCanvas = document.getElementById('studentEvolutionChart');
+    const chartPlaceholder = document.getElementById('chart-placeholder');
+    const allEvolutionData = JSON.parse(document.getElementById('evolucao-data-por-exercicio').textContent);
+    const exerciseCheckboxes = document.querySelectorAll('#exercise-checkboxes .form-check-input');
+    const trendlineToggle = document.getElementById('show-trendline-toggle');
 
     function getChartThemeColors() {
         const rootStyles = getComputedStyle(document.documentElement);
-        const theme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-        const isDark = theme === 'dark';
-
         return {
             fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
             gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
-            // Cores para o gráfico de pizza (Realizadas, Ausências, Canceladas, Agendadas)
-            pieColors: [
-                'rgba(25, 135, 84, 0.8)',  // success
-                'rgba(255, 193, 7, 0.8)',  // warning
-                'rgba(220, 53, 69, 0.8)',  // danger
-                'rgba(108, 117, 125, 0.7)' // secondary
-            ]
+            pieColors: ['rgba(25, 135, 84, 0.8)', 'rgba(255, 193, 7, 0.8)', 'rgba(220, 53, 69, 0.8)', 'rgba(108, 117, 125, 0.7)'],
+            lineColors: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796']
         };
     }
 
-    // ★★★ FUNÇÃO ATUALIZADA COM AMBOS OS GRÁFICOS ★★★
-    function renderOrUpdateCharts(newChartType = 'line') {
+    // Função para renderizar/atualizar o gráfico de pizza (status)
+    function renderStatusChart() {
         if (statusChartInstance) statusChartInstance.destroy();
-        if (evolutionChartInstance) evolutionChartInstance.destroy();
-
         const themeColors = getChartThemeColors();
         Chart.defaults.color = themeColors.fontColor;
         
-        // ===============================================
-        //  1. GRÁFICO DE PIZZA (DISTRIBUIÇÃO DE STATUS)
-        // ===============================================
         const statusLabelsDataEl = document.getElementById('status-chart-labels-data');
         const statusDataDataEl = document.getElementById('status-chart-data-data');
         const statusCtx = document.getElementById('statusChart');
@@ -309,15 +325,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const statusLabels = JSON.parse(statusLabelsDataEl.textContent);
             const statusData = JSON.parse(statusDataDataEl.textContent);
             
-            const hasData = statusData.some(item => item > 0);
-
-            if (hasData) {
+            if (statusData.some(item => item > 0)) {
                 statusChartInstance = new Chart(statusCtx, {
                     type: 'doughnut',
                     data: {
                         labels: statusLabels,
                         datasets: [{
-                            label: 'Status',
                             data: statusData,
                             backgroundColor: themeColors.pieColors,
                             borderColor: 'var(--bs-tertiary-bg)',
@@ -325,119 +338,134 @@ document.addEventListener('DOMContentLoaded', function() {
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: { padding: 15, boxWidth: 12 }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        // ===============================================
-        //  2. GRÁFICO DE LINHA (EVOLUÇÃO DE BPM)
-        // ===============================================
-        const evolutionLabelsData = document.getElementById('evolucao-labels-data');
-        const evolutionDatasetsData = document.getElementById('evolucao-datasets-data');
-        const evolutionCtx = document.getElementById('studentEvolutionChart');
-        if (evolutionCtx) {
-            const labels = JSON.parse(document.getElementById('evolucao-labels-data').textContent);
-            const datasets = JSON.parse(document.getElementById('evolucao-datasets-data').textContent);
-            
-            if (labels.length > 0 && datasets.length > 0) {
-                
-                // ★★★ INÍCIO DA CORREÇÃO DE COR ★★★
-                // Antes de desenhar, ajustamos as cores de cada exercício
-                datasets.forEach(dataset => {
-                    if (newChartType === 'bar') {
-                        // Para barras, a cor de fundo (preenchimento) deve ser a cor sólida.
-                        dataset.backgroundColor = dataset.borderColor;
-                    }
-                    // Para linhas, não fazemos nada, pois as cores já estão corretas por padrão.
-                });
-                // ★★★ FIM DA CORREÇÃO DE COR ★★★
-
-                Chart.defaults.borderColor = themeColors.gridColor;
-                evolutionChartInstance = new Chart(evolutionCtx, {
-                    type: newChartType,
-                    data: {
-                        labels: labels,
-                        datasets: datasets
-                    },
-                    options: {
                         responsive: true, maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                type: 'category',
-                                title: { display: true, text: 'Data da Aula' }
-                            },
-                            y: {
-                                beginAtZero: false,
-                                title: { display: true, text: 'BPM (Batidas por Minuto)' }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: true, 
-                                position: 'bottom', // Mantido como 'bottom' conforme seu código
-                                align: 'start',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 20,
-                                    usePointStyle: true,
-                                }
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                                titleFont: { weight: 'bold' },
-                                bodySpacing: 8,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed.y !== null) {
-                                            label += context.parsed.y + ' BPM';
-                                        }
-                                        return label;
-                                    }
-                                }
-                            }
-                        }
+                        plugins: { legend: { display: true, position: 'top', labels: { padding: 15, boxWidth: 12 } } }
                     }
                 });
             }
         }
     }
-    // ★★★ FIM DA FUNÇÃO ATUALIZADA ★★★
 
-    // Renderiza o gráfico inicial como linha
-    renderOrUpdateCharts('line');
+    // Função para renderizar/atualizar o gráfico de linha (evolução)
+    function renderEvolutionChart() {
+        if (evolutionChartInstance) {
+            evolutionChartInstance.destroy();
+        }
 
-    // ★★★ LISTENERS PARA OS BOTÕES DE TROCA ★★★
-    const chartTypeButtons = document.querySelectorAll('input[name="chartType"]');
-    chartTypeButtons.forEach(button => {
-        button.addEventListener('change', function() {
-            if (this.checked) {
-                const newType = this.id === 'chart-type-bar' ? 'bar' : 'line';
-                renderOrUpdateCharts(newType);
+        const selectedExercises = Array.from(exerciseCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        const showTrendline = trendlineToggle ? trendlineToggle.checked : false;
+        
+        // --- INÍCIO DA CORREÇÃO ---
+        if (selectedExercises.length === 0) {
+            // Esconde o gráfico e mostra a mensagem de placeholder
+            evolutionChartCanvas.classList.add('d-none');
+            chartPlaceholder.classList.remove('d-none');
+            return;
+        }
+        
+        // Mostra o gráfico e esconde a mensagem de placeholder
+        evolutionChartCanvas.classList.remove('d-none');
+        chartPlaceholder.classList.add('d-none');
+        // --- FIM DA CORREÇÃO ---
+
+        const themeColors = getChartThemeColors();
+        Chart.defaults.borderColor = themeColors.gridColor;
+
+        const datasets = [];
+        selectedExercises.forEach((exerciseName, index) => {
+            const exerciseData = allEvolutionData[exerciseName];
+            const color = themeColors.lineColors[index % themeColors.lineColors.length];
+            
+            // 1. Dataset principal (dados brutos)
+            datasets.push({
+                label: exerciseName,
+                data: exerciseData.data,
+                borderColor: color,
+                backgroundColor: color.replace(/[^,]+(?=\))/, '0.1'), // Opacidade
+                fill: false,
+                tension: 0.1,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                pointBackgroundColor: color
+            });
+
+            // 2. Dataset da linha de tendência (se habilitado)
+            if (showTrendline && exerciseData.moving_average) {
+                datasets.push({
+                    label: `Tendência - ${exerciseName}`,
+                    data: exerciseData.moving_average,
+                    borderColor: color,
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    borderDash: [5, 5], // Linha tracejada
+                    pointRadius: 0, // Sem pontos
+                    pointHoverRadius: 0,
+                    tension: 0.3
+                });
             }
         });
+
+        evolutionChartInstance = new Chart(evolutionChartCanvas, {
+            type: 'line',
+            data: { datasets: datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            tooltipFormat: 'dd/MM/yyyy',
+                            displayFormats: { day: 'dd/MM' }
+                        },
+                        title: { display: true, text: 'Data da Aula' }
+                    },
+                    y: { 
+                        beginAtZero: false, 
+                        title: { display: true, text: 'BPM (Batidas por Minuto)' } 
+                    }
+                },
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        mode: 'index', intersect: false,
+                        callbacks: {
+                           label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += `${context.parsed.y} BPM`;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    // --- INICIALIZAÇÃO E EVENTOS ---
+    renderStatusChart();
+    renderEvolutionChart(); // Renderiza o estado inicial (placeholder)
+    
+    exerciseCheckboxes.forEach(cb => {
+        cb.addEventListener('change', renderEvolutionChart);
     });
+    
+    if (trendlineToggle) {
+        trendlineToggle.addEventListener('change', renderEvolutionChart);
+    }
 
     // Observador para o modo light/dark
     const themeObserver = new MutationObserver(() => {
-        const currentType = document.getElementById('chart-type-bar').checked ? 'bar' : 'line';
-        renderOrUpdateCharts(currentType);
+        renderStatusChart();
+        const selectedExercise = exerciseSelector ? exerciseSelector.value : null;
+        renderEvolutionChart(selectedExercise);
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
 });

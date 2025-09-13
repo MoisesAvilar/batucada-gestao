@@ -1,7 +1,8 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse
+from datetime import datetime
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .models import Lead
@@ -64,33 +65,53 @@ def lead_listar(request):
     nome = request.GET.get("nome", "")
     curso = request.GET.get("curso", "")
     contato = request.GET.get("contato", "")
+    status = request.GET.get("status", "")
+    
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
 
     leads = Lead.objects.all()
 
-    # Filtros
     if nome:
         leads = leads.filter(nome_interessado__icontains=nome)
     if curso:
-        leads = leads.filter(curso_interesse__icontains=curso)  # ajuste se for ForeignKey
+        leads = leads.filter(curso_interesse__icontains=curso)
     if contato:
         leads = leads.filter(contato__icontains=contato)
+    if status:
+        leads = leads.filter(status=status)
 
-    # Ordenação
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, '%Y-%m-%d').date()
+            leads = leads.filter(data_criacao__date__gte=data_inicial)
+        except ValueError:
+            pass
+    
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, '%Y-%m-%d').date()
+            leads = leads.filter(data_criacao__date__lte=data_final)
+        except ValueError:
+            pass
+
     leads = leads.order_by("-data_criacao")
 
-    # Paginação
     paginator = Paginator(leads, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    form = LeadForm()
     contexto = {
         "page_obj": page_obj,
-        "form": form,
         "add_lead_form": LeadForm(),
+        "form": LeadForm(),
         "nome": nome,
         "curso": curso,
         "contato": contato,
+        "status_selecionado": status,
+        "status_choices": Lead.STATUS_CHOICES,
+        "data_inicial": data_inicial_str,
+        "data_final": data_final_str,
     }
 
     return render(request, "leads/lead_list.html", contexto)
@@ -246,6 +267,13 @@ def update_lead_status(request):
 @login_required
 def lead_edit(request, pk):
     lead = get_object_or_404(Lead, pk=pk)
+
+    if lead.status == 'convertido':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Não é possível editar um lead que já foi convertido em aluno.'
+        }, status=403)
+
     if request.method == 'POST':
         form = LeadForm(request.POST, instance=lead)
         if form.is_valid():

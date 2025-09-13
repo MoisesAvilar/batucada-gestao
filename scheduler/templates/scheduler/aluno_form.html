@@ -79,6 +79,11 @@
                             {% if form.dia_vencimento.help_text %}<small class="form-text text-muted">{{ form.dia_vencimento.help_text }}</small>{% endif %}
                             {% if form.dia_vencimento.errors %}<div class="invalid-feedback d-block">{{ form.dia_vencimento.errors|first }}</div>{% endif %}
                         </div>
+                        <div class="mb-3 form-check form-switch">
+                            {{ form.criar_recorrencia }}
+                            <label class="form-check-label" for="{{ form.criar_recorrencia.id_for_label }}">{{ form.criar_recorrencia.label }}</label>
+                            <div class="form-text">{{ form.criar_recorrencia.help_text }}</div>
+                        </div>
                     </div>
                 </div>
                 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">

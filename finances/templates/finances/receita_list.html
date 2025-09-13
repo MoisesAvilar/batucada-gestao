@@ -1,64 +1,134 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0">Contas a Receber</h1>
-    <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addReceitaModal">
-        <i class="bi bi-plus-circle me-2"></i>Nova Receita
-    </button>
+<div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-0">{{ titulo }}</h1>
+        {% if filtro_ativo == 'a_vencer' %}
+            <p class="text-muted mb-0">Mostrando apenas contas com vencimento nos próximos 5 dias.</p>
+        {% endif %}
+    </div>
+    <div class="d-grid d-lg-block d-flex gap-2">
+        {% if filtro_ativo == 'a_vencer' %}
+            <a href="{% url 'finances:receita_list' %}" class="btn btn-outline-secondary"><i class="bi bi-x-lg me-1"></i> Limpar Filtro</a>
+        {% endif %}
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#escolherTipoReceitaModal">
+            <i class="bi bi-plus-circle me-2"></i>Nova Receita
+        </button>
+    </div>
+</div>
+
+<div class="accordion mb-4" id="accordionFiltros">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltros" aria-expanded="false" aria-controls="collapseFiltros">
+                <i class="bi bi-funnel me-2"></i> Filtros de Pesquisa
+            </button>
+        </h2>
+        <div id="collapseFiltros" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionFiltros">
+            <div class="accordion-body bg-body">
+                <form method="GET" action="{% url 'finances:receita_list' %}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <input type="text" name="descricao" id="descricao" class="form-control" value="{{ filtros_aplicados.descricao }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select name="status" id="status" class="form-select">
+                                <option value="">Todos</option>
+                                {% for value, display in status_choices %}
+                                <option value="{{ value }}" {% if filtros_aplicados.status == value %}selected{% endif %}>{{ display }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                         <div class="col-md-3">
+                            <label for="categoria" class="form-label">Categoria</label>
+                            <select name="categoria" id="categoria" class="form-select">
+                                <option value="">Todas</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.pk }}" {% if filtros_aplicados.categoria|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="aluno" class="form-label">Aluno</label>
+                            <select name="aluno" id="aluno" class="form-select">
+                                <option value="">Todos</option>
+                                {% for al in alunos %}
+                                <option value="{{ al.pk }}" {% if filtros_aplicados.aluno|stringformat:"s" == al.pk|stringformat:"s" %}selected{% endif %}>{{ al.nome_completo|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="data_inicial" class="form-label">De</label>
+                            <input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ filtros_aplicados.data_inicial }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="data_final" class="form-label">Até</label>
+                            <input type="date" name="data_final" id="data_final" class="form-control" value="{{ filtros_aplicados.data_final }}">
+                        </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <a href="{% url 'finances:receita_list' %}" class="btn btn-outline-secondary">Limpar Filtros</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-2"></i>Filtrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="content-block">
-    <div class="table-responsive d-none d-lg-block">
-        <table class="table">
-            <thead><tr><th>Item/Serviço</th><th>Valor</th><th>Competência</th><th>Status</th><th>Ações</th></tr></thead>
-            <tbody>
-                {% for r in receitas %}
-                <tr id="receita-row-{{ r.pk }}">
-                    <td data-label="descricao">{{ r.descricao }} {% if r.aluno %}<small class="text-muted d-block">{{ r.aluno.nome_completo|title }}</small>{% endif %}</td>
-                    <td data-label="valor">R$ {{ r.valor|floatformat:2 }}</td>
-                    <td data-label="competencia">{{ r.data_competencia|date:"M/Y" }}</td>
-                    <td data-label="status">
-                        {% if r.status == 'recebido' %}<span class="badge bg-success-subtle text-success-emphasis">Recebido em {{ r.data_recebimento|date:"d/m/Y" }}</span>
-                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>{% endif %}
-                    </td>
-                    <td data-label="Ações">
-                        <div class="btn-group">
-                            {% if r.status == 'a_receber' %}
-                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarReceitaModal-{{ r.pk }}">Receber</button>
-                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
-                            {% else %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
-                            {% endif %}
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editReceitaModal" data-receita-url="{% url 'finances:edit_receita' r.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
-                                <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita' r.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
-                            </ul>
+    <div class="row">
+        {% for r in page_obj %} {# <<< ALTERADO #}
+        <div class="col-12 col-xl-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-circle" style="width: 48px; height: 48px;">
+                                {% if r.produto %}
+                                    <i class="bi bi-cart3 fs-4 text-primary"></i> {% else %}
+                                    <i class="bi bi-person-circle fs-4 text-primary"></i> {% endif %}
+                            </div>
                         </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
 
-    <div class="d-lg-none">
-        {% for r in receitas %}
-        <div class="card mb-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <h6 class="card-title mb-1">{{ r.descricao }}</h6>
-                        {% if r.aluno %}<small class="text-muted d-block mb-2">{{ r.aluno.nome_completo|title }}</small>{% endif %}
-                        <p class="card-text mb-0"><strong>R$ {{ r.valor|floatformat:2 }}</strong></p>
+                        <div class="col">
+                            <h6 class="card-title mb-0 fw-bold">{{ r.descricao|title }}</h6>
+                            <p class="card-text fs-5 mb-0"><strong>R$ {{ r.valor|floatformat:2 }}</strong></p>
+                        </div>
                     </div>
-                    <div>
-                        {% if r.status == 'recebido' %}<span class="badge bg-success-subtle text-success-emphasis">Recebido</span>
-                        {% else %}<span class="badge bg-warning-subtle text-warning-emphasis">A Receber</span>{% endif %}
+
+                    <div class="text-muted small mt-3">
+                        {% if r.aluno %}
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="bi bi-person me-2"></i>
+                            <span>{{ r.aluno.nome_completo|title }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-calendar-event me-2"></i>
+                            <span>Competência: {{ r.data_competencia|date:"M/Y" }}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
-                    <small class="text-muted">Competência: {{ r.data_competencia|date:"M/Y" }}</small>
+
+                <div class="card-footer d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        {% if r.status == 'recebido' %}
+                            <span class="badge fs-6 bg-success-subtle text-success-emphasis rounded-pill">
+                                <i class="bi bi-check-circle-fill me-1"></i>
+                                Recebido
+                            </span>
+                        {% else %}
+                            <span class="badge fs-6 bg-warning-subtle text-warning-emphasis rounded-pill">
+                                <i class="bi bi-hourglass-split me-1"></i>
+                                A Receber
+                            </span>
+                        {% endif %}
+                    </div>
+
                     <div class="btn-group">
                         {% if r.status == 'a_receber' %}
                             <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarReceitaModal-{{ r.pk }}">Receber</button>
@@ -67,7 +137,19 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
                         {% endif %}
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editReceitaModal" data-receita-url="{% url 'finances:edit_receita' r.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                            {% if r.produto %}
+                                <li><button class="dropdown-item" type="button" 
+                                        data-bs-toggle="modal" data-bs-target="#editReceitaModal" 
+                                        data-url="{% url 'finances:edit_venda' r.pk %}">
+                                    <i class="bi bi-pencil-square me-2"></i>Editar</button>
+                                </li>
+                            {% else %}
+                                <li><button class="dropdown-item" type="button" 
+                                        data-bs-toggle="modal" data-bs-target="#editReceitaModal" 
+                                        data-url="{% url 'finances:edit_mensalidade' r.pk %}">
+                                    <i class="bi bi-pencil-square me-2"></i>Editar</button>
+                                </li>
+                            {% endif %}
                             <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_receita' r.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
                         </ul>
                     </div>
@@ -75,62 +157,151 @@
             </div>
         </div>
         {% empty %}
-        <div class="text-center text-muted p-4">Nenhuma receita encontrada.</div>
+        <div class="col">
+            <div class="text-center text-muted p-4">Nenhuma receita encontrada.</div>
+        </div>
         {% endfor %}
+    </div>
+
+    {% include "scheduler/partials/pagination.html" %}
+</div>
+
+
+<div class="modal fade" id="escolherTipoReceitaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Receita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="lead">Qual tipo de receita você deseja adicionar?</p>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <button type="button" class="btn btn-primary btn-lg px-4 gap-3" data-bs-toggle="modal" data-bs-target="#addMensalidadeModal">
+                        <i class="bi bi-person-circle me-2"></i>Lançar Mensalidade
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg px-4" data-bs-toggle="modal" data-bs-target="#addVendaModal">
+                        <i class="bi bi-cart3 me-2"></i>Registrar Venda
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="modal fade" id="addReceitaModal" tabindex="-1">
+<div class="modal fade" id="addMensalidadeModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Adicionar Nova Receita ou Venda</h5>
+                <h5 class="modal-title">Adicionar Nova Mensalidade</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="addReceitaForm" action="{% url 'finances:receita_list' %}" method="post">
+            <form id="addMensalidadeForm" action="{% url 'finances:add_mensalidade' %}" method="post">
+                {% csrf_token %}
                 <div class="modal-body">
-                    {% csrf_token %}
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label for="{{ form.produto.id_for_label }}" class="form-label">{{ form.produto.label }}</label>
-                            {{ form.produto }}
+                    <div class="mb-3">
+                        <label for="{{ mensalidade_form.aluno.id_for_label }}" class="form-label">{{ mensalidade_form.aluno.label }}</label>
+                        {{ mensalidade_form.aluno }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ mensalidade_form.descricao.id_for_label }}" class="form-label">{{ mensalidade_form.descricao.label }}</label>
+                            {{ mensalidade_form.descricao }}
                         </div>
-                        <div class="col-md-4">
-                            <label for="{{ form.quantidade.id_for_label }}" class="form-label">{{ form.quantidade.label }}</label>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ mensalidade_form.valor.id_for_label }}" class="form-label">{{ mensalidade_form.valor.label }}</label>
+                            {{ mensalidade_form.valor }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ mensalidade_form.categoria.id_for_label }}" class="form-label">{{ mensalidade_form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ mensalidade_form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" data-category-type="income" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ mensalidade_form.data_competencia.id_for_label }}" class="form-label">{{ mensalidade_form.data_competencia.label }}</label>
+                            {{ mensalidade_form.data_competencia }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ mensalidade_form.data_recebimento.id_for_label }}" class="form-label">{{ mensalidade_form.data_recebimento.label }} (Opcional)</label>
+                            {{ mensalidade_form.data_recebimento }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Mensalidade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addVendaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Nova Venda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addVendaForm" action="{% url 'finances:add_venda' %}" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ venda_form.produto.id_for_label }}" class="form-label">{{ venda_form.produto.label }}</label>
+                            {{ venda_form.produto }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ venda_form.quantidade.id_for_label }}" class="form-label">{{ venda_form.quantidade.label }}</label>
                             <div class="input-group">
-                                {{ form.quantidade }}
+                                {{ venda_form.quantidade }}
                                 <span class="input-group-text" id="estoque-info"></span>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
-                            {{ form.descricao }}
+                    </div>
+                    <div class="row">
+                         <div class="col-md-8 mb-3">
+                            <label for="{{ venda_form.descricao.id_for_label }}" class="form-label">{{ venda_form.descricao.label }}</label>
+                            {{ venda_form.descricao }}
                         </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
-                            {{ form.valor }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }}</label>
-                            {{ form.categoria }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.data_competencia.id_for_label }}" class="form-label">{{ form.data_competencia.label }}</label>
-                            {{ form.data_competencia }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.data_recebimento.id_for_label }}" class="form-label">{{ form.data_recebimento.label }}</label>
-                            {{ form.data_recebimento }}
-                        </div>
-                         <div class="col-md-12">
-                            <label for="{{ form.aluno.id_for_label }}" class="form-label">{{ form.aluno.label }}</label>
-                            {{ form.aluno }}
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ venda_form.valor.id_for_label }}" class="form-label">{{ venda_form.valor.label }}</label>
+                            {{ venda_form.valor }}
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <label for="{{ venda_form.categoria.id_for_label }}" class="form-label">{{ venda_form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ venda_form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" data-category-type="income" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
+                    <div class="mb-3">
+                        <label for="{{ venda_form.aluno.id_for_label }}" class="form-label">{{ venda_form.aluno.label }}</label>
+                        {{ venda_form.aluno }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ venda_form.data_competencia.id_for_label }}" class="form-label">{{ venda_form.data_competencia.label }}</label>
+                            {{ venda_form.data_competencia }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ venda_form.data_recebimento.id_for_label }}" class="form-label">{{ venda_form.data_recebimento.label }} (Opcional)</label>
+                            {{ venda_form.data_recebimento }}
+                        </div>
+                    </div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" form="addReceitaForm">Salvar</button>
+                    <button type="submit" class="btn btn-success">Registrar Venda</button>
                 </div>
             </form>
         </div>
@@ -141,49 +312,66 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Editar Receita ou Venda</h5>
+                <h5 class="modal-title" id="editReceitaModalTitle">Editar Receita</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="editReceitaForm" method="post">
+            <form id="editReceitaForm" method="post" action="">
+                {% csrf_token %}
                 <div class="modal-body">
-                    {% csrf_token %}
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label for="{{ form.produto.id_for_label }}" class="form-label">{{ form.produto.label }}</label>
-                            {{ form.produto }}
-                        </div>
-                        <div class="col-md-4">
-                            <label for="{{ form.quantidade.id_for_label }}" class="form-label">{{ form.quantidade.label }}</label>
-                            <div class="input-group">
-                                {{ form.quantidade }}
-                                <span class="input-group-text" id="estoque-info-edit"></span>
+                    
+                    <div id="edit-venda-fields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="{{ venda_form.produto.id_for_label }}" class="form-label">{{ venda_form.produto.label }}</label>
+                                {{ venda_form.produto }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ venda_form.quantidade.id_for_label }}" class="form-label">{{ venda_form.quantidade.label }}</label>
+                                <div class="input-group">
+                                    {{ venda_form.quantidade }}
+                                    <span class="input-group-text" id="edit-estoque-info"></span>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
-                            {{ form.descricao }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.valor.id_for_label }}" class="form-label">{{ form.valor.label }}</label>
-                            {{ form.valor }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }}</label>
-                            {{ form.categoria }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.data_competencia.id_for_label }}" class="form-label">{{ form.data_competencia.label }}</label>
-                            {{ form.data_competencia }}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form.data_recebimento.id_for_label }}" class="form-label">{{ form.data_recebimento.label }}</label>
-                            {{ form.data_recebimento }}
-                        </div>
-                         <div class="col-md-12">
-                            <label for="{{ form.aluno.id_for_label }}" class="form-label">{{ form.aluno.label }}</label>
-                            {{ form.aluno }}
+                    </div>
+
+                    <div id="edit-mensalidade-fields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="{{ mensalidade_form.aluno.id_for_label }}" class="form-label">{{ mensalidade_form.aluno.label }}</label>
+                            {{ mensalidade_form.aluno }}
                         </div>
                     </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ mensalidade_form.descricao.id_for_label }}" class="form-label">{{ mensalidade_form.descricao.label }}</label>
+                            {{ mensalidade_form.descricao }}
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="{{ mensalidade_form.valor.id_for_label }}" class="form-label">{{ mensalidade_form.valor.label }}</label>
+                            {{ mensalidade_form.valor }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ mensalidade_form.categoria.id_for_label }}" class="form-label">{{ mensalidade_form.categoria.label }}</label>
+                        <div class="input-group">
+                            {{ mensalidade_form.categoria }}
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#addCategoryModal" data-category-type="income" title="Adicionar Nova Categoria">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ mensalidade_form.data_competencia.id_for_label }}" class="form-label">{{ mensalidade_form.data_competencia.label }}</label>
+                            {{ mensalidade_form.data_competencia }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ mensalidade_form.data_recebimento.id_for_label }}" class="form-label">{{ mensalidade_form.data_recebimento.label }} (Opcional)</label>
+                            {{ mensalidade_form.data_recebimento }}
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -194,23 +382,45 @@
     </div>
 </div>
 
+
 <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalTitle">Nova Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <div class="modal-body">
                 <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
                     {% csrf_token %}
-                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
-                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
+                    <input type="hidden" name="type" id="id_type_modal">
+
+                    <div class="mb-3">
+                        <label for="id_name_modal" class="form-label">Nome da Categoria</label>
+                        <input type="text" name="name" class="form-control" id="id_name_modal" required>
+                    </div>
+
+                    <div id="tipo-dre-container" class="mb-3" style="display: none;">
+                        <label class="form-label">Classificar como:</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tipo_dre" id="id_tipo_dre_custo" value="custo" autocomplete="off">
+                            <label for="id_tipo_dre_custo" class="btn btn-outline-primary w-100">Custo Direto</label>
+
+                            <input type="radio" class="btn-check" name="tipo_dre" id="id_tipo_dre_despesa" value="despesa" autocomplete="off" checked>
+                            <label for="id_tipo_dre_despesa" class="btn btn-outline-primary w-100">Despesa Operacional</label>
+                        </div>
+                    </div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="submitCategoryFormBtn" form="addCategoryForm">Salvar Categoria</button>
+            </div>
         </div>
     </div>
 </div>
 
-{% for r in receitas %}
+{% for r in page_obj %} {# <<< ALTERADO #}
 <div class="modal fade" id="baixarReceitaModal-{{ r.pk }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -221,7 +431,7 @@
             <form action="{% url 'finances:baixar_receita' r.pk %}" method="post">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <p>Confirmar o recebimento de <strong>{{ r.descricao }}</strong> no valor de <strong>R$ {{ r.valor|floatformat:2 }}</strong>?</p>
+                    <p>Confirmar o recebimento de <strong>{{ r.descricao|title }}</strong> no valor de <strong>R$ {{ r.valor|floatformat:2 }}</strong>?</p>
                     <div class="mb-3">
                         <label for="data_recebimento-{{ r.pk }}" class="form-label">Data do Recebimento:</label>
                         <input type="date" name="data_recebimento" id="data_recebimento-{{ r.pk }}" class="form-control" required>
@@ -243,97 +453,261 @@
 {{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const editModalEl = document.getElementById('editReceitaModal');
-    if (editModalEl) {
-        const editForm = editModalEl.querySelector('#editReceitaForm');
 
-        editModalEl.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const url = button.getAttribute('data-receita-url');
-            editForm.setAttribute('action', url);
+    // --- MODAL ADICIONAR MENSALIDADE ---
+    const addMensalidadeModal = document.getElementById('addMensalidadeModal');
+    if (addMensalidadeModal) {
+        const alunoSelect = addMensalidadeModal.querySelector('[name*="aluno"]');
+        const descricaoInput = addMensalidadeModal.querySelector('[name*="descricao"]');
+        const valorInput = addMensalidadeModal.querySelector('[name*="valor"]');
+        const dataCompetenciaInput = addMensalidadeModal.querySelector('[name*="data_competencia"]');
 
-            fetch(url)
-                .then(response => response.json())
+        alunoSelect.addEventListener('change', function() {
+            const alunoId = this.value;
+            if (!alunoId) return;
+
+            fetch(`/finances/ajax/get-aluno-details/${alunoId}/`)
+                .then(res => res.json())
                 .then(data => {
-                    for (const [key, value] of Object.entries(data)) {
-                        const field = editForm.querySelector(`[name="${key}"]`);
-                        if (field) {
-                            if (field.tagName === "SELECT") {
-                                field.value = value; // seleciona option pelo id
-                            } else {
-                                field.value = value;
-                            }
-                        }
+                    if (data.nome_completo) descricaoInput.value = `Mensalidade de ${data.nome_completo}`;
+                    if (data.valor_mensalidade !== undefined) valorInput.value = parseFloat(data.valor_mensalidade).toFixed(2);
+                    if(data.dia_vencimento) {
+                        const today = new Date();
+                        const year = today.getFullYear();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const day = String(data.dia_vencimento).padStart(2, '0');
+                        dataCompetenciaInput.value = `${year}-${month}-${day}`;
                     }
-
-                    // Atualiza estoque ao abrir modal de edição
-                    const produtoSelect = editForm.querySelector('#id_produto');
-                    const quantidadeInput = editForm.querySelector('#id_quantidade');
-                    const estoqueInfo = editForm.querySelector('#estoque-info-edit');
-
-                    if (produtoSelect && produtoSelect.value) {
-                        fetch(`/store/ajax/get-produto-details/${produtoSelect.value}/`)
-                            .then(r => r.json())
-                            .then(produtoData => {
-                                if (!produtoData.error) {
-                                    estoqueInfo.textContent = `${produtoData.estoque} em estoque`;
-                                    quantidadeInput.max = produtoData.estoque;
-                                }
-                            });
-                    }
-                });
-        });
-
-        editForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const url = editForm.getAttribute('action');
-            const formData = new FormData(editForm);
-
-            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert('Ocorreu um erro ao salvar as alterações.');
-                    console.error(data.errors);
-                }
-            });
+                })
+                .catch(err => console.error("Erro ao buscar detalhes do aluno:", err));
         });
     }
 
-    const addReceitaModal = document.getElementById('addReceitaModal');
-    if (addReceitaModal) {
-        const produtoSelect = addReceitaModal.querySelector('#id_produto');
-        const quantidadeInput = addReceitaModal.querySelector('#id_quantidade');
-        const valorInput = addReceitaModal.querySelector('#id_valor');
-        const descricaoInput = addReceitaModal.querySelector('#id_descricao');
-        const estoqueInfo = addReceitaModal.querySelector('#estoque-info');
+    // --- MODAL ADICIONAR VENDA ---
+    const addVendaModal = document.getElementById('addVendaModal');
+    if (addVendaModal) {
+        const produtoSelect = addVendaModal.querySelector('[name*="produto"]');
+        const quantidadeInput = addVendaModal.querySelector('[name*="quantidade"]');
+        const valorInput = addVendaModal.querySelector('[name*="valor"]');
+        const descricaoInput = addVendaModal.querySelector('[name*="descricao"]');
+        const estoqueInfo = addVendaModal.querySelector('#estoque-info');
 
-        produtoSelect.addEventListener('change', function() {
-            const produtoId = this.value;
+        function atualizarDetalhesProduto() {
+            const produtoId = produtoSelect.value;
             if (!produtoId) {
                 valorInput.value = '';
                 descricaoInput.value = '';
                 estoqueInfo.textContent = '';
-                quantidadeInput.value = 1;
                 return;
             }
 
             fetch(`/store/ajax/get-produto-details/${produtoId}/`)
-                .then(response => response.json())
+                .then(res => res.json())
                 .then(data => {
-                    if (data.error) {
-                        console.error(data.error);
-                        return;
-                    }
-                    valorInput.value = parseFloat(data.preco).toFixed(2);
+                    if (data.error) return;
+                    const precoUnitario = parseFloat(data.preco);
+                    const quantidade = parseInt(quantidadeInput.value) || 1;
+                    valorInput.value = (precoUnitario * quantidade).toFixed(2);
                     descricaoInput.value = `Venda: ${produtoSelect.options[produtoSelect.selectedIndex].text}`;
                     estoqueInfo.textContent = `${data.estoque} em estoque`;
                     quantidadeInput.max = data.estoque;
-                });
+                })
+                .catch(err => console.error("Erro ao buscar detalhes do produto:", err));
+        }
+
+        produtoSelect.addEventListener('change', atualizarDetalhesProduto);
+        quantidadeInput.addEventListener('input', atualizarDetalhesProduto);
+    }
+
+    // --- MODAIS DE EDIÇÃO ---
+    function setupEditModal(modalId, formId, attributeName) {
+        const editModalEl = document.getElementById(modalId);
+        if (!editModalEl) return;
+
+        const editForm = document.getElementById(formId);
+        const modalTitleEl = document.getElementById('editReceitaModalTitle');
+        
+        // Divs dos campos específicos
+        const vendaFields = document.getElementById('edit-venda-fields');
+        const mensalidadeFields = document.getElementById('edit-mensalidade-fields');
+        
+        // Elementos do formulário de venda
+        const produtoSelect = vendaFields.querySelector('[name="produto"]');
+        const quantidadeInput = vendaFields.querySelector('[name="quantidade"]');
+        const valorInput = editForm.querySelector('[name="valor"]');
+        const descricaoInput = editForm.querySelector('[name="descricao"]');
+        const estoqueInfo = vendaFields.querySelector('#edit-estoque-info');
+
+        // Função para atualizar detalhes do produto (preço, estoque, etc.)
+        function atualizarDetalhesProdutoVenda() {
+            const produtoId = produtoSelect.value;
+            if (!produtoId) return;
+
+            fetch(`/store/ajax/get-produto-details/${produtoId}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) return;
+                    const precoUnitario = parseFloat(data.preco);
+                    const quantidade = parseInt(quantidadeInput.value) || 1;
+                    valorInput.value = (precoUnitario * quantidade).toFixed(2);
+                    if (!descricaoInput.value) {
+                        descricaoInput.value = `Venda: ${produtoSelect.options[produtoSelect.selectedIndex].text}`;
+                    }
+                    estoqueInfo.textContent = `${data.estoque} em estoque`;
+                    quantidadeInput.max = data.estoque;
+                })
+                .catch(err => console.error("Erro ao buscar detalhes do produto:", err));
+        }
+
+        editModalEl.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+            const url = button.getAttribute(attributeName);
+            if (!url) return;
+
+            editForm.setAttribute('action', url);
+            
+            // Limpa e reseta os listeners para evitar duplicação
+            produtoSelect.removeEventListener('change', atualizarDetalhesProdutoVenda);
+            quantidadeInput.removeEventListener('input', atualizarDetalhesProdutoVenda);
+
+            // Verifica se é Venda ou Mensalidade pela URL
+            if (url.includes('/venda/')) {
+                modalTitleEl.textContent = 'Editar Venda';
+                vendaFields.style.display = 'block';
+                mensalidadeFields.style.display = 'none';
+                // Adiciona os listeners para os campos de produto/quantidade
+                produtoSelect.addEventListener('change', atualizarDetalhesProdutoVenda);
+                quantidadeInput.addEventListener('input', atualizarDetalhesProdutoVenda);
+            } else {
+                modalTitleEl.textContent = 'Editar Mensalidade';
+                vendaFields.style.display = 'none';
+                mensalidadeFields.style.display = 'block';
+            }
+
+            // Carrega os dados existentes no formulário
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    // Limpa todos os campos antes de preencher
+                    editForm.reset();
+                    for (const key in data) {
+                        const field = editForm.querySelector(`[name="${key}"]`);
+                        if (field) {
+                            field.value = data[key];
+
+                            // Se for uma venda, dispara a atualização do estoque/preço
+                            if (url.includes('/venda/') && (key === 'produto' || key === 'quantidade')) {
+                                // Dispara um 'change' para carregar os dados do produto
+                                field.dispatchEvent(new Event('change', { 'bubbles': true }));
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("Erro ao carregar dados para edição:", err));
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(editForm);
+            const url = editForm.getAttribute('action');
+
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    let error_message = data.message || 'Ocorreu um erro ao salvar.';
+                    if(data.errors) {
+                        // Formata os erros para melhor leitura
+                        let errorsStr = Object.entries(data.errors).map(([key, value]) => `${key}: ${value}`).join('\n');
+                        error_message += '\n\nDetalhes:\n' + errorsStr;
+                    }
+                    alert(error_message);
+                }
+            })
+            .catch(err => console.error("Erro de comunicação ao salvar:", err));
         });
     }
+
+    setupEditModal('editReceitaModal', 'editReceitaForm', 'data-url');
+
+    // --- DATA ATUAL NO MODAL DE RECEBIMENTO ---
+    document.querySelectorAll('[id^="baixarReceitaModal-"]').forEach(modal => {
+        modal.addEventListener('show.bs.modal', function() {
+            const dateInput = modal.querySelector('input[type="date"]');
+            if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        });
+    });
+
+    // --- MODAL DE CATEGORIA ---
+    const addCategoryModal = document.getElementById('addCategoryModal');
+    if(addCategoryModal) {
+        const categoryForm = document.getElementById('addCategoryForm');
+        const addCategoryModalInstance = new bootstrap.Modal(addCategoryModal);
+        const nameInput = addCategoryModal.querySelector('#id_name_modal');
+        let activeParentModal = null;
+        let activeCategorySelect = null;
+
+        addCategoryModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+
+            activeParentModal = button.closest('.modal');
+            activeCategorySelect = button.closest('.input-group').querySelector('select');
+
+            const typeInput = document.getElementById('id_type_modal');
+            const tipoDreContainer = document.getElementById('tipo-dre-container');
+            const modalTitle = addCategoryModal.querySelector('#addCategoryModalTitle');
+
+            const categoryType = button.getAttribute('data-category-type');
+            typeInput.value = categoryType;
+            tipoDreContainer.style.display = categoryType === 'expense' ? 'block' : 'none';
+            modalTitle.textContent = categoryType === 'expense' ? 'Nova Categoria de Saída' : 'Nova Categoria de Entrada';
+        });
+
+        categoryForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(categoryForm);
+            const url = categoryForm.action;
+            const submitButton = document.getElementById('submitCategoryFormBtn');
+
+            submitButton.disabled = true;
+            submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...`;
+
+            fetch(url, { method: 'POST', body: formData, headers:{'X-Requested-With':'XMLHttpRequest'} })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        const newOption = new Option(data.name, data.id, false, true);
+                        document.querySelectorAll('select[name="categoria"]').forEach(select => select.appendChild(newOption.cloneNode(true)));
+                        if(activeCategorySelect) activeCategorySelect.value = data.id;
+                        addCategoryModalInstance.hide();
+                    } else alert('Erro ao criar categoria: '+JSON.stringify(data.errors));
+                })
+                .finally(() => {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = 'Salvar Categoria';
+                });
+        });
+
+        addCategoryModal.addEventListener('hidden.bs.modal', function() {
+            nameInput.value = '';
+            if(activeParentModal) {
+                const parentModalInstance = bootstrap.Modal.getInstance(activeParentModal);
+                if(parentModalInstance) parentModalInstance.show();
+                setTimeout(() => parentModalInstance.show(), 20);
+            }
+            activeParentModal = null;
+            activeCategorySelect = null;
+        });
+    }
+
 });
 </script>
 {% endblock %}

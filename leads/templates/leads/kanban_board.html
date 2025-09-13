@@ -47,19 +47,29 @@
     }
 
     .kanban-column[data-status="novo"] {
-    background-color: #007bff; /* azul */
-    color: white;
-}
+        background-color: #007bff; /* azul */
+        color: white;
+    }
 
-.kanban-column[data-status="em_contato"] {
-    background-color: #ffc107; /* amarelo */
-    color: black;
-}
+    .kanban-column[data-status="em_contato"] {
+        background-color: #ffc107; /* amarelo */
+        color: black;
+    }
 
-.kanban-column[data-status="negociando"] {
-    background-color: #17a2b8; /* ciano */
-    color: white;
-}
+    .kanban-column[data-status="negociando"] {
+        background-color: #17a2b8; /* ciano */
+        color: white;
+    }
+
+    .kanban-column[data-status="convertido"] {
+        background-color: #28a745; /* verde */
+        color: white;
+    }
+
+    .kanban-column[data-status="perdido"] {
+        background-color: #dc3545; /* vermelho */
+        color: white;
+    }
 
     @media (max-width: 768px) {
         .kanban-board {
@@ -86,32 +96,27 @@
     {% include 'leads/_leads_nav.html' %}
 
     <div class="kanban-board">
-        {% for column in kanban_columns %}
-        <div class="kanban-column" data-status="{{ column.id }}">
-            <h6 class="text-center fw-bold text-{{ column.color_class|default:'secondary' }} text-uppercase">
-                {{ column.name }}
-            </h6>
+    {% for column in kanban_columns %}
+    <div class="kanban-column" data-status="{{ column.id }}">
+        <div class="content-block mb-3">
+            <h6 class="text-center fw-bold text-uppercase">{{ column.name }}</h6>
 
             <ul class="kanban-cards" data-status="{{ column.id }}" id="kanban-{{ column.id }}">
                 {% for lead in column.leads %}
                 <li class="kanban-card" data-lead-id="{{ lead.pk }}">
                     <h6 class="mb-1 fw-semibold">
-                        <a href="{% url 'leads:lead_detalhe' lead.pk %}">
-                            {{ lead.nome_interessado.title }}
-                        </a>
+                        <a href="{% url 'leads:lead_detalhe' lead.pk %}">{{ lead.nome_interessado.title }}</a>
                     </h6>
-                    <p class="mb-1 text-muted small">
-                        <i class="bi bi-phone me-1"></i>{{ lead.contato }}
-                    </p>
-                    <small class="text-muted">
-                        <i class="bi bi-bookmark me-1"></i>Curso: {{ lead.get_curso_interesse_display|default:'N/A' }}
-                    </small>
+                    <p class="mb-1 text-muted small"><i class="bi bi-phone me-1"></i>{{ lead.contato }}</p>
+                    <small class="text-muted"><i class="bi bi-bookmark me-1"></i>Curso: {{ lead.get_curso_interesse_display|default:'N/A' }}</small>
                 </li>
                 {% endfor %}
             </ul>
         </div>
-        {% endfor %}
     </div>
+    {% endfor %}
+</div>
+
 </div>
 {% endblock %}
 
@@ -120,63 +125,60 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
-    // Função padrão do Django para obter o valor de um cookie.
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                // O cookie começa com o nome que queremos?
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
             }
         }
-        return cookieValue;
     }
+    return cookieValue;
+}
 
-    document.addEventListener("DOMContentLoaded", function () {
-        // Pega o token CSRF para usar nas requisições
-        const csrftoken = getCookie('csrftoken');
-        const kanbanColumns = document.querySelectorAll(".kanban-cards");
-        const updateUrl = "{% url 'leads:update_lead_status' %}";
+document.addEventListener("DOMContentLoaded", function () {
+    const csrftoken = getCookie('csrftoken');
+    const kanbanColumns = document.querySelectorAll(".kanban-cards");
+    const updateUrl = "{% url 'leads:update_lead_status' %}";
 
-        kanbanColumns.forEach((column) => {
-            new Sortable(column, {
-                group: "kanban",
-                animation: 150,
-                onEnd: function (evt) {
-                    const leadCard = evt.item;
-                    const leadId = leadCard.dataset.leadId;
-                    const newStatus = evt.to.dataset.status;
+    kanbanColumns.forEach((column) => {
+        new Sortable(column, {
+            group: "kanban",
+            animation: 150,
+            onEnd: function (evt) {
+                const leadCard = evt.item;
+                const leadId = leadCard.dataset.leadId;
+                const newStatus = evt.to.dataset.status;
 
-                    fetch(updateUrl, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": csrftoken // <-- TOKEN ENVIADO AQUI
-                        },
-                        body: JSON.stringify({
-                            lead_id: leadId,
-                            new_status: newStatus,
-                        }),
-                    })
-                    .then((response) => response.json())
-                    .then((result) => {
-                        if (result.status !== "success") {
-                            console.error('Erro ao atualizar:', result.message);
-                            evt.from.appendChild(leadCard); // rollback on error
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Erro de rede:", error);
-                        evt.from.appendChild(leadCard); // rollback on error
-                    });
-                },
-            });
+                fetch(updateUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: JSON.stringify({
+                        lead_id: leadId,
+                        new_status: newStatus,
+                    }),
+                })
+                .then((response) => response.json())
+                .then((result) => {
+                    if (result.status !== "success") {
+                        console.error('Erro ao atualizar:', result.message);
+                        evt.from.appendChild(leadCard);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Erro de rede:", error);
+                    evt.from.appendChild(leadCard);
+                });
+            },
         });
     });
+});
 </script>
 {% endblock %}

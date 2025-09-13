@@ -389,6 +389,62 @@
 
                 {# Controles da direita #}
                 <div class="ms-auto d-flex align-items-center gap-3">
+                    {% if user.tipo == 'admin' and contagem_vencimentos_total > 0 %}
+                    <div class="dropdown">
+                        <button class="btn btn-link nav-link position-relative p-0" 
+                            type="button" 
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false" 
+                            title="Notificações">
+                        <i class="bi bi-bell-fill fs-5"></i>
+                        <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle p-1">
+                            {{ contagem_vencimentos_total }}
+                            <span class="visually-hidden">pendências</span>
+                        </span>
+                    </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow-lg" style="width: 320px;">
+                            
+                            {% if alunos_com_vencimento_proximo %}
+                            <div class="px-3 py-2">
+                                <h6 class="mb-0 text-success">A Receber em Breve</h6>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for aluno in alunos_com_vencimento_proximo %}
+                                <a href="{% url 'finances:receita_list' %}?filtro=a_vencer" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1 small">{{ aluno.nome_completo|title }}</h6>
+                                        <small class="text-muted">Dia {{ aluno.dia_vencimento }}</small>
+                                    </div>
+                                    <p class="mb-1 small text-muted">Mensalidade de R$ {{ aluno.valor_mensalidade|floatformat:2 }}.</p>
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            {% if alunos_com_vencimento_proximo and despesas_com_vencimento_proximo %}
+                                <div class="dropdown-divider my-0"></div>
+                            {% endif %}
+
+                            {% if despesas_com_vencimento_proximo %}
+                            <div class="px-3 py-2">
+                                <h6 class="mb-0 text-danger">A Pagar em Breve</h6>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for despesa in despesas_com_vencimento_proximo %}
+                                <a href="{% url 'finances:despesa_list' %}?filtro=a_vencer" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1 small">{{ despesa.descricao|title }}</h6>
+                                        <small class="text-muted">{{ despesa.data_competencia|date:"d/m" }}</small>
+                                    </div>
+                                    <p class="mb-1 small text-muted">Valor de R$ {{ despesa.valor|floatformat:2 }}.</p>
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                        </div>
+                    </div>
+                    {% endif %}
                     <button class="btn btn-link nav-link py-2 px-0" id="theme-toggle-btn" title="Alternar tema">
                         <i class="bi bi-sun-fill d-none" id="theme-icon-light"></i>
                         <i class="bi bi-moon-stars-fill" id="theme-icon-dark"></i>

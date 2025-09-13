@@ -1,6 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser, PresencaAluno, PresencaProfessor, ItemRudimento
+from finances.models import ReceitaRecorrente, Category
+from django.utils import timezone
 # --- IMPORTS ATUALIZADOS ---
 from django.forms import formset_factory
 from .forms import (
@@ -21,7 +23,6 @@ from .forms import (
 from django.contrib import messages
 import calendar
 from datetime import datetime, date, timedelta
-from django.utils import timezone
 from django.db import transaction
 from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
 from django.db.models.functions import TruncMonth
@@ -609,39 +610,65 @@ def criar_aluno(request):
     if request.method == "POST":
         form = AlunoForm(request.POST)
         if form.is_valid():
-            novo_aluno = form.save() # Salva o aluno e o armazena em uma variável
+            # Salva o aluno normalmente, sem unidade de negócio.
+            novo_aluno = form.save()
 
-            # --- LÓGICA DE CONVERSÃO ---
+            # --- LÓGICA DE CRIAÇÃO DE RECORRÊNCIA ---
+            if form.cleaned_data.get('criar_recorrencia'):
+                # Verifica se o aluno tem um valor de mensalidade válido
+                if novo_aluno.valor_mensalidade and novo_aluno.valor_mensalidade > 0:
+                    
+                    # CORREÇÃO: Buscamos a unidade da sessão para criar a recorrência
+                    unidade_ativa_id = request.session.get('unidade_ativa_id')
+                    
+                    if unidade_ativa_id:
+                        # Garante que a categoria "Mensalidade" exista para a unidade de negócio
+                        categoria_mensalidade, _ = Category.objects.get_or_create(
+                            name="Mensalidade",
+                            type="income",
+                            unidade_negocio_id=unidade_ativa_id,
+                            defaults={'tipo_dre': 'receita'} 
+                        )
+
+                        # Cria a regra de receita recorrente para o novo aluno
+                        ReceitaRecorrente.objects.create(
+                            unidade_negocio_id=unidade_ativa_id,
+                            aluno=novo_aluno,
+                            categoria=categoria_mensalidade,
+                            descricao=f"Recorrência de Mensalidade para {novo_aluno.nome_completo}",
+                            ativa=True,
+                            data_inicio=novo_aluno.data_criacao or timezone.now().date()
+                        )
+                        messages.info(request, "Regra de recorrência de mensalidade criada automaticamente.")
+                    else:
+                        messages.warning(request, "A recorrência não foi criada pois nenhuma unidade de negócio está ativa na sessão.")
+
+            # --- LÓGICA DE CONVERSÃO (permanece igual) ---
             lead_id = request.POST.get('lead_id')
             if lead_id:
                 try:
                     lead = Lead.objects.get(id=lead_id)
                     lead.status = 'convertido'
-                    lead.aluno_convertido = novo_aluno # AQUI FAZEMOS A LIGAÇÃO
+                    lead.aluno_convertido = novo_aluno
                     lead.save()
                     messages.info(request, f"Lead '{lead.nome_interessado}' convertido com sucesso!")
                 except Lead.DoesNotExist:
-                    pass # Opcional: logar um erro se o lead_id for inválido
+                    pass
             
             messages.success(request, "Aluno criado com sucesso!")
             return redirect("scheduler:aluno_listar")
     else:
-        # --- LÓGICA PARA PRÉ-POPULAR O FORMULÁRIO ---
-        # Verifica se há dados do lead na URL (GET request)
+        # --- LÓGICA PARA PRÉ-POPULAR O FORMULÁRIO (permanece igual) ---
         initial_data = {}
         if 'lead_id' in request.GET:
             initial_data['nome_completo'] = request.GET.get('nome_completo')
-            initial_data['responsavel'] = request.GET.get('responsavel')
+            initial_data['responsavel_nome'] = request.GET.get('responsavel_nome')
             initial_data['email'] = request.GET.get('email')
             initial_data['telefone'] = request.GET.get('telefone')
-            # Adicione outros campos se necessário
         
-        # Passa os dados iniciais para o formulário
         form = AlunoForm(initial=initial_data)
 
     contexto = {"form": form, "titulo": "Adicionar Novo Aluno"}
-    
-    # Passa o lead_id para o template para o campo oculto
     if 'lead_id' in request.GET:
         contexto['lead_id'] = request.GET.get('lead_id')
         
@@ -676,6 +703,30 @@ def excluir_aluno(request, pk):
     messages.success(request, "Aluno excluído com sucesso!")
     return redirect("scheduler:aluno_listar")
 
+def calculate_moving_average(data_points, window_size=3):
+    """Calcula a média móvel para uma lista de pontos de dados."""
+    if not data_points:
+        return []
+    
+    # Extrai os valores de 'y' para o cálculo
+    values = [p['y'] for p in data_points]
+    moving_averages = []
+    
+    for i in range(len(values)):
+        if i < window_size - 1:
+            moving_averages.append(None) # Não há dados suficientes para a média
+        else:
+            window = values[i - window_size + 1 : i + 1]
+            average = sum(window) / window_size
+            moving_averages.append(round(average, 2))
+            
+    # Remonta a estrutura com 'x' e 'y'
+    result = [
+        {'x': data_points[i]['x'], 'y': moving_averages[i]} 
+        for i in range(len(data_points))
+    ]
+    return result
+
 
 @login_required
 def detalhe_aluno(request, pk):
@@ -683,9 +734,34 @@ def detalhe_aluno(request, pk):
     historico_financeiro = aluno.financial_transactions.filter(
         category__type='income'
     ).order_by('-transaction_date')
+
+    # --- INÍCIO DA LÓGICA DE FILTRO GLOBAL ---
+    data_inicial_str = request.GET.get('data_inicial', '')
+    data_final_str = request.GET.get('data_final', '')
+    status_filtro = request.GET.get("status_filtro", "")
+
+    # Query base para todas as aulas do aluno
+    aulas_do_aluno = Aula.objects.filter(alunos=aluno)
+
+    # Aplica os filtros de data à query base
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            aulas_do_aluno = aulas_do_aluno.filter(data_hora__date__gte=data_inicial)
+        except (ValueError, TypeError): pass
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            aulas_do_aluno = aulas_do_aluno.filter(data_hora__date__lte=data_final)
+        except (ValueError, TypeError): pass
     
-    # --- LÓGICA DE BASE (SEM ALTERAÇÕES) ---
-    aulas_do_aluno = Aula.objects.filter(alunos=aluno).select_related('modalidade', 'relatorioaula__professor_que_validou').prefetch_related('professores', 'presencas')
+    # Aplica o filtro de status (que agora também é global)
+    if status_filtro:
+        aulas_do_aluno = aulas_do_aluno.filter(status=status_filtro)
+    # --- FIM DA LÓGICA DE FILTRO GLOBAL ---
+
+    # Todos os cálculos de KPIs e gráficos agora usam a queryset JÁ FILTRADA
+    aulas_do_aluno = aulas_do_aluno.select_related('modalidade', 'relatorioaula__professor_que_validou').prefetch_related('professores', 'presencas')
     presenca_status_subquery = PresencaAluno.objects.filter(aula=OuterRef('pk'), aluno=aluno).values('status')[:1]
     aulas_com_presenca = aulas_do_aluno.annotate(status_presenca_aluno=Subquery(presenca_status_subquery))
     total_realizadas = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente').count()
@@ -699,70 +775,43 @@ def detalhe_aluno(request, pk):
     top_professores = aulas_presente.filter(professores__isnull=False).values("professores__pk", "professores__username").annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
     top_modalidades = aulas_presente.values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
     
-    # --- PREPARAÇÃO PARA O GRÁFICO DE EVOLUÇÃO (LÓGICA RESTAURADA) ---
-    
+    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
+    chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
+
+    # A lógica do gráfico de evolução também usará os dados já filtrados por data
     relatorios_de_aulas_presente_ids = aulas_presente.filter(relatorioaula__isnull=False).values_list('relatorioaula__pk', flat=True)
     dados_evolucao = ItemRudimento.objects.filter(
         relatorio_id__in=list(relatorios_de_aulas_presente_ids),
         bpm__isnull=False
     ).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
-    
-    # O restante do código para processar e montar o gráfico permanece o mesmo
-    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
-    chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
-    evolucao_chart_labels = []
-    evolucao_chart_datasets = []
+
+    dados_grafico_por_exercicio = {}
+    lista_exercicios_unicos = []
     evolucao_total_aulas = 0
 
     if dados_evolucao.exists():
-        unique_dates = sorted(list(set(item.relatorio.aula.data_hora.date() for item in dados_evolucao)))
-        evolucao_chart_labels = [d.strftime('%d/%m/%y') for d in unique_dates]
-        date_to_index_map = {date: i for i, date in enumerate(unique_dates)}
-        evolucao_total_aulas = len(unique_dates)
-        data_by_exercise = defaultdict(lambda: [None] * len(evolucao_chart_labels))
-        
+        dados_agrupados = defaultdict(list)
         for item in dados_evolucao:
             try:
                 bpm = int(str(item.bpm).strip().replace('bpm', ''))
                 item_date = item.relatorio.aula.data_hora.date()
                 descricao = item.descricao.strip().title()
-                if item_date in date_to_index_map:
-                    data_by_exercise[descricao][date_to_index_map[item_date]] = bpm
-            except (ValueError, AttributeError): continue
-
-        rudimento_cores = {}
-        PALETA_CORES = [
-            'rgba(78, 115, 223, 0.8)', 'rgba(28, 200, 138, 0.8)', 'rgba(54, 185, 204, 0.8)',
-            'rgba(246, 194, 62, 0.8)', 'rgba(231, 74, 59, 0.8)', 'rgba(133, 135, 150, 0.8)', 'rgba(253, 126, 20, 0.8)'
-        ]
-        # Atribui cores baseado nos exercícios encontrados
-        for i, nome_exercicio in enumerate(sorted(data_by_exercise.keys())):
-             rudimento_cores[nome_exercicio] = PALETA_CORES[i % len(PALETA_CORES)]
-
-        evolucao_chart_datasets = [
-            {
-                'label': nome, 'data': pontos, 'borderColor': rudimento_cores.get(nome, '#cccccc'),
-                'backgroundColor': rudimento_cores.get(nome, '#cccccc').replace('0.8', '0.2'),
-                'fill': False, 'tension': 0.1, 'pointRadius': 4, 'pointHoverRadius': 7,
-                'pointBackgroundColor': rudimento_cores.get(nome, '#cccccc')
-            }
-            for nome, pontos in data_by_exercise.items()
-        ]
+                dados_agrupados[descricao].append({'x': item_date.isoformat(), 'y': bpm})
+            except (ValueError, AttributeError):
+                continue
         
-    # Lógica de filtros e paginação do histórico (sem alterações)
-    status_filtro = request.GET.get("status_filtro", "")
-    data_filtro = request.GET.get("data_filtro", "")
+        for descricao, pontos in dados_agrupados.items():
+            pontos_ordenados = sorted(pontos, key=lambda p: p['x'])
+            dados_grafico_por_exercicio[descricao] = {
+                'data': pontos_ordenados,
+                'moving_average': calculate_moving_average(pontos_ordenados, window_size=3)
+            }
+        
+        lista_exercicios_unicos = sorted(dados_agrupados.keys())
+        evolucao_total_aulas = dados_evolucao.values('relatorio__aula__data_hora__date').distinct().count()
+
+    # A paginação agora atua sobre a queryset já filtrada
     historico_aulas_qs = aulas_com_presenca.order_by("-data_hora")
-    if status_filtro:
-        historico_aulas_qs = historico_aulas_qs.filter(status=status_filtro)
-    if data_filtro:
-        try:
-            from datetime import datetime
-            ano, mes = map(int, data_filtro.split('-'))
-            historico_aulas_qs = historico_aulas_qs.filter(data_hora__year=ano, data_hora__month=mes)
-        except (ValueError, TypeError):
-            pass 
-            
     paginator = Paginator(historico_aulas_qs, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -781,10 +830,14 @@ def detalhe_aluno(request, pk):
         "total_canceladas": total_canceladas, "total_aluno_ausente": total_ausencias,
         "taxa_presenca": taxa_presenca, "top_professores": top_professores,
         "top_modalidades": top_modalidades, "chart_labels": chart_labels,
-        "chart_data": chart_data, "evolucao_total_aulas": evolucao_total_aulas,
-        "evolucao_chart_labels": evolucao_chart_labels,
-        "evolucao_chart_datasets": evolucao_chart_datasets,
-        'historico_financeiro': historico_financeiro,
+        "chart_data": chart_data, 'historico_financeiro': historico_financeiro,
+        "evolucao_total_aulas": evolucao_total_aulas,
+        "dados_grafico_por_exercicio": dados_grafico_por_exercicio,
+        "lista_exercicios_unicos": lista_exercicios_unicos,
+        # Passa os valores dos filtros para preencher o formulário no template
+        "data_inicial": data_inicial_str,
+        "data_final": data_final_str,
+        "status_filtro": status_filtro,
     }
     return render(request, "scheduler/aluno_detalhe.html", contexto)
 
