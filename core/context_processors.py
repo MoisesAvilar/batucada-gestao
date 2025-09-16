@@ -1,7 +1,7 @@
-from .models import UnidadeNegocio
+from .models import UnidadeNegocio, Notificacao
+from django.urls import reverse
 from leads.forms import LeadForm
-from scheduler.models import Aluno
-from finances.models import Despesa
+from finances.models import Despesa, Receita
 from django.utils import timezone
 from datetime import timedelta
 
@@ -15,26 +15,18 @@ def unidades_negocio_processor(request):
         try:
             unidade_ativa = UnidadeNegocio.objects.get(pk=unidade_ativa_id)
         except UnidadeNegocio.DoesNotExist:
-            # Limpa a sessão se o ID for inválido
             request.session.pop("unidade_ativa_id", None)
 
     return {"unidades_de_negocio": unidades, "unidade_ativa": unidade_ativa}
 
 
 def add_lead_form_processor(request):
-    """
-    Disponibiliza o formulário de adição de lead em todas as páginas.
-    """
-    # Só adiciona o formulário se o usuário estiver logado
     if request.user.is_authenticated:
         return {'add_lead_form': LeadForm()}
     return {}
 
 
 def notificacoes_vencimento(request):
-    """
-    Verifica se há alunos com mensalidades a vencer E despesas a pagar nos próximos dias.
-    """
     if not request.user.is_authenticated or not hasattr(request.user, 'tipo') or request.user.tipo != 'admin':
         return {}
 
@@ -42,40 +34,65 @@ def notificacoes_vencimento(request):
     if not unidade_ativa_id:
         return {}
 
+    # --- DICIONÁRIO DE TRADUÇÃO ADICIONADO ---
+    MESES_PT_ABREV = {
+        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+    }
+
     hoje = timezone.now().date()
+    data_limite = hoje + timedelta(days=5)
     
-    # --- LÓGICA PARA RECEITAS (Contas a Receber) ---
-    alunos_mensalistas = Aluno.objects.filter(
-        status='ativo',
-        valor_mensalidade__isnull=False,
-        dia_vencimento__isnull=False
+    # LÓGICA PARA RECEITAS A VENCER
+    receitas_a_vencer = Receita.objects.filter(
+        unidade_negocio_id=unidade_ativa_id, status='a_receber',
+        data_competencia__gte=hoje, data_competencia__lte=data_limite
     )
-    alunos_a_vencer = []
-    for aluno in alunos_mensalistas:
-        status_pagamento = aluno.get_status_pagamento()
-        if status_pagamento['status'] == 'Próximo Venc.':
-            alunos_a_vencer.append(aluno)
+    for receita in receitas_a_vencer:
+        # --- LÓGICA DO TÍTULO ALTERADA ---
+        mes_abrev = MESES_PT_ABREV[receita.data_competencia.month]
+        ano = receita.data_competencia.year
+        titulo = f"Vencimento: {receita.descricao} ({mes_abrev}/{ano})"
+        
+        mensagem = f"Conta de R$ {receita.valor} vence em {receita.data_competencia.strftime('%d/%m')}."
+        
+        Notificacao.objects.get_or_create(
+            usuario=request.user,
+            titulo=titulo,
+            tipo='receita',
+            defaults={
+                'mensagem': mensagem, 
+                'url': reverse('finances:receita_list') + f'?descricao={receita.descricao}'
+            }
+        )
 
-    # =======================================================
-    # NOVA LÓGICA PARA DESPESAS (Contas a Pagar)
-    # =======================================================
-    dias_a_frente = 5
-    data_limite = hoje + timedelta(days=dias_a_frente)
-
+    # LÓGICA PARA DESPESAS A VENCER
     despesas_a_vencer = Despesa.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status='a_pagar',
-        data_competencia__gte=hoje,
-        data_competencia__lte=data_limite
-    ).order_by('data_competencia')
-    # =======================================================
+        unidade_negocio_id=unidade_ativa_id, status='a_pagar',
+        data_competencia__gte=hoje, data_competencia__lte=data_limite
+    )
+    for despesa in despesas_a_vencer:
+        # --- LÓGICA DO TÍTULO ALTERADA ---
+        mes_abrev = MESES_PT_ABREV[despesa.data_competencia.month]
+        ano = despesa.data_competencia.year
+        titulo = f"Pagamento: {despesa.descricao} ({mes_abrev}/{ano})"
 
-    # Soma as contagens para o total
-    contagem_total = len(alunos_a_vencer) + len(despesas_a_vencer)
+        mensagem = f"Conta de R$ {despesa.valor} vence em {despesa.data_competencia.strftime('%d/%m')}."
+        
+        Notificacao.objects.get_or_create(
+            usuario=request.user,
+            titulo=titulo,
+            tipo='despesa',
+            defaults={
+                'mensagem': mensagem, 
+                'url': reverse('finances:despesa_list') + f'?descricao={despesa.descricao}'
+            }
+        )
 
-    # Retorna todos os dados para o template
+    # A busca das notificações não lidas para exibir
+    notificacoes_nao_lidas = request.user.notificacoes.filter(lida=False)
+    
     return {
-        'alunos_com_vencimento_proximo': alunos_a_vencer,
-        'despesas_com_vencimento_proximo': despesas_a_vencer,
-        'contagem_vencimentos_total': contagem_total,
+        'notificacoes_dropdown': notificacoes_nao_lidas.order_by('-data_criacao')[:5], 
+        'contagem_notificacoes_nao_lidas': notificacoes_nao_lidas.count(),
     }

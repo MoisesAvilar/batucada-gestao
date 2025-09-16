@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.http import JsonResponse
+from collections import defaultdict
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from .models import (
@@ -10,6 +11,7 @@ from .models import (
     ReceitaRecorrente,
     Category,
 )
+from store.models import Produto
 from .forms import (
     TransactionForm,
     CategoryForm,
@@ -22,9 +24,10 @@ from .forms import (
 from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.forms.models import model_to_dict
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from django.db import transaction
-from django.core.paginator import Paginator  # <<< ADICIONADO
+from django.core.paginator import Paginator
+from django.db.models.functions import TruncMonth
 from datetime import date, timedelta, datetime
 from django.db.models import Q
 from scheduler.models import Aula, CustomUser, Modalidade, PresencaAluno
@@ -68,18 +71,8 @@ def add_months(start_date, months):
 @admin_required
 def transaction_list_view(request):
     MESES_PT = {
-        1: "Jan",
-        2: "Fev",
-        3: "Mar",
-        4: "Abr",
-        5: "Mai",
-        6: "Jun",
-        7: "Jul",
-        8: "Ago",
-        9: "Set",
-        10: "Out",
-        11: "Nov",
-        12: "Dez",
+        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
     }
     unidade_ativa_id = request.session.get("unidade_ativa_id")
     if not unidade_ativa_id:
@@ -87,6 +80,7 @@ def transaction_list_view(request):
         return redirect("scheduler:dashboard")
 
     today = now().date()
+    ontem = today - timedelta(days=1)
     start_date = (
         date.fromisoformat(request.GET.get("start_date"))
         if request.GET.get("start_date")
@@ -117,22 +111,72 @@ def transaction_list_view(request):
         or 0
     )
 
+    contas_vencidas = Despesa.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status='a_pagar',
+        data_competencia__lt=today
+    ).aggregate(
+        count=Count('id'),
+        total=Sum('valor')
+    )
+
+    receitas_atrasadas = Receita.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status='a_receber',
+        data_competencia__lt=today
+    ).aggregate(
+        count=Count('id'),
+        total=Sum('valor')
+    )
+
     transactions = Transaction.objects.filter(
         unidade_negocio_id=unidade_ativa_id,
         transaction_date__range=[start_date, end_date],
     ).select_related("category")
 
+    income_by_month = (
+        transactions.filter(category__type="income")
+        .annotate(month=TruncMonth("transaction_date"))
+        .values("month")
+        .annotate(total=Sum("amount"))
+        .order_by("month")
+    )
+
+    expenses_by_month = (
+        transactions.filter(category__type="expense")
+        .annotate(month=TruncMonth("transaction_date"))
+        .values("month")
+        .annotate(total=Sum("amount"))
+        .order_by("month")
+    )
+
+    top_produtos_vendidos = Produto.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        receitas__data_competencia__range=[start_date, end_date]
+    ).annotate(
+        total_vendido=Sum('receitas__valor')
+    ).order_by('-total_vendido').filter(total_vendido__gt=0)[:5]
+
+    top_despesas = transactions.filter(category__type='expense').order_by('-amount')[:5]
+
+    flow_chart_labels = sorted(list(set([d["month"].strftime("%b/%y") for d in income_by_month] + [d["month"].strftime("%b/%y") for d in expenses_by_month])))
+    flow_chart_income_data = [0] * len(flow_chart_labels)
+    flow_chart_expense_data = [0] * len(flow_chart_labels)
+
+    income_map = {d["month"].strftime("%b/%y"): d["total"] for d in income_by_month}
+    expense_map = {d["month"].strftime("%b/%y"): d["total"] for d in expenses_by_month}
+
+    for i, label in enumerate(flow_chart_labels):
+        if label in income_map:
+            flow_chart_income_data[i] = float(income_map[label])
+        if label in expense_map:
+            flow_chart_expense_data[i] = float(expense_map[label])
+
     total_income = (
-        transactions.filter(category__type="income").aggregate(total=Sum("amount"))[
-            "total"
-        ]
-        or 0
+        transactions.filter(category__type="income").aggregate(total=Sum("amount"))["total"] or 0
     )
     total_expenses = (
-        transactions.filter(category__type="expense").aggregate(total=Sum("amount"))[
-            "total"
-        ]
-        or 0
+        transactions.filter(category__type="expense").aggregate(total=Sum("amount"))["total"] or 0
     )
     balance = total_income - total_expenses
 
@@ -146,29 +190,74 @@ def transaction_list_view(request):
     chart_labels = [item["category__name"] for item in expenses_by_category]
     chart_data = [float(item["total"]) for item in expenses_by_category]
 
-    months_spanned = max(
-        1,
-        (end_date.year - start_date.year) * 12
-        + (end_date.month - start_date.month)
-        + 1,
+    # Adiciona a busca de dados para o gráfico de ENTRADAS
+    income_by_category = (
+        transactions.filter(category__type="income")
+        .values("category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
     )
-    avg_monthly_income = Decimal(total_income) / months_spanned
-    avg_monthly_expenses = Decimal(total_expenses) / months_spanned
-    cumulative_balance = balance
-    monthly_net = avg_monthly_income - avg_monthly_expenses
+
+    income_chart_labels = [item["category__name"] for item in income_by_category]
+    income_chart_data = [float(item["total"]) for item in income_by_category]
+
+    # Lógica de projeção inteligente
+    hoje = now().date()
+    data_inicio_media = hoje - timedelta(days=90)
+    categorias_recorrentes_nomes = ['Mensalidades Alunos', 'Aluguel do Espaço', 'Software e Assinaturas']
+
+    total_receitas_variaveis = Transaction.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        transaction_date__gte=data_inicio_media,
+        category__type='income'
+    ).exclude(
+        category__name__in=categorias_recorrentes_nomes
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    media_mensal_receitas_variaveis = (total_receitas_variaveis / 3)
+
+    total_despesas_variaveis = Transaction.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        transaction_date__gte=data_inicio_media,
+        category__type='expense'
+    ).exclude(
+        category__name__in=categorias_recorrentes_nomes
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    media_mensal_despesas_variaveis = (total_despesas_variaveis / 3)
+
+    total_despesas_recorrentes = DespesaRecorrente.objects.filter(
+        unidade_negocio_id=unidade_ativa_id, ativa=True
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
+    receitas_recorrentes_fixas = ReceitaRecorrente.objects.filter(
+        unidade_negocio_id=unidade_ativa_id, ativa=True, aluno__isnull=True
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
+    mensalidades_recorrentes = Aluno.objects.filter(
+        receitas_recorrentes__unidade_negocio_id=unidade_ativa_id,
+        receitas_recorrentes__ativa=True,
+        status='ativo'
+    ).aggregate(total=Sum('valor_mensalidade'))['total'] or Decimal('0.00')
+
+    total_receitas_recorrentes = receitas_recorrentes_fixas + mensalidades_recorrentes
 
     projection_data = []
+    saldo_acumulado = balance 
+
     for i in range(1, 7):
-        future_date = add_months(end_date.replace(day=1), i)
-        cumulative_balance += monthly_net
-        projection_data.append(
-            {
-                "month": f"{MESES_PT[future_date.month]}/{future_date.year}",
-                "income": avg_monthly_income,
-                "expenses": avg_monthly_expenses,
-                "balance": cumulative_balance,
-            }
-        )
+        future_date = add_months(hoje, i)
+        
+        receita_projetada = total_receitas_recorrentes + media_mensal_receitas_variaveis
+        despesa_projetada = total_despesas_recorrentes + media_mensal_despesas_variaveis
+        
+        resultado_mes = receita_projetada - despesa_projetada
+        saldo_acumulado += resultado_mes
+        
+        projection_data.append({
+            "month": f"{MESES_PT[future_date.month]}/{future_date.year}",
+            "income": receita_projetada,
+            "expenses": despesa_projetada,
+            "balance": saldo_acumulado,
+        })
 
     paginator = Paginator(transactions, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -195,11 +284,23 @@ def transaction_list_view(request):
             "balance": balance,
             "start_date": start_date,
             "end_date": end_date,
+            "data_ontem": ontem,
             "chart_labels": chart_labels,
             "chart_data": chart_data,
+            "income_chart_labels": income_chart_labels,
+            "income_chart_data": income_chart_data,
             "projection_data": projection_data,
             "total_a_pagar": total_a_pagar,
             "total_a_receber": total_a_receber,
+            'contas_vencidas_count': contas_vencidas['count'] or 0,
+            'contas_vencidas_total': contas_vencidas['total'] or 0,
+            'receitas_atrasadas_count': receitas_atrasadas['count'] or 0,
+            'receitas_atrasadas_total': receitas_atrasadas['total'] or 0,
+            'flow_chart_labels': flow_chart_labels,
+            'flow_chart_income_data': flow_chart_income_data,
+            'flow_chart_expense_data': flow_chart_expense_data,
+            'top_produtos_vendidos': top_produtos_vendidos,
+            'top_despesas': top_despesas,
         },
     )
 
@@ -327,53 +428,6 @@ def add_venda(request):
         messages.error(request, f"Erro ao registrar venda: {erros}")
 
     return redirect("finances:receita_list")
-
-
-@admin_required
-def delete_transaction_view(request, pk):
-    if request.method == "POST":
-        transaction = get_object_or_404(Transaction, pk=pk)
-        transaction.delete()
-        messages.success(request, "Lançamento deletado com sucesso!")
-    return redirect("finances:transaction_list")
-
-
-@admin_required
-def edit_transaction_view(request, pk):
-    transaction = get_object_or_404(Transaction, pk=pk)
-    if request.method == "POST":
-        form = TransactionForm(request.POST, instance=transaction)
-        if form.is_valid():
-            updated_transaction = form.save()
-
-            data = model_to_dict(updated_transaction)
-            data["category_name"] = updated_transaction.category.name
-            data["student_name"] = (
-                updated_transaction.student.nome_completo
-                if updated_transaction.student
-                else ""
-            )
-            data["professor_name"] = (
-                updated_transaction.professor.username
-                if updated_transaction.professor
-                else ""
-            )
-
-            return JsonResponse({"status": "success", "transaction": data})
-        else:
-            return JsonResponse({"status": "error", "errors": form.errors})
-
-    data = {
-        "id": transaction.id,
-        "description": transaction.description,
-        "amount": transaction.amount,
-        "category": transaction.category.id,
-        "transaction_date": transaction.transaction_date,
-        "observation": transaction.observation,
-        "student": transaction.student.id if transaction.student else None,
-        "professor": transaction.professor.id if transaction.professor else None,
-    }
-    return JsonResponse(data)
 
 
 @admin_required
@@ -853,11 +907,32 @@ def recorrencia_list_view(request):
         unidade_negocio_id=unidade_ativa_id
     )
 
+    total_despesas_recorrentes = despesas_recorrentes.filter(ativa=True).aggregate(
+        total=Sum('valor')
+    )['total'] or Decimal('0.00')
+
+    receitas_fixas = receitas_recorrentes.filter(ativa=True, aluno__isnull=True).aggregate(
+        total=Sum('valor')
+    )['total'] or Decimal('0.00')
+
+    mensalidades = Aluno.objects.filter(
+        status='ativo',
+        receitas_recorrentes__unidade_negocio_id=unidade_ativa_id,
+        receitas_recorrentes__ativa=True
+    ).aggregate(total=Sum('valor_mensalidade'))['total'] or Decimal('0.00')
+
+    total_receitas_recorrentes = receitas_fixas + mensalidades
+    saldo_recorrente_mensal = total_receitas_recorrentes - total_despesas_recorrentes
+
+
     context = {
         "despesa_form": despesa_form,
         "receita_form": receita_form,
         "despesas_recorrentes": despesas_recorrentes,
         "receitas_recorrentes": receitas_recorrentes,
+        "total_receitas_recorrentes": total_receitas_recorrentes,
+        "total_despesas_recorrentes": total_despesas_recorrentes,
+        "saldo_recorrente_mensal": saldo_recorrente_mensal,
     }
     return render(request, "finances/recorrencia_list.html", context)
 
@@ -1479,3 +1554,92 @@ def calcular_pagamento_professor_ajax(request):
             "calculo": calculo_detalhado,
         }
     )
+
+
+def _process_aging_data(queryset, date_field_name, today):
+    """
+    Função auxiliar para processar uma queryset de contas (Receita ou Despesa)
+    e retornar os dados agrupados por entidade e por faixa de vencimento.
+    """
+    # --- CORRIGIDO: Chaves do dicionário renomeadas para serem válidas no template ---
+    buckets = {
+        'a_vencer': {'min': -9999, 'max': 0,    'label': 'A Vencer'},
+        'd1_30':    {'min': 1,    'max': 30,   'label': '1-30 dias'},
+        'd31_60':   {'min': 31,   'max': 60,   'label': '31-60 dias'},
+        'd61_90':   {'min': 61,   'max': 90,   'label': '61-90 dias'},
+        'd90_plus': {'min': 91,   'max': 9999, 'label': '90+ dias'},
+    }
+    
+    entity_data = defaultdict(lambda: {
+        'entity': None,
+        'total_geral': Decimal('0.00'),
+        'buckets': {key: Decimal('0.00') for key in buckets}
+    })
+
+    column_totals = {key: Decimal('0.00') for key in buckets}
+    grand_total = Decimal('0.00')
+
+    for item in queryset:
+        days_overdue = (today - getattr(item, date_field_name)).days
+        
+        for key, limits in buckets.items():
+            if limits['min'] <= days_overdue <= limits['max']:
+                bucket_key = key
+                break
+        else:
+            continue
+
+        if isinstance(item, Receita) and item.aluno:
+            entity_id = item.aluno.id
+            entity_name = item.aluno.nome_completo
+        else:
+            entity_id = item.descricao.lower()
+            entity_name = item.descricao
+        
+        entity_data[entity_id]['entity'] = entity_name
+        entity_data[entity_id]['buckets'][bucket_key] += item.valor
+        entity_data[entity_id]['total_geral'] += item.valor
+        
+        column_totals[bucket_key] += item.valor
+        grand_total += item.valor
+
+    sorted_entities = sorted(entity_data.values(), key=lambda x: x['total_geral'], reverse=True)
+
+    return {
+        'entities': sorted_entities,
+        'column_totals': column_totals,
+        'grand_total': grand_total,
+        'bucket_labels': [b['label'] for b in buckets.values()]
+    }
+
+
+@admin_required
+def aging_report_view(request):
+    unidade_ativa_id = request.session.get("unidade_ativa_id")
+    if not unidade_ativa_id:
+        messages.warning(request, "Selecione uma Unidade de Negócio.")
+        return redirect("scheduler:dashboard")
+
+    today = now().date()
+
+    # Processa Contas a Receber
+    recebiveis_abertos = Receita.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status='a_receber'
+    ).select_related('aluno')
+    aging_recebiveis = _process_aging_data(recebiveis_abertos, 'data_competencia', today)
+
+    # Processa Contas a Pagar
+    pagaveis_abertos = Despesa.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status='a_pagar'
+    )
+    aging_pagaveis = _process_aging_data(pagaveis_abertos, 'data_competencia', today)
+
+    context = {
+        "aging_recebiveis": aging_recebiveis,
+        "aging_pagaveis": aging_pagaveis,
+        "report_date": today,
+    }
+    
+    return render(request, 'finances/aging_report.html', context)

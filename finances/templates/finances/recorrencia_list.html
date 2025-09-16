@@ -6,6 +6,27 @@
     <p class="text-muted mb-0">Crie regras para lançar despesas e receitas automaticamente.</p>
 </div>
 
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
+            <h6 class="text-success text-uppercase small">Receitas Recorrentes / Mês</h6>
+            <h2 class="h1 mb-0">R$ {{ total_receitas_recorrentes|floatformat:2 }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
+            <h6 class="text-danger text-uppercase small">Despesas Recorrentes / Mês</h6>
+            <h2 class="h1 mb-0">R$ {{ total_despesas_recorrentes|floatformat:2 }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
+            <h6 class="text-info text-uppercase small">Saldo Recorrente Previsto</h6>
+            <h2 class="h1 mb-0">R$ {{ saldo_recorrente_mensal|floatformat:2 }}</h2>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-6">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -77,6 +98,11 @@
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h6 class="card-title fw-bold">{{ d.descricao|title }}</h6>
+                        <div class="mb-2">
+                            <span class="badge bg-secondary-subtle border border-secondary-subtle text-secondary-emphasis rounded-pill">
+                                {{ d.categoria.name }}
+                            </span>
+                        </div>
                         {% if d.professor %}<small class="text-muted d-block">{{ d.professor.get_full_name|title }}</small>{% endif %}
                     </div>
                     <div class="btn-group">

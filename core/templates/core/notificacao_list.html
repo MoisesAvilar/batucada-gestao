@@ -1,0 +1,124 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<style>
+    .notification-item.lida {
+        opacity: 0.6;
+    }
+    .notification-item.lida .fw-bold {
+        font-weight: 500 !important;
+    }
+</style>
+
+<div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
+    <h1 class="h3 mb-0">Central de Notificações</h1>
+    
+    <div class="btn-group" role="group">
+        <a href="?filtro=todas" class="btn {% if filtro_ativo == 'todas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Todas
+        </a>
+        <a href="?filtro=nao_lidas" class="btn {% if filtro_ativo == 'nao_lidas' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Não Lidas
+        </a>
+    </div>
+    </div>
+
+<div class="content-block">
+    <div class="list-group list-group-flush">
+        
+        {% comment %} INÍCIO DO NOVO LOOP ANINHADO {% endcomment %}
+        {% for group_name, notifications_in_group in grouped_notifications.items %}
+            <h5 class="text-muted mb-2 mt-4">{{ group_name }}</h5>
+            
+            {% for notificacao in notifications_in_group %}
+            <li class="list-group-item notification-item {% if notificacao.lida %}lida{% endif %}" id="notification-item-{{ notificacao.pk }}">
+                <div class="d-flex w-100 justify-content-between">
+                    <a href="{{ notificacao.url|default:'#' }}" class="text-decoration-none text-body flex-grow-1">
+                        <h6 class="mb-1 fw-bold">
+                            {% if notificacao.tipo == 'receita' %}<i class="bi bi-arrow-up-circle-fill text-success me-2"></i>{% endif %}
+                            {% if notificacao.tipo == 'despesa' %}<i class="bi bi-arrow-down-circle-fill text-danger me-2"></i>{% endif %}
+                            {{ notificacao.titulo }}
+                        </h6>
+                    </a>
+                    <small class="text-muted ms-3 flex-shrink-0">{{ notificacao.data_criacao|date:"d/m/Y H:i" }}</small>
+                </div>
+                <div class="d-flex w-100 justify-content-between align-items-end">
+                    <a href="{{ notificacao.url|default:'#' }}" class="text-decoration-none text-body flex-grow-1">
+                        <p class="mb-1 small text-muted ps-4">{{ notificacao.mensagem }}</p>
+                    </a>
+                    <div class="ms-3">
+                        {% if notificacao.lida %}
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 btn-marcar-nao-lida" data-url="{% url 'core:marcar_notificacao_nao_lida' notificacao.pk %}" title="Marcar como não lida">
+                            <i class="bi bi-envelope-open"></i>
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-danger py-0 px-2 btn-excluir-notificacao" data-url="{% url 'core:excluir_notificacao' notificacao.pk %}" title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+
+        {% endfor %}
+        {% comment %} FIM DO NOVO LOOP ANINHADO {% endcomment %}
+        
+        {% if not grouped_notifications %}
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-bell-slash fs-1"></i>
+            <p class="mt-2">
+                {% if filtro_ativo == 'nao_lidas' %}
+                    Você não tem nenhuma notificação não lida.
+                {% else %}
+                    Você não tem nenhuma notificação.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // O JavaScript que você já tem para as ações de "marcar como não lida" e "excluir" 
+    // continua funcionando perfeitamente aqui. Não precisa alterar nada nele.
+    document.addEventListener('click', function(event) {
+        const csrfToken = '{{ csrf_token }}';
+        
+        // Botão de Marcar como Não Lida
+        if (event.target.closest('.btn-marcar-nao-lida')) {
+            const button = event.target.closest('.btn-marcar-nao-lida');
+            const url = button.dataset.url;
+            
+            fetch(url, { method: 'POST', headers: {'X-CSRFToken': csrfToken} })
+            .then(res => res.json()).then(data => {
+                if (data.status === 'success') {
+                    // Simplesmente recarrega a página para atualizar o status e a contagem
+                    // É a forma mais robusta de garantir consistência
+                    window.location.reload();
+                }
+            });
+        }
+
+        // Botão de Excluir
+        if (event.target.closest('.btn-excluir-notificacao')) {
+            const button = event.target.closest('.btn-excluir-notificacao');
+            const url = button.dataset.url;
+            const item = button.closest('.notification-item');
+            
+            if (confirm('Tem certeza que deseja excluir esta notificação?')) {
+                fetch(url, { method: 'POST', headers: {'X-CSRFToken': csrfToken} })
+                .then(res => res.json()).then(data => {
+                    if (data.status === 'success') {
+                        item.style.transition = 'opacity 0.3s';
+                        item.style.opacity = '0';
+                        setTimeout(() => item.remove(), 300);
+                    }
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

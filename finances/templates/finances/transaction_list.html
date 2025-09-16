@@ -13,6 +13,55 @@
     }
     .kpi-alert { transition: transform 0.2s ease-in-out; }
     .kpi-alert:hover { transform: translateY(-5px); }
+
+        /* NOVO CSS PARA A TABELA */
+    .transaction-icon {
+        font-size: 1.5rem; /* Aumenta o tamanho do ícone */
+    }
+
+    .custom-table-cards .badge {
+        font-size: 0.8em;
+        padding: 0.4em 0.8em;
+    }
+
+    /* DESIGN RESPONSIVO PARA TRANSFORMAR EM CARDS */
+    @media (max-width: 992px) {
+        .custom-table-cards thead {
+            display: none; /* Esconde o cabeçalho em telas menores */
+        }
+        .custom-table-cards tr {
+            display: block;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--bs-border-color-translucent);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+        }
+        .custom-table-cards td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: none;
+            padding: 0.5rem 0;
+            text-align: right !important; /* Força o alinhamento do conteúdo */
+        }
+        .custom-table-cards td:not(:last-child) {
+            border-bottom: 1px dashed var(--bs-border-color-translucent);
+        }
+
+        .custom-table-cards td::before {
+            content: attr(data-label); /* Usa o atributo data-label como título */
+            font-weight: bold;
+            text-align: left;
+            margin-right: 1rem;
+        }
+
+        /* Oculta labels que não fazem sentido no formato card */
+        .custom-table-cards td[data-label="Tipo"]::before,
+        .custom-table-cards td[data-label="Tipo"] {
+            display: none; /* O ícone já é visual o suficiente */
+        }
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -27,9 +76,39 @@
     </form>
 </div>
 
+{% if contas_vencidas_count > 0 or receitas_atrasadas_count > 0 %}
 <div class="row g-4 mb-4">
-    <div class="col-lg-4">
-        <div class="content-block text-center">
+    {% if contas_vencidas_count > 0 %}
+    <div class="col-lg-6">
+        <div class="alert alert-danger d-flex align-items-center shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill fs-2 me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-0">{{ contas_vencidas_count }} Conta(s) Vencida(s)</h5>
+                Totalizando <strong>R$ {{ contas_vencidas_total|floatformat:2 }}</strong>.
+                <a href="{% url 'finances:despesa_list' %}?status=a_pagar&data_final={{ data_ontem|date:'Y-m-d' }}" class="alert-link stretched-link">Ver contas a pagar.</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if receitas_atrasadas_count > 0 %}
+    <div class="col-lg-6">
+        <div class="alert alert-warning d-flex align-items-center shadow-sm">
+            <i class="bi bi-exclamation-circle-fill fs-2 me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-0">{{ receitas_atrasadas_count }} Receita(s) Atrasada(s)</h5>
+                Totalizando <strong>R$ {{ receitas_atrasadas_total|floatformat:2 }}</strong>.
+                <a href="{% url 'finances:receita_list' %}?status=a_receber&data_final={{ data_ontem|date:'Y-m-d' }}" class="alert-link stretched-link">Ver contas a receber.</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
             <h6 class="text-success text-uppercase small">Entradas (Realizadas)</h6>
             <h2 class="h1 mb-0">R$ {{ total_income|floatformat:2 }}</h2>
             <p class="mb-0 mt-2">
@@ -39,8 +118,8 @@
             </p>
         </div>
     </div>
-    <div class="col-lg-4">
-        <div class="content-block text-center">
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
             <h6 class="text-danger text-uppercase small">Saídas (Pagas)</h6>
             <h2 class="h1 mb-0">R$ {{ total_expenses|floatformat:2 }}</h2>
             <p class="mb-0 mt-2">
@@ -50,8 +129,8 @@
             </p>
         </div>
     </div>
-    <div class="col-lg-4">
-        <div class="content-block text-center">
+    <div class="col-md-4">
+        <div class="content-block text-center h-100">
             <h6 class="text-info text-uppercase small">Saldo de Caixa (Atual)</h6>
             <h2 class="h1 mb-0">R$ {{ balance|floatformat:2 }}</h2>
             <p class="mb-0 mt-2 text-muted">
@@ -62,61 +141,100 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-lg-5">
-        <div class="content-block h-100">
-            <h5 class="mb-3"><i class="bi bi-pie-chart-fill me-2"></i>Saídas por Categoria</h5>
-            {% if chart_data %}<div style="height: 300px;"><canvas id="expensesChart"></canvas></div>{% else %}<p class="text-muted text-center small p-5">Sem dados de saídas para exibir.</p>{% endif %}
+    <div class="col-12">
+        <div class="content-block">
+            <h5 class="mb-3"><i class="bi bi-bar-chart-line-fill me-2"></i>Fluxo de Caixa no Período</h5>
+            <div style="height: 350px;"><canvas id="cashFlowChart"></canvas></div>
         </div>
     </div>
-    <div class="col-lg-7">
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
         <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-pie-chart-fill me-2 text-danger"></i>Saídas por Categoria</h5>
+            {% if chart_data %}
+                <div style="height: 300px;"><canvas id="expensesChart"></canvas></div>
+            {% else %}
+                <div class="d-flex align-items-center justify-content-center h-100 text-muted small p-5">Sem dados de saídas para exibir.</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-pie-chart-fill me-2 text-success"></i>Entradas por Categoria</h5>
+            {% if income_chart_data %}
+                <div style="height: 300px;"><canvas id="incomeChart"></canvas></div>
+            {% else %}
+                <div class="d-flex align-items-center justify-content-center h-100 text-muted small p-5">Sem dados de entradas para exibir.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-trophy-fill me-2"></i>Top 5 Produtos Vendidos</h5>
+            <ul class="list-group list-group-flush">
+                {% for produto in top_produtos_vendidos %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ produto.nome }}
+                    <span class="badge bg-primary rounded-pill">R$ {{ produto.total_vendido|floatformat:2 }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted text-center small">Nenhuma venda de produto no período.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="content-block h-100">
+            <h5 class="mb-3"><i class="bi bi-sort-down me-2"></i>Top 5 Maiores Despesas</h5>
+            <ul class="list-group list-group-flush">
+                {% for despesa in top_despesas %}
+                 <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        {{ despesa.description }}
+                        <small class="d-block text-muted">{{ despesa.category.name }}</small>
+                    </span>
+                    <span class="badge bg-danger rounded-pill">R$ {{ despesa.amount|floatformat:2 }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted text-center small">Nenhuma despesa no período.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="content-block">
             <h5 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Projeção (Próximos 6 Meses)</h5>
             {% if projection_data %}
-                <p class="small text-muted mb-3">Estimativa com base na média do período filtrado — saldo exibido é <strong>acumulado</strong>.</p>
-                
-                <div class="table-responsive d-none d-lg-block">
-                    <table class="table table-sm small">
-                        <thead><tr><th>Mês</th><th class="text-end">Entradas</th><th class="text-end">Saídas</th><th class="text-end">Saldo</th></tr></thead>
-                        <tbody>
-                            {% for proj in projection_data %}
-                            <tr>
-                                <td>{{ proj.month }}</td>
-                                <td class="text-end text-success">+ R$ {{ proj.income|floatformat:2 }}</td>
-                                <td class="text-end text-danger">- R$ {{ proj.expenses|floatformat:2 }}</td>
-                                <td class="text-end fw-bold">R$ {{ proj.balance|floatformat:2 }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="vstack gap-3 d-lg-none"> {# Usamos gap-3 para um espaçamento maior #}
+                <p class="small text-muted mb-3">Estimativa com base nas recorrências e na média de valores variáveis dos últimos 90 dias. Saldo exibido é <strong>acumulado</strong>.</p>
+                <div class="row">
                     {% for proj in projection_data %}
-                    
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center py-2">
-                            <h6 class="mb-0">{{ proj.month }}</h6>
-                            <div class="text-end">
-                                <small class="text-muted d-block lh-1">Saldo</small>
-                                <span class="fw-bold">R$ {{ proj.balance|floatformat:2 }}</span>
+                    <div class="col-lg-2 col-md-4 col-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <h6 class="mb-0">{{ proj.month }}</h6>
                             </div>
-                        </div>
-                        <div class="card-body d-flex justify-content-between small py-2">
-                            <span class="text-success">
-                                <i class="bi bi-arrow-up-circle"></i>
-                                + R$ {{ proj.income|floatformat:2 }}
-                            </span>
-                            <span class="text-danger">
-                                <i class="bi bi-arrow-down-circle"></i>
-                                - R$ {{ proj.expenses|floatformat:2 }}
-                            </span>
+                            <div class="card-body text-center">
+                                <small class="text-muted d-block lh-1">Saldo</small>
+                                <span class="fw-bold h5">R$ {{ proj.balance|floatformat:2 }}</span>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between small py-1">
+                                <span class="text-success" title="Entradas Projetadas"><i class="bi bi-arrow-up"></i> {{ proj.income|floatformat:0 }}</span>
+                                <span class="text-danger" title="Saídas Projetadas"><i class="bi bi-arrow-down"></i> {{ proj.expenses|floatformat:0 }}</span>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-
-                {% else %}
-                <p class="text-muted text-center small p-4">Filtre por um período de pelo menos 15 dias para calcular a projeção.</p>
+            {% else %}
+                <p class="text-muted text-center small p-4">Não foi possível calcular a projeção.</p>
             {% endif %}
         </div>
     </div>
@@ -125,164 +243,163 @@
 <div class="content-block">
     <h5 class="mb-3"><i class="bi bi-list-ul me-2"></i>Histórico de Transações</h5>
     <div class="table-responsive">
-        <table class="table table-hover">
-            <thead><tr><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Data</th></tr></thead>
+        <table class="table table-hover align-middle custom-table-cards">
+            <thead>
+                <tr>
+                    <th scope="col" style="width: 5%;">Tipo</th>
+                    <th scope="col">Descrição</th>
+                    <th scope="col">Associado a</th>
+                    <th scope="col" class="text-end">Valor</th>
+                    <th scope="col">Categoria</th>
+                    <th scope="col">Data</th>
+                    <th scope="col" class="text-end">Ações</th>
+                </tr>
+            </thead>
             <tbody>
-                {% for t in page_obj %}<tr id="transaction-row-{{ t.pk }}" class="{% if t.type == 'expense' %}transaction-expense{% elif t.type == 'income' %}transaction-income{% endif %}"><td data-label="description">{{ t.description }}</td><td data-label="amount">R$ {{ t.amount|floatformat:2 }}</td><td data-label="category">{{ t.category.name }}</td><td data-label="date">{{ t.transaction_date|date:"d/m/Y" }}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">Nenhum lançamento encontrado para o período.</td></tr>{% endfor %}
+                {% for t in page_obj %}
+                <tr id="transaction-row-{{ t.pk }}">
+                    <td data-label="Tipo">
+                        {% if t.type == 'income' %}
+                            <span class="transaction-icon text-success" title="Entrada"><i class="bi bi-arrow-up-circle-fill"></i></span>
+                        {% elif t.type == 'expense' %}
+                            <span class="transaction-icon text-danger" title="Saída"><i class="bi bi-arrow-down-circle-fill"></i></span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Descrição">
+                        <span class="fw-bold">{{ t.description }}</span>
+                    </td>
+                    <td data-label="Associado a">
+                        {% if t.student %}
+                            <small class="d-block text-muted">{{ t.student.nome_completo }}</small>
+                        {% elif t.professor %}
+                            <small class="d-block text-muted">{{ t.professor.first_name }} {{ t.professor.last_name }}</small>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Valor" class="text-end">
+                        <span class="fw-bold {% if t.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            R$ {{ t.amount|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td data-label="Categoria">
+                        <span class="badge bg-secondary-subtle border border-secondary-subtle text-secondary-emphasis rounded-pill">
+                            {{ t.category.name }}
+                        </span>
+                    </td>
+                    <td data-label="Data">
+                        <span class="text-muted">{{ t.transaction_date|date:"d/m/Y" }}</span>
+                    </td>
+                    <td data-label="Ações" class="text-end">
+                        {% if t.receita %}
+                            <a href="{% url 'finances:receita_list' %}?descricao={{ t.receita.descricao|urlencode }}" class="btn btn-sm btn-outline-secondary" title="Ver na lista de receitas">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% elif t.despesa %}
+                            <a href="{% url 'finances:despesa_list' %}?descricao={{ t.despesa.descricao|urlencode }}" class="btn btn-sm btn-outline-secondary" title="Ver na lista de despesas">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        Nenhum lançamento encontrado para o período.
+                    </td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
     {% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
 </div>
 
-<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Nova Categoria</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <form id="addCategoryForm" action="{% url 'finances:add_category_ajax' %}" method="post">
-                    {% csrf_token %}
-                    <div class="mb-3"><label for="id_name_modal" class="form-label">Nome</label><input type="text" name="name" class="form-control" id="id_name_modal" required></div>
-                    <div class="mb-3"><label for="id_type_modal" class="form-label">Tipo</label><select name="type" class="form-select" id="id_type_modal" required><option value="" selected>---------</option><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
-                </form>
-            </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="addCategoryForm">Salvar Categoria</button></div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="editTransactionModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Editar Lançamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body">
-                <form id="editTransactionForm" method="post" class="vstack gap-3">
-                    {% csrf_token %}
-                    <div><label for="id_description_edit" class="form-label">Descrição</label><input type="text" name="description" class="form-control" id="id_description_edit" required></div>
-                    <div><label for="id_amount_edit" class="form-label">Valor</label><input type="number" step="0.01" name="amount" class="form-control" id="id_amount_edit" required></div>
-                    <div>
-                        <label for="id_category_edit" class="form-label">Categoria</label>
-                        <select name="category" id="id_category_edit" class="form-select">
-                            {% for value, text in form.category.field.choices %}<option value="{{ value }}">{{ text }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    <div><label for="id_transaction_date_edit" class="form-label">Data da Transação</label><input type="date" name="transaction_date" class="form-control" id="id_transaction_date_edit" required></div>
-                    <div>
-                        <label for="id_student_edit" class="form-label">Aluno Relacionado</label>
-                        <select name="student" id="id_student_edit" class="form-select">
-                             {% for student in form.student.field.queryset %}<option value="{{ student.pk }}">{{ student.nome_completo }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label for="id_professor_edit" class="form-label">Professor Relacionado</label>
-                        <select name="professor" id="id_professor_edit" class="form-select">
-                            {% with form.professor.field as prof_field %}{% for professor in prof_field.queryset %}<option value="{{ professor.pk }}">{{ prof_field.label_from_instance|default:professor.username }}</option>{% endfor %}{% endwith %}
-                        </select>
-                    </div>
-                    <div><label for="id_observation_edit" class="form-label">Observação</label><textarea name="observation" class="form-control" id="id_observation_edit" rows="3"></textarea></div>
-                </form>
-            </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" form="editTransactionForm">Salvar Alterações</button></div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
-{% block extra_js %}
+{{% block extra_js %}
 {{ block.super }}
 {{ chart_labels|json_script:"chartLabels" }}
 {{ chart_data|json_script:"chartData" }}
+{{ income_chart_labels|json_script:"incomeChartLabels" }}  {# <<< NOVO #}
+{{ income_chart_data|json_script:"incomeChartData" }}    {# <<< NOVO #}
+{{ flow_chart_labels|json_script:"flowChartLabels" }}
+{{ flow_chart_income_data|json_script:"flowChartIncomeData" }}
+{{ flow_chart_expense_data|json_script:"flowChartExpenseData" }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const categoryForm = document.getElementById('addCategoryForm');
-    const categorySelect = document.getElementById('{{ form.category.id_for_label }}');
-    const addCategoryModalEl = document.getElementById('addCategoryModal');
-    const addCategoryModal = new bootstrap.Modal(addCategoryModalEl);
-    const editModalEl = document.getElementById('editTransactionModal');
-    const editForm = document.getElementById('editTransactionForm');
-    const editTransactionModal = new bootstrap.Modal(editModalEl);
-    
-    // Gráfico
-    const labels = JSON.parse(document.getElementById('chartLabels').textContent);
-    const data = JSON.parse(document.getElementById('chartData').textContent);
-    const ctx = document.getElementById('expensesChart');
-    if (ctx && data.length > 0) {
-        new Chart(ctx, {
+document.addEventListener('DOMContentLoaded', function() {    
+    // Gráfico de Saídas (sem alteração)
+    const expenseLabels = JSON.parse(document.getElementById('chartLabels').textContent);
+    const expenseData = JSON.parse(document.getElementById('chartData').textContent);
+    const expenseCtx = document.getElementById('expensesChart');
+    if (expenseCtx && expenseData.length > 0) {
+        new Chart(expenseCtx, {
             type: 'doughnut',
             data: {
-                labels: labels,
+                labels: expenseLabels,
                 datasets: [{
-                    label: 'Despesas', data: data,
-                    backgroundColor: ['#e74a3b', '#f6c23e', '#fd7e14', '#36b9cc', '#1cc88a', '#4e73df', '#858796'],
+                    label: 'Despesas', data: expenseData,
+                    backgroundColor: ['#e74a3b', '#f6c23e', '#fd7e14', '#36b9cc', '#858796', '#4e73df', '#1cc88a'],
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 15 } } } }
         });
     }
 
-    // Modal Adicionar Categoria
-    categoryForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(categoryForm);
-        const url = categoryForm.getAttribute('action');
-        fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                const newOption = new Option(data.name, data.id, true, true);
-                categorySelect.appendChild(newOption);
-                // Precisamos adicionar a opção ao select do modal de edição também!
-                document.getElementById('id_category_edit').appendChild(newOption.cloneNode(true));
-                addCategoryModal.hide();
-                categoryForm.reset();
-            } else {
-                alert('Ocorreu um erro ao salvar a categoria.'); console.error(data.errors);
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    });
+    // --- NOVO GRÁFICO DE ENTRADAS ---
+    const incomeLabels = JSON.parse(document.getElementById('incomeChartLabels').textContent);
+    const incomeData = JSON.parse(document.getElementById('incomeChartData').textContent);
+    const incomeCtx = document.getElementById('incomeChart');
+    if (incomeCtx && incomeData.length > 0) {
+        new Chart(incomeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: incomeLabels,
+                datasets: [{
+                    label: 'Entradas', data: incomeData,
+                    backgroundColor: ['#1cc88a', '#4e73df', '#36b9cc', '#f6c23e', '#20c9a6', '#5a5c69' ],
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 15 } } } }
+        });
+    }
+    // --- FIM DO NOVO GRÁFICO ---
 
-    // Limpa o formulário do modal de categoria quando ele é fechado
-    addCategoryModalEl.addEventListener('hidden.bs.modal', function () {
-      categoryForm.reset();
-    });
+    // Gráfico de Fluxo de Caixa (sem alteração)
+    const flowLabels = JSON.parse(document.getElementById('flowChartLabels').textContent);
+    const flowIncome = JSON.parse(document.getElementById('flowChartIncomeData').textContent);
+    const flowExpenses = JSON.parse(document.getElementById('flowChartExpenseData').textContent);
+    const flowCtx = document.getElementById('cashFlowChart');
 
-    // Modal Editar Lançamento
-    editModalEl.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        const url = button.getAttribute('data-transaction-url');
-        editForm.setAttribute('action', url);
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                editForm.querySelector('#id_description_edit').value = data.description;
-                editForm.querySelector('#id_amount_edit').value = data.amount;
-                editForm.querySelector('#id_transaction_date_edit').value = data.transaction_date;
-                editForm.querySelector('#id_observation_edit').value = data.observation || '';
-                editForm.querySelector('#id_category_edit').value = data.category || '';
-                editForm.querySelector('#id_student_edit').value = data.student || '';
-                editForm.querySelector('#id_professor_edit').value = data.professor || '';
-            });
-    });
-
-    editForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const url = editForm.getAttribute('action');
-        const formData = new FormData(editForm);
-        fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Força um recarregamento da página para refletir todas as mudanças
-                // Esta é uma abordagem mais simples e robusta do que atualizar a tabela manualmente
-                // já que os totais, gráficos e paginação também precisam ser atualizados.
-                window.location.reload();
-            } else {
-                alert('Erro ao atualizar. Verifique os dados.'); console.error(data.errors);
+    if (flowCtx && flowLabels.length > 0) {
+        new Chart(flowCtx, {
+            type: 'bar',
+            data: {
+                labels: flowLabels,
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: flowIncome,
+                        backgroundColor: 'rgba(25, 135, 84, 0.6)',
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Saídas',
+                        data: flowExpenses,
+                        backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }
             }
         });
-    });
+    }
 });
 </script>
 {% endblock %}

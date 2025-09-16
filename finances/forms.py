@@ -16,6 +16,14 @@ from store.models import Produto
 # ==============================================================================
 
 
+class CategoryChoiceField(forms.ModelChoiceField):
+    """
+    Um campo de formulário que exibe o nome da categoria com a primeira letra maiúscula.
+    """
+    def label_from_instance(self, obj):
+        return obj.name.title()
+
+
 class MensalidadeReceitaForm(forms.ModelForm):
     """
     Formulário especializado APENAS para o lançamento de mensalidades.
@@ -39,7 +47,10 @@ class MensalidadeReceitaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Filtros e Otimizações
-        self.fields["categoria"].queryset = Category.objects.filter(type="income")
+        self.fields["categoria"] = CategoryChoiceField(
+            queryset=Category.objects.filter(type="income"),
+            widget=forms.Select(attrs={"class": "form-select"})
+        )
         self.fields["aluno"].queryset = Aluno.objects.filter(status="ativo").order_by(
             "nome_completo"
         )
@@ -82,7 +93,10 @@ class VendaReceitaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Filtros e Otimizações
-        self.fields["categoria"].queryset = Category.objects.filter(type="income")
+        self.fields["categoria"] = CategoryChoiceField(
+            queryset=Category.objects.filter(type="income"),
+            widget=forms.Select(attrs={"class": "form-select"})
+        )
         self.fields["produto"].queryset = Produto.objects.filter(
             quantidade_em_estoque__gt=0
         ).order_by("nome")
@@ -174,10 +188,6 @@ class CategoryForm(forms.ModelForm):
         self.fields["tipo_dre"].label = "Classificar como:"
         self.fields["tipo_dre"].empty_label = None
 
-    def clean_name(self):
-        name = self.cleaned_data["name"]
-        return name.strip().title()
-
 
 class DespesaForm(forms.ModelForm):
     professor = ProfessorChoiceField(
@@ -204,7 +214,10 @@ class DespesaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["categoria"].queryset = Category.objects.filter(type="expense")
+        self.fields["categoria"] = CategoryChoiceField(
+            queryset=Category.objects.filter(type="expense"),
+            widget=forms.Select(attrs={"class": "form-control"}) # Mantém form-control aqui
+        )
 
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"

@@ -1,0 +1,287 @@
+{% extends "scheduler/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-center text-center text-lg-start gap-2 mb-4">
+    <h1 class="h3 mb-0">Relatório de Vencimentos</h1>
+    <p class="text-muted mb-0">Posição em: {{ report_date|date:"d/m/Y" }}</p>
+</div>
+
+<div class="content-block mb-4">
+    <h4 class="mb-3 text-success text-center text-lg-start">Contas a Receber</h4>
+
+    <div class="d-none d-lg-block">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover aging-table">
+                <thead>
+                    <tr class="table-light">
+                        <th>Cliente</th>
+                        <th class="text-end">Total Devido</th>
+                        {% for label in aging_recebiveis.bucket_labels %}
+                            <th class="text-end">{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in aging_recebiveis.entities %}
+                    <tr>
+                        <td>{{ data.entity|title }}</td>
+                        <td class="text-end fw-bold">R$ {{ data.total_geral|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.a_vencer|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.d1_30|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.d31_60|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-danger">{{ data.buckets.d61_90|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-danger">{{ data.buckets.d90_plus|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted p-4">Nenhuma conta a receber em aberto.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>TOTAL GERAL</strong></td>
+                        <td class="text-end"><strong>R$ {{ aging_recebiveis.grand_total|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_recebiveis.column_totals.a_vencer|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_recebiveis.column_totals.d1_30|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_recebiveis.column_totals.d31_60|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end text-danger"><strong>{{ aging_recebiveis.column_totals.d61_90|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end text-danger"><strong>{{ aging_recebiveis.column_totals.d90_plus|floatformat:2|intcomma }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-lg-none">
+        {% for data in aging_recebiveis.entities %}
+        <div class="card mb-3">
+            <div class="card-header fw-bold">
+                {{ data.entity|title }}
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <strong>Total Devido:</strong>
+                    <span class="fw-bold">R$ {{ data.total_geral|floatformat:2|intcomma }}</span>
+                </li>
+                
+                {% comment %} ADICIONADO: Condições para mostrar apenas se o valor for maior que zero {% endcomment %}
+                {% if data.buckets.a_vencer > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>A Vencer:</span>
+                    <span>{{ data.buckets.a_vencer|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                
+                {% if data.buckets.d1_30 > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>1-30 dias:</span>
+                    <span>{{ data.buckets.d1_30|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+
+                {% if data.buckets.d31_60 > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>31-60 dias:</span>
+                    <span>{{ data.buckets.d31_60|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+
+                {% if data.buckets.d61_90 > 0 %}
+                <li class="list-group-item d-flex justify-content-between text-danger">
+                    <strong>61-90 dias:</strong>
+                    <strong>{{ data.buckets.d61_90|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+
+                {% if data.buckets.d90_plus > 0 %}
+                <li class="list-group-item d-flex justify-content-between text-danger">
+                    <strong>90+ dias:</strong>
+                    <strong>{{ data.buckets.d90_plus|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted p-4">Nenhuma conta a receber em aberto.</div>
+        {% endfor %}
+
+        <div class="card mt-4 bg-light text-dark">
+             <div class="card-header fw-bold text-uppercase">Total Geral a Receber</div>
+             {% comment %} ALTERADO: O corpo do card de Total Geral agora é uma lista detalhada {% endcomment %}
+             <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <strong>Total Geral:</strong>
+                    <span class="fw-bold fs-5">R$ {{ aging_recebiveis.grand_total|floatformat:2|intcomma }}</span>
+                </li>
+                {% if aging_recebiveis.column_totals.a_vencer > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <span>A Vencer:</span>
+                    <span>{{ aging_recebiveis.column_totals.a_vencer|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_recebiveis.column_totals.d1_30 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <span>1-30 dias:</span>
+                    <span>{{ aging_recebiveis.column_totals.d1_30|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_recebiveis.column_totals.d31_60 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <span>31-60 dias:</span>
+                    <span>{{ aging_recebiveis.column_totals.d31_60|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_recebiveis.column_totals.d61_90 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <strong>61-90 dias:</strong>
+                    <strong>{{ aging_recebiveis.column_totals.d61_90|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+                {% if aging_recebiveis.column_totals.d90_plus > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <strong>90+ dias:</strong>
+                    <strong>{{ aging_recebiveis.column_totals.d90_plus|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="content-block">
+    <h4 class="mb-3 text-danger text-center text-lg-start">Contas a Pagar</h4>
+    
+    <div class="d-none d-lg-block">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover aging-table">
+                <thead>
+                    <tr class="table-light">
+                        <th>Fornecedor / Descrição</th>
+                        <th class="text-end">Total a Pagar</th>
+                        {% for label in aging_pagaveis.bucket_labels %}
+                            <th class="text-end">{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in aging_pagaveis.entities %}
+                    <tr>
+                        <td>{{ data.entity|title }}</td>
+                        <td class="text-end fw-bold">R$ {{ data.total_geral|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.a_vencer|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.d1_30|floatformat:2|intcomma }}</td>
+                        <td class="text-end">{{ data.buckets.d31_60|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-danger">{{ data.buckets.d61_90|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-danger">{{ data.buckets.d90_plus|floatformat:2|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted p-4">Nenhuma conta a pagar em aberto.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>TOTAL GERAL</strong></td>
+                        <td class="text-end"><strong>R$ {{ aging_pagaveis.grand_total|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_pagaveis.column_totals.a_vencer|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_pagaveis.column_totals.d1_30|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end"><strong>{{ aging_pagaveis.column_totals.d31_60|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end text-danger"><strong>{{ aging_pagaveis.column_totals.d61_90|floatformat:2|intcomma }}</strong></td>
+                        <td class="text-end text-danger"><strong>{{ aging_pagaveis.column_totals.d90_plus|floatformat:2|intcomma }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    
+    <div class="d-lg-none">
+        {% for data in aging_pagaveis.entities %}
+        <div class="card mb-3">
+            <div class="card-header fw-bold">
+                {{ data.entity|title }}
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <strong>Total a Pagar:</strong>
+                    <span class="fw-bold">R$ {{ data.total_geral|floatformat:2|intcomma }}</span>
+                </li>
+                {% if data.buckets.a_vencer > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>A Vencer:</span>
+                    <span>{{ data.buckets.a_vencer|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if data.buckets.d1_30 > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>1-30 dias:</span>
+                    <span>{{ data.buckets.d1_30|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if data.buckets.d31_60 > 0 %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>31-60 dias:</span>
+                    <span>{{ data.buckets.d31_60|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if data.buckets.d61_90 > 0 %}
+                <li class="list-group-item d-flex justify-content-between text-danger">
+                    <strong>61-90 dias:</strong>
+                    <strong>{{ data.buckets.d61_90|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+                {% if data.buckets.d90_plus > 0 %}
+                <li class="list-group-item d-flex justify-content-between text-danger">
+                    <strong>90+ dias:</strong>
+                    <strong>{{ data.buckets.d90_plus|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted p-4">Nenhuma conta a pagar em aberto.</div>
+        {% endfor %}
+         <div class="card mt-4 bg-light text-dark">
+             <div class="card-header fw-bold text-uppercase">Total Geral a Pagar</div>
+             <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <strong>Total Geral:</strong>
+                    <span class="fw-bold fs-5">R$ {{ aging_pagaveis.grand_total|floatformat:2|intcomma }}</span>
+                </li>
+                {% if aging_pagaveis.column_totals.a_vencer > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <span>A Vencer:</span>
+                    <span>{{ aging_pagaveis.column_totals.a_vencer|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_pagaveis.column_totals.d1_30 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-dark">
+                    <span>1-30 dias:</span>
+                    <span>{{ aging_pagaveis.column_totals.d1_30|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_pagaveis.column_totals.d31_60 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <span>31-60 dias:</span>
+                    <span>{{ aging_pagaveis.column_totals.d31_60|floatformat:2|intcomma }}</span>
+                </li>
+                {% endif %}
+                {% if aging_pagaveis.column_totals.d61_90 > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <strong>61-90 dias:</strong>
+                    <strong>{{ aging_pagaveis.column_totals.d61_90|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+                {% if aging_pagaveis.column_totals.d90_plus > 0 %}
+                <li class="list-group-item d-flex justify-content-between bg-light text-danger">
+                    <strong>90+ dias:</strong>
+                    <strong>{{ aging_pagaveis.column_totals.d90_plus|floatformat:2|intcomma }}</strong>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

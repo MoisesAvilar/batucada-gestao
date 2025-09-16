@@ -175,6 +175,9 @@ class ReceitaRecorrente(models.Model):
     data_inicio = models.DateField(default=timezone.now, verbose_name="Início da Recorrência")
     data_fim = models.DateField(null=True, blank=True, verbose_name="Fim da Recorrência")
     ativa = models.BooleanField(default=True, verbose_name="Está ativa?")
-    
+
     def __str__(self):
-        return f"Recorrente: {self.descricao} - {self.aluno.nome_completo} (Todo dia {self.dia_do_mes})"
+        if self.aluno:
+            return f"Recorrente: Mensalidade - {self.aluno.nome_completo}"
+        else:
+            return f"Recorrente: {self.descricao} (Todo dia {self.dia_do_mes})"

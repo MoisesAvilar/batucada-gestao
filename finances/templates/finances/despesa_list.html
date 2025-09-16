@@ -12,6 +12,9 @@
         {% if filtro_ativo == 'a_vencer' %}
             <a href="{% url 'finances:despesa_list' %}" class="btn btn-outline-secondary"><i class="bi bi-x-lg me-1"></i> Limpar Filtro</a>
         {% endif %}
+        <a href="{% url 'finances:aging_report' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-hourglass-split me-1"></i> Ver por Vencimento
+        </a>
         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addDespesaModal">
             <i class="bi bi-plus-circle me-2"></i>Nova Despesa
         </button>
@@ -645,89 +648,111 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    const addCategoryModal = document.getElementById('addCategoryModal');
-    if (addCategoryModal) {
+    const addCategoryModalEl = document.getElementById('addCategoryModal');
+    if (addCategoryModalEl) {
         const categoryForm = document.getElementById('addCategoryForm');
-        const addCategoryModalInstance = new bootstrap.Modal(addCategoryModal);
-        const nameInput = addCategoryModal.querySelector('#id_name_modal');
-        let activeParentModal = null;       // Guarda o modal que abriu o de categoria
-        let activeCategorySelect = null;    // Guarda o <select> específico a ser atualizado
+        const addCategoryModalInstance = new bootstrap.Modal(addCategoryModalEl);
+        
+        // Elementos do formulário
+        const nameInput = addCategoryModalEl.querySelector('#id_name_modal');
+        const errorContainer = addCategoryModalEl.querySelector('#category-name-error');
+        const typeInput = addCategoryModalEl.querySelector('#id_type_modal');
+        const tipoDreContainer = addCategoryModalEl.querySelector('#tipo-dre-container');
+        const modalTitle = addCategoryModalEl.querySelector('#addCategoryModalTitle');
+        const submitButton = addCategoryModalEl.querySelector('#submitCategoryFormBtn');
 
-        // 1. ANTES DO MODAL DE CATEGORIA ABRIR
-        addCategoryModal.addEventListener('show.bs.modal', function(event) {
-            // Busca os elementos do formulário dentro do modal
-            const typeInput = document.getElementById('id_type_modal'); // Busca pelo ID direto
-            const tipoDreContainer = document.getElementById('tipo-dre-container');
-            const modalTitle = addCategoryModal.querySelector('#addCategoryModalTitle');
+        let activeParentModal = null;
+        let activeCategorySelect = null;
+
+        // Limpa o estado do formulário antes de abrir
+        addCategoryModalEl.addEventListener('show.bs.modal', function(event) {
+            categoryForm.reset();
+            nameInput.classList.remove('is-invalid');
+            if (errorContainer) errorContainer.textContent = '';
+
             const button = event.relatedTarget;
-            
             if (button) {
                 activeParentModal = button.closest('.modal');
                 activeCategorySelect = button.closest('.input-group').querySelector('select');
 
                 const categoryType = button.getAttribute('data-category-type');
-                typeInput.value = categoryType; // Sem erro aqui agora
+                typeInput.value = categoryType;
                 
-                if (categoryType === 'expense') {
-                    tipoDreContainer.style.display = 'block';
-                } else {
-                    tipoDreContainer.style.display = 'none';
-                }
+                tipoDreContainer.style.display = categoryType === 'expense' ? 'block' : 'none';
                 modalTitle.textContent = (categoryType === 'expense') ? 'Nova Categoria de Saída' : 'Nova Categoria de Entrada';
             }
         });
 
-        // 2. AO ENVIAR O FORMULÁRIO DE NOVA CATEGORIA (CORRIGIDO)
+        // Manipula o envio do formulário
         categoryForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            e.stopImmediatePropagation();
             const formData = new FormData(categoryForm);
             const url = categoryForm.action;
-            // Encontra o botão pelo seu novo ID, fora do formulário
-            const submitButton = document.getElementById('submitCategoryFormBtn');
 
-            submitButton.disabled = true; // Sem erro aqui agora
+            // Limpa erros antigos e mostra spinner
+            nameInput.classList.remove('is-invalid');
+            if (errorContainer) errorContainer.textContent = '';
+            submitButton.disabled = true;
             submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...`;
 
-            fetch(url, {
-                method: 'POST',
-                body: formData,
-                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            fetch(url, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+            .then(response => {
+                if (!response.ok) {
+                    // Se a resposta for um erro (como 400 ou 500), tenta ler como JSON
+                    return response.json().then(errData => Promise.reject(errData));
+                }
+                return response.json();
             })
-            .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    const newOption = new Option(data.name, data.id, false, true);
+                    // Adiciona a nova categoria a TODOS os <select> de categoria da página
+                    const newOption = new Option(data.name.charAt(0).toUpperCase() + data.name.slice(1), data.id, false, true);
                     document.querySelectorAll('select[name="categoria"]').forEach(select => {
                         select.appendChild(newOption.cloneNode(true));
                     });
-
+                    
+                    // Seleciona a nova categoria no <select> que abriu o modal
                     if (activeCategorySelect) {
                         activeCategorySelect.value = data.id;
                     }
                     
-                    addCategoryModalInstance.hide();
+                    bootstrap.Modal.getInstance(document.getElementById('addCategoryModal')).hide();
+                } 
+                // Esta parte nunca deveria ser alcançada se a validação falhar,
+                // pois a resposta terá status 400 e cairá no .catch()
+            })
+            .catch(errorData => {
+                // Trata erros de validação (status 400) ou outros erros
+                if (errorData.errors && errorData.errors.name) {
+                    nameInput.classList.add('is-invalid');
+                    if (errorContainer) errorContainer.textContent = errorData.errors.name[0];
                 } else {
-                    alert('Erro ao criar categoria: ' + JSON.stringify(data.errors));
+                    alert('Ocorreu um erro inesperado. Tente novamente.');
+                    console.error('Erro:', errorData);
                 }
             })
             .finally(() => {
+                // Restaura o botão
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Salvar Categoria';
             });
         });
 
-        // 3. APÓS O MODAL DE CATEGORIA SER FECHADO
-        addCategoryModal.addEventListener('hidden.bs.modal', function() {
-            // Limpa o campo de nome para a próxima vez
-            nameInput.value = '';
-
-            // Reabre o modal pai que estava ativo
+        // Reabre o modal pai após fechar o de categoria
+        addCategoryModalEl.addEventListener('hidden.bs.modal', function() {
             if (activeParentModal) {
-                const parentModalInstance = bootstrap.Modal.getOrCreateInstance(activeParentModal);
-                parentModalInstance.show();
+                // Pega a instância do modal pai que estava ativo
+                const parentModalInstance = bootstrap.Modal.getInstance(activeParentModal);
+                if (parentModalInstance) {
+                    // --- LINHA ADICIONADA ---
+                    // Usa um pequeno delay para garantir que a animação de fechar termine
+                    setTimeout(() => {
+                        parentModalInstance.show();
+                    }, 200); 
+                }
             }
-
-            // Reseta as variáveis de estado
+            // Limpa as variáveis de controle
             activeParentModal = null;
             activeCategorySelect = null;
         });

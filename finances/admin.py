@@ -1,13 +1,77 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.http import urlencode
+from django.utils.html import format_html
+
 from .models import Category, Transaction, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "type")
-    list_filter = ("type",)
+    list_display = (
+        "name",
+        "type",
+        "transaction_count_link",
+        "despesa_count_link",
+        "receita_count_link",
+        "despesa_recorrente_count_link",
+        "receita_recorrente_count_link",
+    )
+    list_filter = ("type", "tipo_dre")
     search_fields = ("name",)
     ordering = ("name",)
+
+    # --- LINKS CLICÁVEIS ---
+
+    def transaction_count_link(self, obj):
+        count = obj.transactions.count()
+        url = (
+            reverse("admin:finances_transaction_changelist")
+            + "?"
+            + urlencode({"category__id": str(obj.id)})
+        )
+        return format_html('<a href="{}">{}</a>', url, count)
+    transaction_count_link.short_description = "Transações"
+
+    def despesa_count_link(self, obj):
+        count = obj.despesa_set.count()
+        url = (
+            reverse("admin:finances_despesa_changelist")
+            + "?"
+            + urlencode({"categoria__id": str(obj.id)})
+        )
+        return format_html('<a href="{}">{}</a>', url, count)
+    despesa_count_link.short_description = "Despesas"
+
+    def receita_count_link(self, obj):
+        count = obj.receita_set.count()
+        url = (
+            reverse("admin:finances_receita_changelist")
+            + "?"
+            + urlencode({"categoria__id": str(obj.id)})
+        )
+        return format_html('<a href="{}">{}</a>', url, count)
+    receita_count_link.short_description = "Receitas"
+
+    def despesa_recorrente_count_link(self, obj):
+        count = obj.despesarecorrente_set.count()
+        url = (
+            reverse("admin:finances_despesarecorrente_changelist")
+            + "?"
+            + urlencode({"categoria__id": str(obj.id)})
+        )
+        return format_html('<a href="{}">{}</a>', url, count)
+    despesa_recorrente_count_link.short_description = "Despesas Recorrentes"
+
+    def receita_recorrente_count_link(self, obj):
+        count = obj.receitarecorrente_set.count()
+        url = (
+            reverse("admin:finances_receitarecorrente_changelist")
+            + "?"
+            + urlencode({"categoria__id": str(obj.id)})
+        )
+        return format_html('<a href="{}">{}</a>', url, count)
+    receita_recorrente_count_link.short_description = "Receitas Recorrentes"
 
 
 @admin.register(Transaction)
