@@ -16,6 +16,10 @@ class LeadForm(forms.ModelForm):
             "melhor_horario_contato",
             "fonte",
             "observacoes",
+            "proposito_estudo",
+            "objetivo_tocar",
+            "motivo_interesse_especifico",
+            "sobre_voce",
         ]
         widgets = {
             "nome_interessado": forms.TextInput(attrs={"class": "form-control"}),
@@ -28,6 +32,10 @@ class LeadForm(forms.ModelForm):
             "curso_interesse": forms.Select(attrs={"class": "form-select"}),
             "nivel_experiencia": forms.Select(attrs={"class": "form-select"}),
             "melhor_horario_contato": forms.Select(attrs={"class": "form-select"}),
+            "proposito_estudo": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "objetivo_tocar": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "motivo_interesse_especifico": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
 
 
@@ -58,7 +66,10 @@ class PublicLeadForm(forms.ModelForm):
             "curso_interesse",
             "nivel_experiencia",
             "melhor_horario_contato",
-            "observacoes",
+            "proposito_estudo",
+            "objetivo_tocar",
+            "motivo_interesse_especifico",
+            "sobre_voce",
             "fonte",
         ]
         widgets = {
@@ -80,15 +91,36 @@ class PublicLeadForm(forms.ModelForm):
             "idade": forms.NumberInput(
                 attrs={"class": "form-control", "placeholder": "Idade do interessado"}
             ),
-            "observacoes": forms.Textarea(
-                attrs={
-                    "class": "form-control",
-                    "rows": 4,
-                    "placeholder": "Tem alguma dúvida ou informação adicional?",
-                }
-            ),
             "fonte": forms.HiddenInput(),
             "curso_interesse": forms.Select(attrs={"class": "form-select"}),
             "nivel_experiencia": forms.Select(attrs={"class": "form-select"}),
             "melhor_horario_contato": forms.Select(attrs={"class": "form-select"}),
+            "proposito_estudo": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Ex: Tocar como hobby, me tornar profissional, etc.",
+                }
+            ),
+            "objetivo_tocar": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Ex: Na igreja, em uma banda, em casa para a família...",
+                }
+            ),
+            "motivo_interesse_especifico": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Ex: Sempre gostei do som, um amigo me indicou, etc.",
+                }
+            ),
+            "sobre_voce": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Fale um pouco sobre suas experiências e expectativas.",
+                }
+            ),
         }

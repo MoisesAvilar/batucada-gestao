@@ -177,15 +177,23 @@
         <div class="content-block h-100">
             <h5 class="mb-3"><i class="bi bi-trophy-fill me-2"></i>Top 5 Produtos Vendidos</h5>
             <ul class="list-group list-group-flush">
-                {% for produto in top_produtos_vendidos %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
+            {% for produto in top_produtos_vendidos %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>
                     {{ produto.nome }}
-                    <span class="badge bg-primary rounded-pill">R$ {{ produto.total_vendido|floatformat:2 }}</span>
-                </li>
-                {% empty %}
-                <li class="list-group-item text-muted text-center small">Nenhuma venda de produto no período.</li>
-                {% endfor %}
-            </ul>
+                    {% if produto.categoria %}
+                        <small class="d-block text-muted">{{ produto.categoria.nome }}</small>
+                    {% endif %}
+                    {% if produto.qtd_vendida %}
+                        <small class="d-block text-muted">Qtd: {{ produto.qtd_vendida }}</small>
+                    {% endif %}
+                </span>
+                <span class="badge bg-primary rounded-pill">R$ {{ produto.total_vendido|floatformat:2 }}</span>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-muted text-center small">Nenhuma venda de produto no período.</li>
+            {% endfor %}
+        </ul>
         </div>
     </div>
     <div class="col-lg-6">
@@ -204,38 +212,6 @@
                 <li class="list-group-item text-muted text-center small">Nenhuma despesa no período.</li>
                 {% endfor %}
             </ul>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4 mb-4">
-    <div class="col-12">
-        <div class="content-block">
-            <h5 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Projeção (Próximos 6 Meses)</h5>
-            {% if projection_data %}
-                <p class="small text-muted mb-3">Estimativa com base nas recorrências e na média de valores variáveis dos últimos 90 dias. Saldo exibido é <strong>acumulado</strong>.</p>
-                <div class="row">
-                    {% for proj in projection_data %}
-                    <div class="col-lg-2 col-md-4 col-6 mb-3">
-                        <div class="card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center py-2">
-                                <h6 class="mb-0">{{ proj.month }}</h6>
-                            </div>
-                            <div class="card-body text-center">
-                                <small class="text-muted d-block lh-1">Saldo</small>
-                                <span class="fw-bold h5">R$ {{ proj.balance|floatformat:2 }}</span>
-                            </div>
-                            <div class="card-footer d-flex justify-content-between small py-1">
-                                <span class="text-success" title="Entradas Projetadas"><i class="bi bi-arrow-up"></i> {{ proj.income|floatformat:0 }}</span>
-                                <span class="text-danger" title="Saídas Projetadas"><i class="bi bi-arrow-down"></i> {{ proj.expenses|floatformat:0 }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-muted text-center small p-4">Não foi possível calcular a projeção.</p>
-            {% endif %}
         </div>
     </div>
 </div>
@@ -317,12 +293,12 @@
 
 {% endblock %}
 
-{{% block extra_js %}
+{% block extra_js %}
 {{ block.super }}
 {{ chart_labels|json_script:"chartLabels" }}
 {{ chart_data|json_script:"chartData" }}
-{{ income_chart_labels|json_script:"incomeChartLabels" }}  {# <<< NOVO #}
-{{ income_chart_data|json_script:"incomeChartData" }}    {# <<< NOVO #}
+{{ income_chart_labels|json_script:"incomeChartLabels" }}
+{{ income_chart_data|json_script:"incomeChartData" }}
 {{ flow_chart_labels|json_script:"flowChartLabels" }}
 {{ flow_chart_income_data|json_script:"flowChartIncomeData" }}
 {{ flow_chart_expense_data|json_script:"flowChartExpenseData" }}

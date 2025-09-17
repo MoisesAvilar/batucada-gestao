@@ -1051,7 +1051,19 @@ def validar_aula(request, pk):
             # 3. Se tudo estiver vazio, exibe o erro e interrompe.
             if not campos_principais_preenchidos and not itens_adicionados:
                 messages.error(request, "Não é possível salvar um relatório vazio. Preencha pelo menos um campo ou adicione um exercício.")
-                # O fluxo agora vai pular o 'else' e renderizar o formulário novamente no final da view.
+                return render(request, 'scheduler/aula_validar.html', {
+                    'aula': aula,
+                    'is_ac': is_ac,
+                    'relatorio': relatorio,
+                    'form': form,
+                    'presenca_formset': presenca_formset,
+                    'rudimentos_formset': rudimentos_formset,
+                    'ritmo_formset': ritmo_formset,
+                    'viradas_formset': viradas_formset,
+                    'view_mode': 'editar',
+                    'historico_ultima_aula': historico_ultima_aula,
+                    'pode_editar': pode_editar,
+                })
             
             # 4. Se houver conteúdo, prossegue com o salvamento.
             else:

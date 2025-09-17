@@ -282,7 +282,6 @@ def lead_edit(request, pk):
         else:
             return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
     
-    # Se for GET, retorna os dados do lead como JSON para preencher o modal
     data = {
         'nome_interessado': lead.nome_interessado,
         'nome_responsavel': lead.nome_responsavel,
@@ -294,6 +293,10 @@ def lead_edit(request, pk):
         'melhor_horario_contato': lead.melhor_horario_contato,
         'fonte': lead.fonte,
         'observacoes': lead.observacoes,
+        'proposito_estudo': lead.proposito_estudo,
+        'objetivo_tocar': lead.objetivo_tocar,
+        'motivo_interesse_especifico': lead.motivo_interesse_especifico,
+        'sobre_voce': lead.sobre_voce,
     }
     return JsonResponse(data)
 

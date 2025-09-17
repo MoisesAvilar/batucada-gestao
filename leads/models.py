@@ -10,7 +10,6 @@ def get_escola_unidade_negocio():
     Retorna None se não encontrar, para que o Django possa lidar com o erro.
     """
     try:
-        # Tente buscar pelo nome exato. Mude 'Escola' se o nome no seu DB for diferente.
         return UnidadeNegocio.objects.get(nome="Escola")
     except UnidadeNegocio.DoesNotExist:
         return None
@@ -44,48 +43,75 @@ class Lead(models.Model):
         verbose_name="Fonte do Lead",
         help_text="Ex: Instagram, Indicação, etc.",
     )
+
     CURSO_CHOICES = (
-        ('bateria', 'Bateria'),
-        ('percussao', 'Percussão'),
-        ('musicalizacao', 'Musicalização Infantil'),
-        ('outro', 'Outro'),
+        ("batera_facil", "Batera no Fácil"),
+        ("personalizado_batucada", "Personalizado Batucada"),
+        ("mentoria_black_batucada", "Mentoria Black Batucada"),
+        ("outro", "Outro"),
     )
+
     NIVEL_CHOICES = (
-        ('iniciante', 'Iniciante (nunca toquei)'),
-        ('basico', 'Básico (já tive algum contato)'),
-        ('intermediario', 'Intermediário (toco por hobby)'),
-        ('avancado', 'Avançado (busco aperfeiçoamento)'),
+        ("iniciante", "Iniciante (nunca toquei)"),
+        ("basico", "Básico (já tive algum contato)"),
+        ("intermediario", "Intermediário (toco por hobby)"),
+        ("avancado", "Avançado (busco aperfeiçoamento)"),
     )
     HORARIO_CHOICES = (
-        ('manha', 'Manhã (08:00 - 12:00)'),
-        ('tarde', 'Tarde (14:00 - 17:00)'),
-        ('noite', 'Noite (18:00 - 21:00)'),
+        ("manha", "Manhã (08:00 - 12:00)"),
+        ("tarde", "Tarde (14:00 - 17:00)"),
+        ("noite", "Noite (18:00 - 21:00)"),
     )
 
     curso_interesse = models.CharField(
-        max_length=50, choices=CURSO_CHOICES, blank=True, null=True, verbose_name="Curso de Interesse"
+        max_length=50,
+        choices=CURSO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Curso de Interesse",
     )
     nivel_experiencia = models.CharField(
-        max_length=50, choices=NIVEL_CHOICES, blank=True, null=True, verbose_name="Nível de Experiência"
+        max_length=50,
+        choices=NIVEL_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Nível de Experiência",
     )
     melhor_horario_contato = models.CharField(
-        max_length=50, choices=HORARIO_CHOICES, blank=True, null=True, verbose_name="Melhor Horário para Contato"
+        max_length=50,
+        choices=HORARIO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Melhor Horário para Contato",
     )
     observacoes = models.TextField(
         blank=True, null=True, verbose_name="Observações e Histórico"
     )
 
-    # Dados de Controle
+    proposito_estudo = models.TextField(
+        blank=True, null=True, verbose_name="Qual seu propósito de estudar bateria?"
+    )
+    objetivo_tocar = models.TextField(
+        blank=True, null=True, verbose_name="Onde você gostaria de tocar?"
+    )
+    motivo_interesse_especifico = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Algo em específico que te fez interessar pela bateria?",
+    )
+    sobre_voce = models.TextField(
+        blank=True, null=True, verbose_name="Conte um pouco sobre você"
+    )
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="novo")
     data_criacao = models.DateTimeField(auto_now_add=True)
     unidade_negocio = models.ForeignKey(
         UnidadeNegocio, on_delete=models.PROTECT, default=get_escola_unidade_negocio
     )
 
-    # --- A PEÇA CHAVE PARA A CONVERSÃO ---
     aluno_convertido = models.OneToOneField(
         Aluno,
-        on_delete=models.SET_NULL,  # Se o aluno for deletado, mantemos o lead
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="lead_origem",
@@ -118,7 +144,7 @@ class InteracaoLead(models.Model):
     )
 
     class Meta:
-        ordering = ["-data_interacao"]  # Ordena da mais recente para a mais antiga
+        ordering = ["-data_interacao"]
         verbose_name = "Interação do Lead"
         verbose_name_plural = "Interações do Lead"
 
