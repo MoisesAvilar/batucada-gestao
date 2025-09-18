@@ -1,5 +1,8 @@
+import re
 from django import forms
 from .models import Lead, InteracaoLead
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 
 class LeadForm(forms.ModelForm):
@@ -24,7 +27,12 @@ class LeadForm(forms.ModelForm):
         widgets = {
             "nome_interessado": forms.TextInput(attrs={"class": "form-control"}),
             "nome_responsavel": forms.TextInput(attrs={"class": "form-control"}),
-            "contato": forms.TextInput(attrs={"class": "form-control"}),
+            "contato": forms.TextInput(
+                attrs={
+                    "class": "form-control contact-mask",
+                    "placeholder": "(XX) XXXXX-XXXX ou email@exemplo.com",
+                }
+            ),
             "idade": forms.NumberInput(attrs={"class": "form-control"}),
             "fonte": forms.TextInput(attrs={"class": "form-control"}),
             "observacoes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
@@ -32,11 +40,37 @@ class LeadForm(forms.ModelForm):
             "curso_interesse": forms.Select(attrs={"class": "form-select"}),
             "nivel_experiencia": forms.Select(attrs={"class": "form-select"}),
             "melhor_horario_contato": forms.Select(attrs={"class": "form-select"}),
-            "proposito_estudo": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-            "objetivo_tocar": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-            "motivo_interesse_especifico": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            "proposito_estudo": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "objetivo_tocar": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
+            "motivo_interesse_especifico": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3}
+            ),
             "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+    def clean_contato(self):
+        contato = self.cleaned_data.get("contato", "").strip()
+        if "@" in contato:
+            try:
+                validate_email(contato)
+                return contato
+            except ValidationError:
+                raise ValidationError(
+                    "Por favor, insira um endereço de e-mail válido.",
+                    code="invalid_email",
+                )
+        else:
+            digits_only = re.sub(r"\D", "", contato)
+            if len(digits_only) not in [10, 11]:
+                raise ValidationError(
+                    "O número de telefone deve ter 10 ou 11 dígitos (com DDD).",
+                    code="invalid_phone",
+                )
+            return digits_only
 
 
 class InteracaoLeadForm(forms.ModelForm):
@@ -84,8 +118,8 @@ class PublicLeadForm(forms.ModelForm):
             ),
             "contato": forms.TextInput(
                 attrs={
-                    "class": "form-control",
-                    "placeholder": "Seu melhor Telefone ou E-mail",
+                    "class": "form-control contact-mask",
+                    "placeholder": "(XX) XXXXX-XXXX ou seu e-mail",
                 }
             ),
             "idade": forms.NumberInput(
@@ -124,3 +158,23 @@ class PublicLeadForm(forms.ModelForm):
                 }
             ),
         }
+
+    def clean_contato(self):
+        contato = self.cleaned_data.get("contato", "").strip()
+        if "@" in contato:
+            try:
+                validate_email(contato)
+                return contato
+            except ValidationError:
+                raise ValidationError(
+                    "Por favor, insira um endereço de e-mail válido.",
+                    code="invalid_email",
+                )
+        else:
+            digits_only = re.sub(r"\D", "", contato)
+            if len(digits_only) not in [10, 11]:
+                raise ValidationError(
+                    "O número de telefone deve ter 10 ou 11 dígitos (com DDD).",
+                    code="invalid_phone",
+                )
+            return digits_only

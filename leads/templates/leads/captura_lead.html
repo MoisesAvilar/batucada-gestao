@@ -120,3 +120,30 @@
 
 </body>
 </html>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função que aplica a máscara de telefone
+    function applyPhoneMask(e) {
+        let value = e.target.value;
+
+        // Se o valor contiver letras, assume que é um e-mail e não faz nada.
+        // A validação final será feita no backend.
+        if (/[a-zA-Z]/.test(value)) {
+            return;
+        }
+
+        // Se não houver letras, trata como telefone e aplica a máscara
+        let digitsOnly = value.replace(/\D/g, '').substring(0, 11);
+
+        let maskedValue = digitsOnly.replace(/^(\d{2})(\d)/g, '($1) $2');
+        maskedValue = maskedValue.replace(/(\d{5})(\d)/, '$1-$2');
+        
+        e.target.value = maskedValue;
+    }
+
+    // Aplica o "ouvinte" de eventos a TODOS os campos com a classe .contact-mask
+    document.querySelectorAll('.contact-mask').forEach(input => {
+        input.addEventListener('input', applyPhoneMask);
+    });
+});
+</script>

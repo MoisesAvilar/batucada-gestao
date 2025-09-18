@@ -1,5 +1,5 @@
 {% extends "scheduler/base.html" %}
-
+{% load lead_extras %}
 {% block content %}
     {% include 'leads/_leads_nav.html' %}
     <div class="d-flex justify-content-end mb-3">
@@ -62,7 +62,7 @@
                                     {{ lead.nome_interessado.title }}
                                 </a>
                             </h6>
-                            <p class="card-text text-muted mb-0">{{ lead.contato }}</p>
+                            <p class="card-text text-muted mb-0">{{ lead.contato|format_contact }}</p>
                         </div>
                     </div>
                     <div class="text-muted small mt-3">
@@ -132,7 +132,7 @@
                                 </a>
                             </h6>
                             <small class="text-muted">
-                                <i class="bi bi-phone me-1"></i>{{ lead.contato }}
+                                <i class="bi bi-phone me-1"></i>{{ lead.contato|format_contact }}
                             </small>
                         </div>
                         {% include 'leads/partials/_status_badge.html' with status=lead.status %}

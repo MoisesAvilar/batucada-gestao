@@ -1,5 +1,5 @@
 {% extends "scheduler/base.html" %}
-
+{% load lead_extras %}
 {% block content %}
 <div class="container mt-4">
     {% include 'leads/_leads_nav.html' %}
@@ -23,7 +23,7 @@
         <div class="card-body">
             <div class="row gy-3">
                 <div class="col-12 col-md-6">
-                    <p><strong>Contato:</strong> {{ lead.contato }}</p>
+                    <p><strong>Contato:</strong> {{ lead.contato|format_contact }}</p>
                     <p>
                         <strong>Status:</strong> 
                         <span class="badge text-bg-primary">{{ lead.get_status_display }}</span>
