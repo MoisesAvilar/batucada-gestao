@@ -23,24 +23,11 @@
         box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
     }
     @keyframes beat-pulse {
-        0% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
-        }
-        50% {
-            transform: scale(1.15);
-            box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
-        }
-        100% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
-        }
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+        50% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
     }
-
-    /* Nova classe que ATIVA a animação de pulso */
-    #btn-open-metronome.is-pulsing {
-  animation: beat-pulse var(--pulse-duration, 200ms) ease-out;
-}
+    #btn-open-metronome.is-pulsing { animation: beat-pulse var(--pulse-duration, 200ms) ease-out; }
 </style>
 
 <div class="mx-auto" style="max-width: 900px;">
@@ -52,11 +39,12 @@
     {% if historico_ultima_aula and view_mode != 'visualizar' %}
     <div class="accordion mb-4" id="accordionHistorico">
         <div class="accordion-item content-block p-0">
-            <h2 class="accordion-header"><button class="accordion-button collapsed bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico" aria-expanded="false"><i class="bi bi-clock-history me-2"></i>Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})</button></h2>
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico" aria-expanded="false">
+                    <i class="bi bi-clock-history me-2"></i>Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
+                </button>
+            </h2>
             <div id="collapseHistorico" class="accordion-collapse collapse">
-                
-                {# ★★★ INÍCIO DA CORREÇÃO ★★★ #}
-                {# Agora incluímos os parciais de visualização para mostrar o relatório completo #}
                 <div class="accordion-body border-top">
                     {% with relatorio=historico_ultima_aula %}
                         {% include 'scheduler/partials/relatorio_view_exercicios.html' %}
@@ -71,7 +59,6 @@
 
     <div class="content-block">
         {% if view_mode == 'visualizar' %}
-            {# --- MODO VISUALIZAÇÃO --- #}
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="tab-view-geral">
                     {% include 'scheduler/partials/relatorio_view_geral.html' %}
@@ -80,8 +67,7 @@
                 </div>
             </div>
 
-             <div class="mt-4 pt-4 border-top text-center">
-                {# ★★★ BOTÃO DE EDITAR AGORA USA A NOVA PERMISSÃO ★★★ #}
+            <div class="mt-4 pt-4 border-top text-center">
                 {% if pode_editar %}
                     <a href="?mode=editar" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Relatório</a>
                 {% endif %}
@@ -89,8 +75,6 @@
             </div>
 
         {% else %}
-            {# --- MODO EDIÇÃO --- #}
-            {# Se view_mode não é 'visualizar', então o usuário tem permissão e o formulário é mostrado. #}
             <form method="post" id="relatorio-form">
                 {% csrf_token %}
                 <ul class="nav nav-tabs mb-4">
@@ -133,7 +117,6 @@
 
 <div id="historicoOverlay"></div>
 
-<!-- MODAL DO METRÔNOMO -->
 <div id="metronomeModal" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="z-index: 1051; background: rgba(0, 0, 0, 0.6);">
   <div class="d-flex justify-content-center align-items-center h-100">
     <div class="bg-body p-4 rounded shadow" style="max-width: 500px; width: 90%;">
@@ -153,98 +136,52 @@
 {% include 'scheduler/partials/_metronome_js.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
+    // --- Correção Safari/iPhone: habilita campos de todas as abas antes do submit ---
+    const relatorioForm = document.getElementById('relatorio-form');
+    if (relatorioForm) {
+        relatorioForm.addEventListener('submit', function() {
+            document.querySelectorAll('.tab-pane textarea, .tab-pane input, .tab-pane select').forEach(el => {
+                el.disabled = false;
+            });
+        });
+    }
+
+    // --- Lógica do metronomo ---
     const openBtn = document.getElementById('btn-open-metronome');
     const modal = document.getElementById('metronomeModal');
     const closeBtn = document.getElementById('close-metronome');
-
     if (openBtn && modal && closeBtn) {
-      openBtn.addEventListener('click', () => {
-        modal.classList.remove('d-none');
-      });
-      closeBtn.addEventListener('click', () => {
-        modal.classList.add('d-none');
-      });
-
-      // Fecha ao clicar fora do conteúdo
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.classList.add('d-none');
-        }
-      });
-    }
-    // A lógica dos botões de adicionar/remover só se aplica ao formulário de edição
-    const relatorioForm = document.getElementById('relatorio-form');
-    if (relatorioForm) {
-        // Lógica de remoção de exercícios
-        relatorioForm.addEventListener('click', function(e) {
-            const removeButton = e.target.closest('.btn-remove-exercicio-row');
-            if (!removeButton) return;
-            e.preventDefault();
-            const row = removeButton.closest('.p-3.rounded');
-            if (row) {
-                const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
-                if (deleteCheckbox) { deleteCheckbox.checked = true; }
-                row.style.display = 'none';
-            }
-        });
-
-        // Lógica para adicionar novas linhas de exercício
-        function addFormset(buttonId, containerId, emptyFormId, prefix) {
-            const addButton = document.getElementById(buttonId);
-            if (!addButton) return;
-            const formContainer = document.getElementById(containerId);
-            const emptyFormTemplateEl = document.getElementById(emptyFormId);
-            if (!formContainer || !emptyFormTemplateEl) return;
-            const emptyFormTemplate = emptyFormTemplateEl.innerHTML;
-            addButton.addEventListener('click', function() {
-                const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-                const currentFormCount = parseInt(totalFormsInput.value);
-                const newFormHtml = emptyFormTemplate.replace(/__prefix__/g, currentFormCount);
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = newFormHtml;
-                formContainer.append(tempDiv.firstElementChild);
-                totalFormsInput.value = currentFormCount + 1;
-            });
-        }
-        addFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
-        addFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
-        addFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
+      openBtn.addEventListener('click', () => modal.classList.remove('d-none'));
+      closeBtn.addEventListener('click', () => modal.classList.add('d-none'));
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('d-none'); });
     }
 
-    // LÓGICA DO ACORDEÃO (AGORA CORRIGIDA)
+    // --- Lógica do acordeão histórico ---
     const collapseHistorico = document.getElementById('collapseHistorico');
     const historicoOverlay = document.getElementById('historicoOverlay');
     const accordionButton = document.querySelector('[data-bs-target="#collapseHistorico"]');
     const accordionItem = document.querySelector('#accordionHistorico .accordion-item');
     
     if (collapseHistorico && historicoOverlay && accordionButton && accordionItem) {
-        
         collapseHistorico.addEventListener('show.bs.collapse', (event) => {
-            // ★★★ CORREÇÃO ADICIONADA ★★★
-            // Só executa se o evento for do acordeão principal
             if (event.target === collapseHistorico) {
                 historicoOverlay.style.display = 'block';
                 accordionItem.classList.add('active-accordion');
             }
         });
-        
         collapseHistorico.addEventListener('hide.bs.collapse', (event) => {
-            // ★★★ CORREÇÃO ADICIONADA ★★★
-            // Só executa se o evento for do acordeão principal
             if (event.target === collapseHistorico) {
                 historicoOverlay.style.display = 'none';
                 accordionItem.classList.remove('active-accordion');
             }
         });
-
         historicoOverlay.addEventListener('click', () => {
-            // Acessa a instância do Collapse do Bootstrap para o elemento e chama o método hide
             const bsCollapse = bootstrap.Collapse.getInstance(collapseHistorico);
-            if (bsCollapse) {
-                bsCollapse.hide();
-            }
+            if (bsCollapse) bsCollapse.hide();
         });
     }
+
 });
 </script>
 {% endblock %}
