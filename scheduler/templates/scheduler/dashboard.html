@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (!calendarioWrapper) return;
 
-    let dataAtual = new Date({{ mes_atual.year }}, {{ mes_atual.month }} - 1, {{ mes_atual.day }});
+    let dataAtual = new Date("{{ mes_atual|date:'Y-m-d' }}");
 
     // --- 2. FUNÇÕES DO CALENDÁRIO (COMUNS A AMBOS OS USUÁRIOS) ---
     
@@ -551,12 +551,22 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const formData = new FormData(form);
             const errorDiv = form.querySelector('#modal-errors');
-            errorDiv.innerHTML = ''; errorDiv.style.display = 'none';
+            errorDiv.innerHTML = ''; 
+            errorDiv.style.display = 'none';
+
             fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     bootstrap.Modal.getInstance(modalEl).hide();
+
+                    // Atualiza dataAtual para o mês da aula recém-agendada
+                    const inputDataHora = modalEl.querySelector('#id_data_hora');
+                    if (inputDataHora && inputDataHora.value) {
+                        const novaData = new Date(inputDataHora.value);
+                        dataAtual.setFullYear(novaData.getFullYear(), novaData.getMonth(), novaData.getDate());
+                    }
+
                     carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
                 } else {
                     errorDiv.innerHTML = data.errors.map(err => `<div class="alert alert-danger mb-2 p-2">${err}</div>`).join('');
