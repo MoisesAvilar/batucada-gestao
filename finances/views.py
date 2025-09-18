@@ -1306,7 +1306,9 @@ def export_dre_pdf(request):
         "dre_data": dre_data,
         "start_date": start_date,
         "end_date": end_date,
-        "dre_comp": dre_comp,  # Passa os dados do comparativo
+        "dre_comp": dre_comp,
+        "start_date_comp": start_date_comp,
+        "end_date_comp": end_date_comp,
     }
 
     # Calcula as variações se houver um período comparativo
@@ -1330,10 +1332,14 @@ def export_dre_pdf(request):
 
     html_string = render_to_string("finances/dre_pdf_template.html", context)
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = (
-        f'attachment; filename="DRE_{start_date_str}_a_{end_date_str}.pdf"'
-    )
+    
+    if dre_comp:
+        file_name = f"DRE_Comparativo_{start_date_str}_a_{end_date_str}_vs_{start_date_comp_str}_a_{end_date_comp_str}.pdf"
+    else:
+        file_name = f"DRE_{start_date_str}_a_{end_date_str}.pdf"
 
+    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+    
     # Usando xhtml2pdf que parece ser a biblioteca que você tem
     pisa_status = pisa.CreatePDF(html_string, dest=response)
     if pisa_status.err:

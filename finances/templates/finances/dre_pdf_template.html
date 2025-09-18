@@ -4,12 +4,19 @@
     <meta charset="UTF-8">
     <title>DRE</title>
     <style>
-        @page { size: A4 landscape; margin: 1.5cm; } /* MUDADO PARA PAISAGEM */
-        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #333; } /* FONTE MENOR */
+        /* Orientação dinâmica */
+        {% if dre_comp %}
+        @page { size: A4 landscape; margin: 1.5cm; }
+        {% else %}
+        @page { size: A4 portrait; margin: 1.5cm; }
+        {% endif %}
+
+        body { font-family: 'Helvetica', sans-serif; font-size: 9pt; color: #333; }
         h1 { font-size: 16pt; text-align: center; margin-bottom: 0; }
         p { text-align: center; margin-top: 5px; color: #555; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; } /* PADDING MENOR */
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
         th { background-color: #f2f2f2; font-size: 8pt; }
         .text-end { text-align: right; }
         .text-success { color: #198754; }
@@ -23,7 +30,15 @@
 </head>
 <body>
     <h1>Demonstrativo de Resultados (DRE)</h1>
-    <p>Período de {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}</p>
+
+    {% if dre_comp %}
+    <p>
+        Período principal: {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}<br>
+        Período comparativo: {{ start_date_comp|date:"d/m/Y" }} a {{ end_date_comp|date:"d/m/Y" }}
+    </p>
+    {% else %}
+    <p>Período: {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}</p>
+    {% endif %}
 
     <table>
         <thead>
@@ -38,6 +53,7 @@
             </tr>
         </thead>
         <tbody>
+            <!-- Receita Operacional Bruta -->
             <tr>
                 <td class="fw-bold">(+) Receita Operacional Bruta</td>
                 <td class="text-end fw-bold text-success">{{ dre_data.total_receitas|floatformat:2 }}</td>
@@ -55,6 +71,7 @@
             </tr>
             {% endfor %}
 
+            <!-- Custos Diretos -->
             <tr>
                 <td class="fw-bold">(-) Custos Diretos</td>
                 <td class="text-end fw-bold text-danger">({{ dre_data.total_custos|floatformat:2 }})</td>
@@ -72,6 +89,7 @@
             </tr>
             {% endfor %}
 
+            <!-- Lucro Bruto -->
             <tr class="total-row">
                 <td>(=) Lucro Bruto</td>
                 <td class="text-end">{{ dre_data.lucro_bruto|floatformat:2 }}</td>
@@ -82,6 +100,7 @@
                 {% endif %}
             </tr>
 
+            <!-- Despesas Operacionais -->
             <tr>
                 <td class="fw-bold">(-) Despesas Operacionais</td>
                 <td class="text-end fw-bold text-danger">({{ dre_data.total_despesas|floatformat:2 }})</td>
@@ -99,6 +118,7 @@
             </tr>
             {% endfor %}
 
+            <!-- Resultado Final -->
             <tr class="final-row">
                 <td>(=) RESULTADO DO PERÍODO</td>
                 <td class="text-end">{{ dre_data.resultado|floatformat:2 }}</td>

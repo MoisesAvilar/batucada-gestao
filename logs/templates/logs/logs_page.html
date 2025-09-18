@@ -277,7 +277,7 @@ function renderChart() {
         if(log.action === "criou") grouped[day].criou++;
         else if(log.action === "atualizou") grouped[day].atualizou++;
         else if(log.action === "deletou") grouped[day].deletou++;
-        else if(log.action === "get") grouped[day].acessou++;
+        else if(log.action === "visualizou") grouped[day].acessou++;
     });
 
     const labels = Object.keys(grouped).sort();
