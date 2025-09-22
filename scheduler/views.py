@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.cache import never_cache
 from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser, PresencaAluno, PresencaProfessor, ItemRudimento
 from finances.models import ReceitaRecorrente, Category
 from django.utils import timezone
@@ -62,6 +63,7 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
 
 # --- Views Principais (dashboard) ---
 @login_required
+@never_cache
 def dashboard(request):
     now = timezone.now()
     today = now.date()
@@ -77,7 +79,7 @@ def dashboard(request):
     
     # Formatação de datas (sem alterações)
     today_iso = today.strftime('%Y-%m-%d')
-    start_of_week = today - timedelta(days=today.weekday()) # Semana começando no Domingo
+    start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
     week_start_iso = start_of_week.strftime('%Y-%m-%d')
     week_end_iso = end_of_week.strftime('%Y-%m-%d')
@@ -127,7 +129,7 @@ def dashboard(request):
     if request.user.tipo == 'admin':
         # KPIs e contexto do Admin
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
-        aulas_semana_count = Aula.objects.filter(data_hora__date__range=[today, today + timezone.timedelta(days=7)]).count()
+        aulas_semana_count = Aula.objects.filter(data_hora__date__range=[start_of_week, end_of_week]).count()
         aulas_agendadas_total = Aula.objects.filter(status='Agendada', data_hora__gte=now).count()
         novos_alunos_mes = Aluno.objects.filter(data_criacao__year=today.year, data_criacao__month=today.month).count()
         
@@ -146,8 +148,7 @@ def dashboard(request):
         # KPIs e contexto do Professor
         aulas_do_professor = Aula.objects.filter(professores=request.user).distinct()
         aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
-        aulas_semana_count = aulas_do_professor.filter(data_hora__date__range=[today, today + timezone.timedelta(days=7)]).count()
-        
+        aulas_semana_count = aulas_do_professor.filter(data_hora__date__range=[start_of_week, end_of_week]).count()
         contexto = {
             "titulo": "Painel de Controle",
             "aulas_hoje_count": aulas_hoje_count,
@@ -345,6 +346,7 @@ def agendar_aula(request):
 
 
 @login_required
+@never_cache
 def editar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
 
@@ -456,7 +458,7 @@ def excluir_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
     aula.delete()
     messages.success(request, "Aula excluída com sucesso!")
-    return redirect("scheduler:aula_listar")
+    return redirect("scheduler:dashboard")
 
 
 @login_required
@@ -922,6 +924,7 @@ def listar_aulas(request):
 
 @login_required
 @user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
+@never_cache
 def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
     relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
@@ -1081,7 +1084,7 @@ def validar_aula(request, pk):
                         aula.save()
 
                     messages.success(request, 'Relatório da aula salvo com sucesso!')
-                    return redirect('scheduler:aula_listar')
+                    return redirect('scheduler:aula_validar', pk=aula.pk)
 
                 except (ValidationError, DatabaseError, Exception) as e:
                     import logging

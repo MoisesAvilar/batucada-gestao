@@ -136,8 +136,53 @@
 {% include 'scheduler/partials/_metronome_js.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    function setupFormset(buttonId, containerId, templateId, prefix) {
+        const addButton = document.getElementById(buttonId);
+        if (!addButton) return;
+        
+        const formContainer = document.getElementById(containerId);
+        const template = document.getElementById(templateId);
+        const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
 
-    // --- Correção Safari/iPhone: habilita campos de todas as abas antes do submit ---
+        if (!formContainer || !template || !totalFormsInput) {
+            console.error(`Erro de configuração do Formset para o prefixo: ${prefix}. Elemento não encontrado.`);
+            return;
+        }
+        
+        addButton.addEventListener('click', function() {
+            const currentFormCount = parseInt(totalFormsInput.value);
+            const newFormHtml = template.innerHTML.replace(/__prefix__/g, currentFormCount);
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newFormHtml;
+            const newRow = tempDiv.firstElementChild;
+            
+            formContainer.appendChild(newRow);
+            totalFormsInput.value = currentFormCount + 1;
+        });
+    }
+
+    setupFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
+    setupFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
+    setupFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
+
+    document.body.addEventListener('click', function(e) {
+        const removeButton = e.target.closest('.btn-remove-exercicio-row');
+        if (!removeButton) return;
+
+        const row = removeButton.closest('.p-3.rounded');
+        if (row) {
+            const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+            } else {
+                row.remove();
+            }
+        }
+    });
+
     const relatorioForm = document.getElementById('relatorio-form');
     if (relatorioForm) {
         relatorioForm.addEventListener('submit', function() {
@@ -147,7 +192,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- Lógica do metronomo ---
     const openBtn = document.getElementById('btn-open-metronome');
     const modal = document.getElementById('metronomeModal');
     const closeBtn = document.getElementById('close-metronome');
@@ -157,7 +201,6 @@ document.addEventListener('DOMContentLoaded', function() {
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('d-none'); });
     }
 
-    // --- Lógica do acordeão histórico ---
     const collapseHistorico = document.getElementById('collapseHistorico');
     const historicoOverlay = document.getElementById('historicoOverlay');
     const accordionButton = document.querySelector('[data-bs-target="#collapseHistorico"]');
