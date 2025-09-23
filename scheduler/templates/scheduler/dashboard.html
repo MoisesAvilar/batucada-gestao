@@ -419,10 +419,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const overlay = document.getElementById('page-overlay');
     const professorFiltro = document.getElementById('professor_calendario_filtro');
     const modalEl = document.getElementById('agendamentoModal');
+    const professorFiltroDesktop = document.getElementById('professor_calendario_filtro_desktop');
+    const professorFiltroMobile = document.getElementById('professor_calendario_filtro_mobile');
     
     if (!calendarioWrapper) return;
 
-    let dataAtual = new Date("{{ mes_atual|date:'Y-m-d' }}");
+    let dataAtual = new Date("{{ mes_atual|date:'Y-m-d' }}T00:00:00");
 
     // --- 2. FUNÇÕES DO CALENDÁRIO (COMUNS A AMBOS OS USUÁRIOS) ---
     
@@ -462,8 +464,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function carregarCalendario(ano, mes) {
+        dataAtual = new Date(ano, mes - 1, 1);
         calendarioWrapper.style.opacity = '0.5';
-        const professorId = (userType === 'admin' && professorFiltro) ? professorFiltro.value : '';
+        const professorId = (userType === 'admin' && professorFiltroDesktop) ? professorFiltroDesktop.value : '';
         const url = `{% url 'scheduler:get_calendario_html' %}?year=${ano}&month=${mes}&professor_filtro_id=${professorId}`;
         fetch(url)
             .then(response => response.text())
@@ -479,8 +482,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const acaoNavegacao = (deslocamento) => {
             const popoverAberto = document.querySelector('.popover');
             if(popoverAberto) bootstrap.Popover.getInstance(document.querySelector('[aria-describedby="' + popoverAberto.id + '"]')).hide();
-            dataAtual.setMonth(dataAtual.getMonth() + deslocamento);
-            carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+            
+            const novoMes = dataAtual.getMonth() + deslocamento;
+            const novaData = new Date(dataAtual.getFullYear(), novoMes, 1);
+
+            carregarCalendario(novaData.getFullYear(), novaData.getMonth() + 1);
         };
         calendarioWrapper.querySelector('#cal-prev')?.addEventListener('click', () => acaoNavegacao(-1));
         calendarioWrapper.querySelector('#cal-next')?.addEventListener('click', () => acaoNavegacao(1));
@@ -605,10 +611,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (userType === 'admin' || userType === 'professor') {
         setupModalInteractions();
-        if (professorFiltro) {
-            professorFiltro.addEventListener('change', () => {
-                 carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
-            });
+        if (userType === 'admin') {
+            const handleFilterChange = (source, target) => {
+                if (target) target.value = source.value;
+                carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+            };
+
+            if (professorFiltroDesktop) {
+                professorFiltroDesktop.addEventListener('change', () => handleFilterChange(professorFiltroDesktop, professorFiltroMobile));
+            }
+            if (professorFiltroMobile) {
+                professorFiltroMobile.addEventListener('change', () => handleFilterChange(professorFiltroMobile, professorFiltroDesktop));
+            }
         }
     }
     
