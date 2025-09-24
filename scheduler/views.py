@@ -2274,7 +2274,7 @@ def get_horario_fixo_data(request):
     # ★★★ FIM DA OTIMIZAÇÃO ★★★
 
     # 5. Processar os dados para a grade de horários usando o mapa de alunos
-    LIMITE_HORARIO_FIXO = 2 # Ajustado para 2, que é mais flexível
+    LIMITE_HORARIO_FIXO = 3 # Ajustado para 2, que é mais flexível
     grade_horarios = defaultdict(dict)
 
     for (dia_semana, horario, aluno_id), contagem in frequencia.items():
