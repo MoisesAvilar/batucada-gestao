@@ -2245,18 +2245,15 @@ def get_horario_fixo_data(request):
     Analisa as aulas das últimas 4 semanas para determinar quais horários
     são fixos, variáveis ou livres. (VERSÃO OTIMIZADA)
     """
-    # 1. Definir o período de análise (sem alterações)
     today = timezone.now().date()
     start_date = today - timedelta(weeks=4)
 
-    # 2. Buscar todas as aulas "Realizadas" ou "Agendadas" no período (sem alterações)
     aulas_periodo = Aula.objects.filter(
         data_hora__date__gte=start_date,
         data_hora__date__lte=today,
         status__in=['Realizada', 'Agendada']
     ).prefetch_related('alunos')
 
-    # 3. Contar a frequência de cada aluno em cada slot (sem alterações)
     frequencia = defaultdict(int)
     for aula in aulas_periodo:
         if not aula.alunos.exists():
@@ -2267,18 +2264,12 @@ def get_horario_fixo_data(request):
         for aluno in aula.alunos.all():
             frequencia[(dia_semana, horario, aluno.id)] += 1
 
-    # ★★★ INÍCIO DA OTIMIZAÇÃO ★★★
-    # 4. Buscar os nomes de todos os alunos necessários DE UMA SÓ VEZ
     aluno_ids = {aluno_id for (_, _, aluno_id) in frequencia.keys()}
     alunos_map = {aluno.id: aluno.nome_completo for aluno in Aluno.objects.filter(id__in=aluno_ids)}
-    # ★★★ FIM DA OTIMIZAÇÃO ★★★
-
-    # 5. Processar os dados para a grade de horários usando o mapa de alunos
-    LIMITE_HORARIO_FIXO = 3 # Ajustado para 2, que é mais flexível
+    LIMITE_HORARIO_FIXO = 3
     grade_horarios = defaultdict(dict)
 
     for (dia_semana, horario, aluno_id), contagem in frequencia.items():
-        # ★★★ CORREÇÃO: Busca rápida no dicionário, sem ir ao banco de dados ★★★
         aluno_nome = alunos_map.get(aluno_id, "Aluno não encontrado")
 
         if contagem >= LIMITE_HORARIO_FIXO:
@@ -2295,7 +2286,6 @@ def get_horario_fixo_data(request):
             if status == 'fixo':
                 grade_horarios[horario][dia_semana]['status'] = 'fixo'
 
-    # 6. Finalizar a formatação do texto (sem alterações)
     for horario, dias in grade_horarios.items():
         for dia, slot in dias.items():
             slot['texto'] = "<br>".join(slot['alunos'])
@@ -2315,7 +2305,6 @@ def marcar_tour_visto(request):
         if not tour_id:
             return JsonResponse({'success': False, 'error': 'tour_id não fornecido'}, status=400)
 
-        # Usa get_or_create para evitar duplicatas e ser mais seguro
         TourVisto.objects.get_or_create(usuario=request.user, tour_id=tour_id)
         
         return JsonResponse({'success': True})

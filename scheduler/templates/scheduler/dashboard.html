@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tableHTML += `<tr><td class="fw-bold">${horario}</td>`;
             for (let i = 0; i < diasSemana.length; i++) {
                 const slotData = data[horario] && data[horario][i] ? data[horario][i] : null;
-                const texto = slotData ? slotData.texto.replace(/<br>/g, ', ') : 'Livre';
+                const texto = slotData ? slotData.texto.replace(/<br>/g, '<br> ') : 'Livre';
                 const status = slotData ? slotData.status : 'livre';
                 tableHTML += `<td class="slot-${status}">${texto}</td>`;
             }
