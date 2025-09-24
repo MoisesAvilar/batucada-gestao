@@ -2,22 +2,14 @@
 
 {% block content %}
 
-{# ★★★ CSS APRIMORADO COM VARIÁVEIS PARA LIGHT/DARK MODE ★★★ #}
 <style>
-    body {
-        background-color: var(--bs-body-bg);
-    }
+    body { background-color: var(--bs-body-bg); }
     .initials-avatar {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
+        width: 60px; height: 60px; border-radius: 50%;
         background-color: var(--bs-primary-bg-subtle);
         color: var(--bs-emphasis-color);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 1.5rem;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 1.5rem;
     }
     .content-block {
         background-color: var(--bs-tertiary-bg);
@@ -31,27 +23,13 @@
         border-radius: 0.75rem;
         padding: 1rem;
     }
-    .kpi-card .icon {
-        font-size: 1.75rem;
-    }
-    .kpi-card .value {
-        font-size: 1.75rem;
-        font-weight: 700;
-    }
-    .list-group-item {
-        background-color: transparent;
-        border-color: var(--bs-border-color-translucent);
-    }
-    .progress {
-        height: 10px;
-    }
-    
+    .kpi-card .icon { font-size: 1.75rem; }
+    .kpi-card .value { font-size: 1.75rem; font-weight: 700; }
+    .list-group-item { background-color: transparent; border-color: var(--bs-border-color-translucent); }
+    .progress { height: 10px; }
+
     @media (min-width: 992px) {
-        .sticky-lg-top {
-            position: sticky;
-            top: 1.5rem;
-            z-index: 1010;
-        }
+        .sticky-lg-top { position: sticky; top: 1.5rem; z-index: 1010; }
     }
 </style>
 
@@ -98,51 +76,29 @@
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="vstack gap-4">
+            
             <div class="row g-3">
-                <div class="col-6 col-md-3">
-                    <div class="kpi-card h-100">
-                        <div class="icon text-success-emphasis"><i class="bi bi-check2-circle"></i></div>
-                        <div class="value mt-2">{{ total_realizadas }}</div>
-                        <div class="text-muted small">Realizadas</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="kpi-card h-100">
-                        <div class="icon text-warning-emphasis"><i class="bi bi-person-x"></i></div>
-                        <div class="value mt-2">{{ total_aluno_ausente }}</div>
-                        <div class="text-muted small">Ausências</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="kpi-card h-100">
-                        <div class="icon text-danger-emphasis"><i class="bi bi-x-octagon"></i></div>
-                        <div class="value mt-2">{{ total_canceladas }}</div>
-                        <div class="text-muted small">Canceladas</div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="kpi-card h-100">
-                        <div class="icon text-secondary-emphasis"><i class="bi bi-journal-bookmark"></i></div>
-                        <div class="value mt-2">{{ total_aulas }}</div>
-                        <div class="text-muted small">Total</div>
-                    </div>
-                </div>
+                <div class="col-6 col-md-3"><div class="kpi-card h-100"><div class="icon text-success-emphasis"><i class="bi bi-check2-circle"></i></div><div class="value mt-2">{{ total_realizadas }}</div><div class="text-muted small">Realizadas</div></div></div>
+                <div class="col-6 col-md-3"><div class="kpi-card h-100"><div class="icon text-warning-emphasis"><i class="bi bi-person-x"></i></div><div class="value mt-2">{{ total_aluno_ausente }}</div><div class="text-muted small">Ausências</div></div></div>
+                <div class="col-6 col-md-3"><div class="kpi-card h-100"><div class="icon text-danger-emphasis"><i class="bi bi-x-octagon"></i></div><div class="value mt-2">{{ total_canceladas }}</div><div class="text-muted small">Canceladas</div></div></div>
+                <div class="col-6 col-md-3"><div class="kpi-card h-100"><div class="icon text-secondary-emphasis"><i class="bi bi-journal-bookmark"></i></div><div class="value mt-2">{{ total_aulas }}</div><div class="text-muted small">Total</div></div></div>
             </div>
 
             <div class="content-block">
                 <h5 class="mb-0">Evolução de BPM por Exercício</h5>
                 {% if lista_exercicios_unicos %}
                     <p class="text-muted small mb-3">Baseado em {{ evolucao_total_aulas }} aula{{ evolucao_total_aulas|pluralize:"s" }} com prática registrada.</p>
-
                     <div class="p-3 rounded mb-3" style="background-color: var(--bs-body-bg);">
                         <strong class="d-block mb-2">Exercícios para Comparar:</strong>
+                        <div class="d-flex gap-2 mb-2">
+                            <button id="btnSelectAll" class="btn btn-sm btn-outline-primary">Selecionar todos</button>
+                            <button id="btnClearAll" class="btn btn-sm btn-outline-secondary">Limpar seleção</button>
+                        </div>
                         <div id="exercise-checkboxes" class="d-flex flex-wrap gap-3">
                             {% for exercicio in lista_exercicios_unicos %}
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="{{ exercicio }}" id="check-{{ forloop.counter }}">
-                                <label class="form-check-label" for="check-{{ forloop.counter }}">
-                                    {{ exercicio }}
-                                </label>
+                                <label class="form-check-label" for="check-{{ forloop.counter }}">{{ exercicio }}</label>
                             </div>
                             {% endfor %}
                         </div>
@@ -153,91 +109,67 @@
                         </div>
                     </div>
                 {% endif %}
-                
-                <div class="mt-3" style="height: 350px;">
-                    <canvas id="studentEvolutionChart"></canvas>
+                <div class="mt-3 position-relative" style="height: 350px;">
+                    <button id="btnDownloadChart" class="btn btn-sm btn-primary position-absolute top-0 end-0 m-2"><i class="bi bi-download me-1"></i> Baixar Gráfico</button>
+                    <canvas id="studentEvolutionChart" class="w-100 h-100"></canvas>
                     <div id="chart-placeholder" class="d-flex h-100 align-items-center justify-content-center text-center text-muted p-4">
                         <div>
                             <i class="bi bi-graph-up fs-1"></i>
-                            <p class="mt-2">
-                                {% if lista_exercicios_unicos %}
-                                Selecione um ou mais exercícios acima para comparar a evolução.
-                                {% else %}
-                                Nenhum dado de evolução de BPM encontrado para este aluno.
-                                {% endif %}
-                            </p>
+                            <p class="mt-2">{% if lista_exercicios_unicos %}Selecione um ou mais exercícios acima para comparar a evolução.{% else %}Nenhum dado de evolução de BPM encontrado para este aluno.{% endif %}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="content-block">
-                    <h6 class="mb-3"><i class="bi bi-cash-stack me-2"></i>Histórico Financeiro</h6>
-                    {% if historico_financeiro %}
-                        <ul class="list-group list-group-flush">
-                            {% for transacao in historico_financeiro %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                <div>
-                                    <span class="d-block">{{ transacao.description }}</span>
-                                    <small class="text-muted">{{ transacao.transaction_date|date:"d/m/Y" }}</small>
-                                </div>
-                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
-                                    R$ {{ transacao.amount|floatformat:2 }}
-                                </span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted small text-center mb-0 p-3">Nenhum registro de pagamento encontrado.</p>
-                    {% endif %}
-                </div>
-
                 {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_aluno %}
-
-
+                {% include 'scheduler/partials/pagination.html' with page_obj=aulas_do_aluno %}
+            </div>
+            
         </div>
     </div>
 
     <div class="col-lg-4">
         <div class="sticky-lg-top">
             <div class="vstack gap-4">
+                
                 <div class="content-block">
                     <div class="text-center">
                         <div class="initials-avatar mx-auto mb-3">{{ aluno.nome_completo|first|upper }}</div>
                         <h2 class="h4 mb-1">{{ aluno.nome_completo|title }}</h2>
                         {% with status_pgto=aluno.get_status_pagamento %}
-                            <span class="badge bg-{{ status_pgto.cor }}-subtle text-{{ status_pgto.cor }}-emphasis rounded-pill">
-                                Pagamento: {{ status_pgto.status }}
-                            </span>
+                            <span class="badge bg-{{ status_pgto.cor }}-subtle text-{{ status_pgto.cor }}-emphasis rounded-pill">Pagamento: {{ status_pgto.status }}</span>
                         {% endwith %}
-                        {% if aluno.email %}
-                         <p class="text-muted">{{ aluno.email }}</p>
-                        {% else %}
-                         <p class="text-muted">Email não informado</p>
-                        {% endif %}
+                        <p class="text-muted">{% if aluno.email %}{{ aluno.email }}{% else %}Email não informado{% endif %}</p>
                     </div>
-
                     <hr>
-                    
                     <div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="small fw-bold">Taxa de Presença</span>
-                            <span class="small fw-bold text-success">{{ taxa_presenca|floatformat:1 }}%</span>
-                        </div>
-                        <div class="progress" title="{{ taxa_presenca|floatformat:1 }}%">
-                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ taxa_presenca|floatformat:0 }}%;" aria-valuenow="{{ taxa_presenca|floatformat:0 }}"></div>
-                        </div>
+                        <div class="d-flex justify-content-between mb-1"><span class="small fw-bold">Taxa de Presença</span><span class="small fw-bold text-success">{{ taxa_presenca|floatformat:1 }}%</span></div>
+                        <div class="progress" title="{{ taxa_presenca|floatformat:1 }}%"><div class="progress-bar bg-success" role="progressbar" style="width: {{ taxa_presenca|floatformat:0 }}%;" aria-valuenow="{{ taxa_presenca|floatformat:0 }}"></div></div>
                     </div>
-
                     {% if user.tipo in 'admin,professor' %}
                     <div class="d-grid gap-2 mt-4">
                         <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Aluno</a>
-                        
-                        {# O botão de excluir continua apenas para admins #}
                         {% if user.tipo == 'admin' %}
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">Excluir</button>
                         {% endif %}
                     </div>
+                    {% endif %}
+                </div>
+                
+                <div class="content-block">
+                    <h6 class="mb-3"><i class="bi bi-cash-stack me-2"></i>Histórico Financeiro</h6>
+                    {% if historico_financeiro %}
+                        <ul class="list-group list-group-flush">
+                            {% for transacao in historico_financeiro %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div><span class="d-block">{{ transacao.description }}</span><small class="text-muted">{{ transacao.transaction_date|date:"d/m/Y" }}</small></div>
+                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">R$ {{ transacao.amount|floatformat:2 }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small text-center mb-0 p-3">Nenhum registro de pagamento encontrado.</p>
                     {% endif %}
                 </div>
 
@@ -250,10 +182,7 @@
                     <h6 class="mb-3">Top Professores</h6>
                     <ul class="list-group list-group-flush">
                         {% for prof in top_professores %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="text-decoration-none text-body">{{ prof.professores__username|title }}</a>
-                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ prof.contagem }}</span>
-                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0"><a href="{% url 'scheduler:professor_detalhe' prof.professores__pk %}" class="text-decoration-none text-body">{{ prof.professores__username|title }}</a><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ prof.contagem }}</span></li>
                         {% empty %}
                         <li class="list-group-item px-0 text-muted small">Nenhum professor recorrente.</li>
                         {% endfor %}
@@ -262,12 +191,9 @@
 
                 <div class="content-block">
                     <h6 class="mb-3">Top Categorias</h6>
-                     <ul class="list-group list-group-flush">
+                    <ul class="list-group list-group-flush">
                         {% for modalidade in top_modalidades %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span>{{ modalidade.modalidade__nome|title }}</span>
-                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ modalidade.contagem }}</span>
-                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0"><span>{{ modalidade.modalidade__nome|title }}</span><span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">{{ modalidade.contagem }}</span></li>
                         {% empty %}
                         <li class="list-group-item px-0 text-muted small">Nenhuma categoria recorrente.</li>
                         {% endfor %}
@@ -284,7 +210,11 @@
 {% block extra_js %}
 {{ block.super }}
 
-{# Passando dados para o JavaScript de forma segura #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
 {{ chart_labels|json_script:"status-chart-labels-data" }}
 {{ chart_data|json_script:"status-chart-data-data" }}
 {{ dados_grafico_por_exercicio|json_script:"evolucao-data-por-exercicio" }}
@@ -293,181 +223,215 @@
 document.addEventListener('DOMContentLoaded', function() {
     let statusChartInstance = null;
     let evolutionChartInstance = null;
-    
-    // Referências aos elementos do DOM
+
     const evolutionChartCanvas = document.getElementById('studentEvolutionChart');
     const chartPlaceholder = document.getElementById('chart-placeholder');
     const allEvolutionData = JSON.parse(document.getElementById('evolucao-data-por-exercicio').textContent);
     const exerciseCheckboxes = document.querySelectorAll('#exercise-checkboxes .form-check-input');
     const trendlineToggle = document.getElementById('show-trendline-toggle');
+    const btnSelectAll = document.getElementById('btnSelectAll');
+    const btnClearAll = document.getElementById('btnClearAll');
+    const btnDownloadChart = document.getElementById('btnDownloadChart');
 
     function getChartThemeColors() {
         const rootStyles = getComputedStyle(document.documentElement);
         return {
             fontColor: rootStyles.getPropertyValue('--bs-body-color').trim(),
             gridColor: rootStyles.getPropertyValue('--bs-border-color-translucent').trim(),
-            pieColors: ['rgba(25, 135, 84, 0.8)', 'rgba(255, 193, 7, 0.8)', 'rgba(220, 53, 69, 0.8)', 'rgba(108, 117, 125, 0.7)'],
             lineColors: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796']
         };
     }
 
-    // Função para renderizar/atualizar o gráfico de pizza (status)
+    const chartBackgroundColorPlugin = {
+        id: 'customCanvasBackgroundColor',
+        beforeDraw: (chart, args, options) => {
+            const {ctx} = chart;
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = options.color || '#FFFFFF';
+            ctx.fillRect(0, 0, chart.width, chart.height);
+            ctx.restore();
+        }
+    };
+
     function renderStatusChart() {
         if (statusChartInstance) statusChartInstance.destroy();
         const themeColors = getChartThemeColors();
         Chart.defaults.color = themeColors.fontColor;
-        
-        const statusLabelsDataEl = document.getElementById('status-chart-labels-data');
-        const statusDataDataEl = document.getElementById('status-chart-data-data');
+
+        const statusLabels = JSON.parse(document.getElementById('status-chart-labels-data').textContent);
+        const statusData = JSON.parse(document.getElementById('status-chart-data-data').textContent);
         const statusCtx = document.getElementById('statusChart');
 
-        if (statusCtx && statusLabelsDataEl && statusDataDataEl) {
-            const statusLabels = JSON.parse(statusLabelsDataEl.textContent);
-            const statusData = JSON.parse(statusDataDataEl.textContent);
-            
-            if (statusData.some(item => item > 0)) {
-                statusChartInstance = new Chart(statusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: statusLabels,
-                        datasets: [{
-                            data: statusData,
-                            backgroundColor: themeColors.pieColors,
-                            borderColor: 'var(--bs-tertiary-bg)',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        plugins: { legend: { display: true, position: 'top', labels: { padding: 15, boxWidth: 12 } } }
-                    }
-                });
-            }
+        if (statusCtx && statusData.some(item => item > 0)) {
+            statusChartInstance = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: ['#4e73df','#1cc88a','#f6c23e','#e74a3b'], borderColor: 'var(--bs-tertiary-bg)', borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { padding: 15, boxWidth: 12 } } } }
+            });
         }
     }
 
-    // Função para renderizar/atualizar o gráfico de linha (evolução)
-    function renderEvolutionChart() {
-        if (evolutionChartInstance) {
-            evolutionChartInstance.destroy();
-        }
+   function renderEvolutionChart() {
+    if (evolutionChartInstance) evolutionChartInstance.destroy();
 
-        const selectedExercises = Array.from(exerciseCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
+    const selectedExercises = Array.from(exerciseCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+    const showTrendline = trendlineToggle ? trendlineToggle.checked : false;
 
-        const showTrendline = trendlineToggle ? trendlineToggle.checked : false;
-        
-        // --- INÍCIO DA CORREÇÃO ---
-        if (selectedExercises.length === 0) {
-            // Esconde o gráfico e mostra a mensagem de placeholder
-            evolutionChartCanvas.classList.add('d-none');
-            chartPlaceholder.classList.remove('d-none');
-            return;
-        }
-        
-        // Mostra o gráfico e esconde a mensagem de placeholder
-        evolutionChartCanvas.classList.remove('d-none');
-        chartPlaceholder.classList.add('d-none');
-        // --- FIM DA CORREÇÃO ---
+    if (!selectedExercises.length) {
+        evolutionChartCanvas.classList.add('d-none');
+        chartPlaceholder.classList.remove('d-none');
+        return;
+    }
 
-        const themeColors = getChartThemeColors();
-        Chart.defaults.borderColor = themeColors.gridColor;
+    evolutionChartCanvas.classList.remove('d-none');
+    chartPlaceholder.classList.add('d-none');
 
-        const datasets = [];
-        selectedExercises.forEach((exerciseName, index) => {
-            const exerciseData = allEvolutionData[exerciseName];
-            const color = themeColors.lineColors[index % themeColors.lineColors.length];
-            
-            // 1. Dataset principal (dados brutos)
-            datasets.push({
-                label: exerciseName,
-                data: exerciseData.data,
-                borderColor: color,
-                backgroundColor: color.replace(/[^,]+(?=\))/, '0.1'), // Opacidade
-                fill: false,
-                tension: 0.1,
-                pointRadius: 4,
-                pointHoverRadius: 7,
-                pointBackgroundColor: color
-            });
+    // ★★★ 1. CHAMAMOS A FUNÇÃO QUE JÁ PEGA AS CORES DO TEMA ★★★
+    const themeColors = getChartThemeColors();
+    const datasets = [];
+    let allDatesSet = new Set();
 
-            // 2. Dataset da linha de tendência (se habilitado)
-            if (showTrendline && exerciseData.moving_average) {
-                datasets.push({
-                    label: `Tendência - ${exerciseName}`,
-                    data: exerciseData.moving_average,
-                    borderColor: color,
-                    backgroundColor: 'transparent',
-                    fill: false,
-                    borderDash: [5, 5], // Linha tracejada
-                    pointRadius: 0, // Sem pontos
-                    pointHoverRadius: 0,
-                    tension: 0.3
-                });
-            }
+    selectedExercises.forEach(exName => allEvolutionData[exName].data.forEach(p => allDatesSet.add(p.x)));
+    const allDates = Array.from(allDatesSet).sort((a,b)=>new Date(a)-new Date(b));
+
+    function formatDateBR(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('pt-BR');
+    }
+
+    selectedExercises.forEach((exerciseName, index) => {
+        const exerciseData = allEvolutionData[exerciseName];
+        const color = themeColors.lineColors[index % themeColors.lineColors.length];
+
+        const mappedData = allDates.map(d => {
+            const point = exerciseData.data.find(p => p.x === d);
+            return { x: d, y: point ? point.y : null };
         });
 
-        evolutionChartInstance = new Chart(evolutionChartCanvas, {
-            type: 'line',
-            data: { datasets: datasets },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'day',
-                            tooltipFormat: 'dd/MM/yyyy',
-                            displayFormats: { day: 'dd/MM' }
-                        },
-                        title: { display: true, text: 'Data da Aula' }
-                    },
-                    y: { 
-                        beginAtZero: false, 
-                        title: { display: true, text: 'BPM (Batidas por Minuto)' } 
-                    }
+        datasets.push({
+            label: exerciseName,
+            data: mappedData,
+            borderColor: color,
+            backgroundColor: color + "33",
+            fill: false,
+            tension: 0.2,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            pointBackgroundColor: color,
+            spanGaps: true
+        });
+
+        if (showTrendline && exerciseData.moving_average) {
+            const trendData = allDates.map(d => {
+                const point = exerciseData.moving_average.find(p => p.x === d);
+                return { x: d, y: point ? point.y : null };
+            });
+            datasets.push({
+                label: `Tendência - ${exerciseName}`,
+                data: trendData,
+                borderColor: color,
+                backgroundColor: 'transparent',
+                fill: false,
+                borderDash: [5,5],
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                tension: 0.3,
+                spanGaps: true
+            });
+        }
+    });
+    
+    // As variáveis de cor agora são pegas da função de tema
+    const textColor = themeColors.fontColor;
+    const bgColor = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'rgba(33, 37, 41, 1)' : 'rgba(255, 255, 255, 1)';
+    const chartBgColor = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'rgba(33, 37, 41, 1)' : 'rgba(255, 255, 255, 1)';
+
+    evolutionChartInstance = new Chart(evolutionChartCanvas, {
+        type: 'line',
+        data: { datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            parsing: false,
+            scales: {
+                x: {
+                    type: 'category',
+                    labels: allDates,
+                    title: { display: true, text: 'Data da Aula', color: textColor },
+                    ticks: { color: textColor },
+                    // ★★★ 2. APLICAMOS A COR DINÂMICA DO GRID ★★★
+                    grid: { color: themeColors.gridColor }
                 },
-                plugins: {
-                    legend: { display: true, position: 'top' },
-                    tooltip: {
-                        mode: 'index', intersect: false,
-                        callbacks: {
-                           label: (context) => {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += `${context.parsed.y} BPM`;
-                                }
-                                return label;
-                            }
-                        }
-                    }
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'BPM (Batidas por Minuto)', color: textColor },
+                    ticks: { color: textColor },
+                    // ★★★ 3. APLICAMOS A COR DINÂMICA DO GRID ★★★
+                    grid: { color: themeColors.gridColor }
+                }
+            },
+            plugins: {
+                legend: { display: true, position: 'top', labels: { color: textColor } },
+                tooltip: { mode:'index', intersect:false, titleColor: textColor, bodyColor: textColor },
+                datalabels: { display:true, align:'top', color:textColor, font:{weight:'bold',size:10}, formatter:v=>v.y },
+                title: { display:true, text:'Evolução do Aluno', font: { size: 18 }, color: textColor },
+                subtitle: { display:true, text:`Período: ${allDates[0] ? formatDateBR(allDates[0]) : ''} - ${allDates[allDates.length-1] ? formatDateBR(allDates[allDates.length-1]) : ''}`, font:{size:14}, color:textColor },
+                customCanvasBackgroundColor: {
+                    color: chartBgColor,
+                }
+            },
+            backgroundColor: bgColor,
+        },
+        plugins: [
+            chartBackgroundColorPlugin,
+            ChartDataLabels,
+            {
+                id: 'watermark',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.font = 'bold 40px Arial';
+                    ctx.fillStyle = 'rgba(200,200,200,0.2)';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.translate(chart.width/2, chart.height/2);
+                    ctx.rotate(-Math.PI/8);
+                    ctx.fillText('Studio Batucada', 0, 0);
+                    ctx.restore();
                 }
             }
-        });
-    }
-    // --- INICIALIZAÇÃO E EVENTOS ---
-    renderStatusChart();
-    renderEvolutionChart(); // Renderiza o estado inicial (placeholder)
-    
-    exerciseCheckboxes.forEach(cb => {
-        cb.addEventListener('change', renderEvolutionChart);
+        ]
     });
-    
-    if (trendlineToggle) {
-        trendlineToggle.addEventListener('change', renderEvolutionChart);
+
+        if(btnDownloadChart){
+        btnDownloadChart.onclick = () => {
+            const alunoNome = "{{ aluno.nome_completo|escapejs }}";
+            const periodoInicio = allDates[0] ? formatDateBR(allDates[0]) : '';
+            const periodoFim = allDates[allDates.length-1] ? formatDateBR(allDates[allDates.length-1]) : '';
+            let filename = `Evolucao ${alunoNome}`;
+            if(periodoInicio && periodoFim) {
+                filename += ` ${periodoInicio} - ${periodoFim}`;
+            }
+            filename += '.png';
+
+            const link = document.createElement('a');
+            link.href = evolutionChartInstance.toBase64Image('image/png',1);
+            link.download = filename;
+            link.click();
+        };
+    }
     }
 
-    // Observador para o modo light/dark
-    const themeObserver = new MutationObserver(() => {
-        renderStatusChart();
-        const selectedExercise = exerciseSelector ? exerciseSelector.value : null;
-        renderEvolutionChart(selectedExercise);
-    });
+    exerciseCheckboxes.forEach(cb=>cb.addEventListener('change', renderEvolutionChart));
+    if(trendlineToggle) trendlineToggle.addEventListener('change', renderEvolutionChart);
+    if(btnSelectAll) btnSelectAll.addEventListener('click', ()=>{ exerciseCheckboxes.forEach(cb=>cb.checked=true); renderEvolutionChart(); });
+    if(btnClearAll) btnClearAll.addEventListener('click', ()=>{ exerciseCheckboxes.forEach(cb=>cb.checked=false); renderEvolutionChart(); });
+
+    const themeObserver = new MutationObserver(()=>{ renderStatusChart(); renderEvolutionChart(); });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    renderStatusChart();
+    renderEvolutionChart();
 });
 </script>
 {% endblock %}

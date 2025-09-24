@@ -423,7 +423,7 @@ class PresencaAlunoForm(forms.ModelForm):
 PresencaAlunoFormSet = modelformset_factory(
     PresencaAluno,
     form=PresencaAlunoForm,
-    extra=0,  # Não mostra formulários em branco por padrão
+    extra=0,
     can_delete=False,
 )
 

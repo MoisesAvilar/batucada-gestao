@@ -747,47 +747,88 @@ def detalhe_aluno(request, pk):
     # Query base para todas as aulas do aluno
     aulas_do_aluno = Aula.objects.filter(alunos=aluno)
 
-    # Aplica os filtros de data à query base
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
             aulas_do_aluno = aulas_do_aluno.filter(data_hora__date__gte=data_inicial)
-        except (ValueError, TypeError): pass
+        except (ValueError, TypeError):
+            pass
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
             aulas_do_aluno = aulas_do_aluno.filter(data_hora__date__lte=data_final)
-        except (ValueError, TypeError): pass
-    
-    # Aplica o filtro de status (que agora também é global)
+        except (ValueError, TypeError):
+            pass
+
     if status_filtro:
         aulas_do_aluno = aulas_do_aluno.filter(status=status_filtro)
     # --- FIM DA LÓGICA DE FILTRO GLOBAL ---
 
-    # Todos os cálculos de KPIs e gráficos agora usam a queryset JÁ FILTRADA
-    aulas_do_aluno = aulas_do_aluno.select_related('modalidade', 'relatorioaula__professor_que_validou').prefetch_related('professores', 'presencas')
-    presenca_status_subquery = PresencaAluno.objects.filter(aula=OuterRef('pk'), aluno=aluno).values('status')[:1]
-    aulas_com_presenca = aulas_do_aluno.annotate(status_presenca_aluno=Subquery(presenca_status_subquery))
-    total_realizadas = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='presente').count()
-    total_ausencias = aulas_com_presenca.filter(status__in=['Realizada', 'Aluno Ausente'], status_presenca_aluno='ausente').count()
+    aulas_do_aluno = aulas_do_aluno.select_related(
+        'modalidade', 'relatorioaula__professor_que_validou'
+    ).prefetch_related('professores', 'presencas')
+
+    presenca_status_subquery = PresencaAluno.objects.filter(
+        aula=OuterRef('pk'), aluno=aluno
+    ).values('status')[:1]
+    aulas_com_presenca = aulas_do_aluno.annotate(
+        status_presenca_aluno=Subquery(presenca_status_subquery)
+    )
+
+    total_realizadas = aulas_com_presenca.filter(
+        status__in=['Realizada', 'Aluno Ausente'],
+        status_presenca_aluno='presente'
+    ).count()
+    total_ausencias = aulas_com_presenca.filter(
+        status__in=['Realizada', 'Aluno Ausente'],
+        status_presenca_aluno='ausente'
+    ).count()
     total_canceladas = aulas_com_presenca.filter(status="Cancelada").count()
     total_agendadas = aulas_com_presenca.filter(status="Agendada").count()
     total_aulas = aulas_do_aluno.count()
-    aulas_contabilizadas_para_presenca = total_realizadas + total_ausencias
-    taxa_presenca = (total_realizadas / aulas_contabilizadas_para_presenca * 100) if aulas_contabilizadas_para_presenca > 0 else 0
-    aulas_presente = aulas_com_presenca.filter(status_presenca_aluno='presente')
-    top_professores = aulas_presente.filter(professores__isnull=False).values("professores__pk", "professores__username").annotate(contagem=Count("professores__pk")).order_by("-contagem")[:3]
-    top_modalidades = aulas_presente.values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3]
-    
-    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
-    chart_data = [total_realizadas, total_ausencias, total_canceladas, total_agendadas]
 
-    # A lógica do gráfico de evolução também usará os dados já filtrados por data
-    relatorios_de_aulas_presente_ids = aulas_presente.filter(relatorioaula__isnull=False).values_list('relatorioaula__pk', flat=True)
-    dados_evolucao = ItemRudimento.objects.filter(
-        relatorio_id__in=list(relatorios_de_aulas_presente_ids),
-        bpm__isnull=False
-    ).exclude(bpm__exact='').order_by('relatorio__aula__data_hora')
+    aulas_contabilizadas_para_presenca = total_realizadas + total_ausencias
+    taxa_presenca = (
+        (total_realizadas / aulas_contabilizadas_para_presenca) * 100
+        if aulas_contabilizadas_para_presenca > 0
+        else 0
+    )
+
+    aulas_presente = aulas_com_presenca.filter(status_presenca_aluno='presente')
+
+    top_professores = (
+        aulas_presente.filter(professores__isnull=False)
+        .values("professores__pk", "professores__username")
+        .annotate(contagem=Count("professores__pk"))
+        .order_by("-contagem")[:3]
+    )
+    top_modalidades = (
+        aulas_presente.values("modalidade__nome")
+        .annotate(contagem=Count("modalidade"))
+        .order_by("-contagem")[:3]
+    )
+
+    chart_labels = ['Realizadas', 'Ausências', 'Canceladas', 'Agendadas']
+    chart_data = [
+        total_realizadas,
+        total_ausencias,
+        total_canceladas,
+        total_agendadas,
+    ]
+
+    # 🔹 Somente datas reais de aulas com prática registrada
+    relatorios_de_aulas_presente_ids = aulas_presente.filter(
+        relatorioaula__isnull=False
+    ).values_list('relatorioaula__pk', flat=True)
+
+    dados_evolucao = (
+        ItemRudimento.objects.filter(
+            relatorio_id__in=list(relatorios_de_aulas_presente_ids),
+            bpm__isnull=False,
+        )
+        .exclude(bpm__exact='')
+        .order_by('relatorio__aula__data_hora')
+    )
 
     dados_grafico_por_exercicio = {}
     lista_exercicios_unicos = []
@@ -795,26 +836,34 @@ def detalhe_aluno(request, pk):
 
     if dados_evolucao.exists():
         dados_agrupados = defaultdict(list)
+
         for item in dados_evolucao:
             try:
                 bpm = int(str(item.bpm).strip().replace('bpm', ''))
                 item_date = item.relatorio.aula.data_hora.date()
                 descricao = item.descricao.strip().title()
-                dados_agrupados[descricao].append({'x': item_date.isoformat(), 'y': bpm})
+                dados_agrupados[descricao].append(
+                    {'x': item_date.isoformat(), 'y': bpm}
+                )
             except (ValueError, AttributeError):
                 continue
-        
+
         for descricao, pontos in dados_agrupados.items():
             pontos_ordenados = sorted(pontos, key=lambda p: p['x'])
             dados_grafico_por_exercicio[descricao] = {
                 'data': pontos_ordenados,
-                'moving_average': calculate_moving_average(pontos_ordenados, window_size=3)
+                'moving_average': calculate_moving_average(
+                    pontos_ordenados, window_size=3
+                ),
             }
-        
-        lista_exercicios_unicos = sorted(dados_agrupados.keys())
-        evolucao_total_aulas = dados_evolucao.values('relatorio__aula__data_hora__date').distinct().count()
 
-    # A paginação agora atua sobre a queryset já filtrada
+        lista_exercicios_unicos = sorted(dados_agrupados.keys())
+        evolucao_total_aulas = (
+            dados_evolucao.values('relatorio__aula__data_hora__date')
+            .distinct()
+            .count()
+        )
+
     historico_aulas_qs = aulas_com_presenca.order_by("-data_hora")
     paginator = Paginator(historico_aulas_qs, 10)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -828,17 +877,24 @@ def detalhe_aluno(request, pk):
                 aula.alunos_com_status.append({'aluno': a, 'status': status})
 
     contexto = {
-        "aluno": aluno, "aulas_do_aluno": page_obj, "request": request,
+        "aluno": aluno,
+        "aulas_do_aluno": page_obj,
+        "request": request,
         "titulo": f"Perfil do Aluno: {aluno.nome_completo}",
-        "total_aulas": total_aulas, "total_realizadas": total_realizadas,
-        "total_canceladas": total_canceladas, "total_aluno_ausente": total_ausencias,
-        "taxa_presenca": taxa_presenca, "top_professores": top_professores,
-        "top_modalidades": top_modalidades, "chart_labels": chart_labels,
-        "chart_data": chart_data, 'historico_financeiro': historico_financeiro,
+        "total_aulas": total_aulas,
+        "total_realizadas": total_realizadas,
+        "total_canceladas": total_canceladas,
+        "total_aluno_ausente": total_ausencias,
+        "taxa_presenca": taxa_presenca,
+        "top_professores": top_professores,
+        "top_modalidades": top_modalidades,
+        "chart_labels": chart_labels,
+        "chart_data": chart_data,
+        "historico_financeiro": historico_financeiro,
         "evolucao_total_aulas": evolucao_total_aulas,
         "dados_grafico_por_exercicio": dados_grafico_por_exercicio,
         "lista_exercicios_unicos": lista_exercicios_unicos,
-        # Passa os valores dos filtros para preencher o formulário no template
+        # Filtros
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
         "status_filtro": status_filtro,

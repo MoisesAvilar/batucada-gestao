@@ -3,8 +3,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 from .models import AuditLog
+from django.contrib.auth.decorators import login_required
 
 
+@login_required
 def logs_page(request):
     """Página de logs"""
     actions_info = [
@@ -16,6 +18,7 @@ def logs_page(request):
     return render(request, "logs/logs_page.html", {"actions_info": actions_info})
 
 
+@login_required
 def logs_api(request):
     """API de logs para datatables ou fetch JS"""
     days = int(request.GET.get("days", 30))
