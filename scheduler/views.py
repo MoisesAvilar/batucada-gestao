@@ -1,7 +1,9 @@
+import json
 from django.shortcuts import render, get_object_or_404, redirect
+from django.utils.timezone import localtime
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.cache import never_cache
-from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser, PresencaAluno, PresencaProfessor, ItemRudimento
+from .models import Aula, Aluno, RelatorioAula, Modalidade, CustomUser, PresencaAluno, PresencaProfessor, ItemRudimento, TourVisto
 from finances.models import ReceitaRecorrente, Category
 from django.utils import timezone
 # --- IMPORTS ATUALIZADOS ---
@@ -69,7 +71,6 @@ def dashboard(request):
     today = now.date()
 
     # A consulta de aulas pendentes funciona para ambos, admin e professor
-    # (Para admin, mostra as aulas que ele mesmo tem que validar)
     aulas_pendentes_validacao = Aula.objects.filter(
         professores=request.user, 
         status='Agendada', 
@@ -77,7 +78,7 @@ def dashboard(request):
     ).order_by('data_hora')
     aulas_pendentes_count = aulas_pendentes_validacao.count()
     
-    # Formatação de datas (sem alterações)
+    # Formatação de datas
     today_iso = today.strftime('%Y-%m-%d')
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
@@ -90,7 +91,7 @@ def dashboard(request):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
-    # Filtro de aulas para o calendário (sem alterações)
+    # Filtro de aulas para o calendário
     if request.user.tipo == 'admin':
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
@@ -99,7 +100,7 @@ def dashboard(request):
     else: # Professor
         aulas_qs = Aula.objects.filter(professores=request.user)
     
-    # Lógica de construção do calendário (sem alterações)
+    # Lógica de construção do calendário
     aulas_do_mes = aulas_qs.filter(
         data_hora__year=year, 
         data_hora__month=month
@@ -118,12 +119,9 @@ def dashboard(request):
             semana_com_aulas.append({'dia': dia, 'aulas': aulas_por_dia.get(dia, [])})
         calendario_final.append(semana_com_aulas)
 
-    # ★★★ INÍCIO DA CORREÇÃO ★★★
-    # Os formulários do modal são definidos aqui FORA do if/else,
-    # para que estejam disponíveis para todos os usuários logados.
+    # Os formulários do modal são definidos aqui FORA do if/else
     AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
     ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
-    # ★★★ FIM DA CORREÇÃO ★★★
 
     # --- PREPARAÇÃO DO CONTEXTO ESPECÍFICO DE CADA USUÁRIO ---
     if request.user.tipo == 'admin':
@@ -132,6 +130,11 @@ def dashboard(request):
         aulas_semana_count = Aula.objects.filter(data_hora__date__range=[start_of_week, end_of_week]).count()
         aulas_agendadas_total = Aula.objects.filter(status='Agendada', data_hora__gte=now).count()
         novos_alunos_mes = Aluno.objects.filter(data_criacao__year=today.year, data_criacao__month=today.month).count()
+        
+        # ★★★ INÍCIO DA LÓGICA DO TOUR ATUALIZADA ★★★
+        # Verifica se existe um registro em TourVisto para este usuário e o ID do tour específico.
+        ja_viu_tour = request.user.tours_vistos.filter(tour_id='horarios_fixos_v1').exists()
+        # ★★★ FIM DA LÓGICA DO TOUR ATUALIZADA ★★★
         
         contexto = {
             "titulo": "Painel de Controle - Admin",
@@ -142,7 +145,9 @@ def dashboard(request):
             "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by("username"),
             "primeiro_dia_mes": today.replace(day=1).strftime('%Y-%m-%d'),
             "ultimo_dia_mes": today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime('%Y-%m-%d'),
-            "aulas_pendentes_validacao": aulas_pendentes_validacao, # Passa as aulas pendentes para o admin também
+            "aulas_pendentes_validacao": aulas_pendentes_validacao,
+            # Passa a flag para o template, que decidirá se o script do tour deve ser executado.
+            "mostrar_tour_horarios": not ja_viu_tour 
         }
     else: # Professor
         # KPIs e contexto do Professor
@@ -157,7 +162,7 @@ def dashboard(request):
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
         }
 
-    # Adiciona o contexto comum a AMBOS os usuários (incluindo os formulários do modal)
+    # Adiciona o contexto comum a AMBOS os usuários
     contexto.update({
         "today": today,
         "mes_atual": date(year, month, 1),
@@ -166,13 +171,10 @@ def dashboard(request):
         "today_iso": today_iso,
         "week_start_iso": week_start_iso,
         "week_end_iso": week_end_iso,
-        # ★★★ INÍCIO DA CORREÇÃO ★★★
-        # Adicionamos os formulários do modal aqui, no contexto comum.
         'aula_form_modal': AulaForm(),
         'aluno_formset_modal': AlunoFormSetModal(prefix='alunos'),
         'professor_formset_modal': ProfessorFormSetModal(prefix='professores'),
         'form_action_modal': reverse('scheduler:aula_agendar'),
-        # ★★★ FIM DA CORREÇÃO ★★★
     })
 
     return render(request, "scheduler/dashboard.html", contexto)
@@ -2235,3 +2237,88 @@ def perfil_usuario(request):
         'titulo': 'Meu Perfil'
     }
     return render(request, 'scheduler/perfil_usuario.html', contexto)
+
+
+@login_required
+def get_horario_fixo_data(request):
+    """
+    Analisa as aulas das últimas 4 semanas para determinar quais horários
+    são fixos, variáveis ou livres. (VERSÃO OTIMIZADA)
+    """
+    # 1. Definir o período de análise (sem alterações)
+    today = timezone.now().date()
+    start_date = today - timedelta(weeks=4)
+
+    # 2. Buscar todas as aulas "Realizadas" ou "Agendadas" no período (sem alterações)
+    aulas_periodo = Aula.objects.filter(
+        data_hora__date__gte=start_date,
+        data_hora__date__lte=today,
+        status__in=['Realizada', 'Agendada']
+    ).prefetch_related('alunos')
+
+    # 3. Contar a frequência de cada aluno em cada slot (sem alterações)
+    frequencia = defaultdict(int)
+    for aula in aulas_periodo:
+        if not aula.alunos.exists():
+            continue
+        dt_local = localtime(aula.data_hora)
+        dia_semana = dt_local.weekday()
+        horario = dt_local.strftime('%H:00')
+        for aluno in aula.alunos.all():
+            frequencia[(dia_semana, horario, aluno.id)] += 1
+
+    # ★★★ INÍCIO DA OTIMIZAÇÃO ★★★
+    # 4. Buscar os nomes de todos os alunos necessários DE UMA SÓ VEZ
+    aluno_ids = {aluno_id for (_, _, aluno_id) in frequencia.keys()}
+    alunos_map = {aluno.id: aluno.nome_completo for aluno in Aluno.objects.filter(id__in=aluno_ids)}
+    # ★★★ FIM DA OTIMIZAÇÃO ★★★
+
+    # 5. Processar os dados para a grade de horários usando o mapa de alunos
+    LIMITE_HORARIO_FIXO = 2 # Ajustado para 2, que é mais flexível
+    grade_horarios = defaultdict(dict)
+
+    for (dia_semana, horario, aluno_id), contagem in frequencia.items():
+        # ★★★ CORREÇÃO: Busca rápida no dicionário, sem ir ao banco de dados ★★★
+        aluno_nome = alunos_map.get(aluno_id, "Aluno não encontrado")
+
+        if contagem >= LIMITE_HORARIO_FIXO:
+            status = 'fixo'
+            texto = aluno_nome
+        else:
+            status = 'variavel'
+            texto = aluno_nome
+
+        if not grade_horarios[horario].get(dia_semana):
+            grade_horarios[horario][dia_semana] = {'status': status, 'alunos': [texto]}
+        else:
+            grade_horarios[horario][dia_semana]['alunos'].append(texto)
+            if status == 'fixo':
+                grade_horarios[horario][dia_semana]['status'] = 'fixo'
+
+    # 6. Finalizar a formatação do texto (sem alterações)
+    for horario, dias in grade_horarios.items():
+        for dia, slot in dias.items():
+            slot['texto'] = "<br>".join(slot['alunos'])
+            del slot['alunos']
+
+    return JsonResponse(grade_horarios)
+
+
+@login_required
+@require_POST
+def marcar_tour_visto(request):
+    """Marca que o usuário logado completou um tour específico."""
+    try:
+        data = json.loads(request.body)
+        tour_id = data.get('tour_id')
+
+        if not tour_id:
+            return JsonResponse({'success': False, 'error': 'tour_id não fornecido'}, status=400)
+
+        # Usa get_or_create para evitar duplicatas e ser mais seguro
+        TourVisto.objects.get_or_create(usuario=request.user, tour_id=tour_id)
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    

@@ -352,3 +352,16 @@ class PresencaProfessor(models.Model):
 
     def __str__(self):
         return f"{self.professor.username} - {self.get_status_display()} em {self.aula}"
+
+
+class TourVisto(models.Model):
+    """Registra que um usuário específico já visualizou um determinado tour."""
+    usuario = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="tours_vistos")
+    tour_id = models.CharField(max_length=100, help_text="Um identificador único para o tour, ex: 'horarios_fixos_v1'")
+    data_visualizacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('usuario', 'tour_id')
+
+    def __str__(self):
+        return f"{self.usuario.username} viu o tour {self.tour_id}"

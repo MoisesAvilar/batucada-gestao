@@ -11,6 +11,7 @@ from .models import (
     ItemRudimento,
     ItemRitmo,
     ItemVirada,
+    TourVisto
 )
 
 
@@ -280,3 +281,12 @@ class AulaAdmin(admin.ModelAdmin):
     def foi_substituida_icon(self, obj):
         # Usa a property que já existe no seu modelo!
         return obj.foi_substituida
+
+
+@admin.register(TourVisto)
+class TourVistoAdmin(admin.ModelAdmin):
+    list_display = ("usuario", "tour_id", "data_visualizacao")
+    list_filter = ("tour_id", "data_visualizacao")
+    search_fields = ("usuario__username", "usuario__email", "tour_id")
+    ordering = ("-data_visualizacao",)
+    date_hierarchy = "data_visualizacao"
