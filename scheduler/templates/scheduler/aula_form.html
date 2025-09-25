@@ -63,6 +63,9 @@
 
     <form method="post" action="{{ form_action }}" class="vstack gap-4" id="aula-form">
         {% csrf_token %}
+        {% if presenca_original %}
+            <input type="hidden" name="reposicao_de_id" value="{{ presenca_original.id }}">
+        {% endif %}
         <div class="content-block">
             <h5 class="mb-4"><i class="bi bi-info-circle-fill me-2 text-primary"></i> Detalhes da Aula</h5>
             <div class="row g-3">

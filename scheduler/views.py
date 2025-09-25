@@ -1,4 +1,6 @@
 import json
+from django.db import transaction, DatabaseError
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.timezone import localtime
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -234,25 +236,41 @@ def agendar_aula(request):
     AlunoFormSet = formset_factory(AlunoChoiceForm, extra=1, can_delete=True)
     ProfessorFormSet = formset_factory(ProfessorChoiceForm, extra=1, can_delete=True)
 
+    presenca_original_id = request.GET.get('reposicao_de')
+    presenca_original = None
+    initial_form_data = {}
+    initial_aluno_data = []
+
+    if presenca_original_id:
+        try:
+            presenca_original = PresencaAluno.objects.select_related(
+                'aula', 'aluno', 'aula__modalidade'
+            ).get(
+                id=presenca_original_id,
+                status='ausente',
+                tipo_falta='justificada',
+                aula_reposicao__isnull=True
+            )
+            initial_form_data['modalidade'] = presenca_original.aula.modalidade
+            initial_aluno_data.append({'aluno': presenca_original.aluno})
+        except PresencaAluno.DoesNotExist:
+            messages.error(request, "Reposição não encontrada ou já agendada.")
+            presenca_original_id = None
+
     if request.method == 'POST':
         form = AulaForm(request.POST)
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
         
-        # ★★★ INÍCIO DA CORREÇÃO 1/2 ★★★
-        # A validação do formset de professores agora é condicional
         professor_formset_is_valid = False
         if request.user.tipo == 'admin':
             professor_formset = ProfessorFormSet(request.POST, prefix='professores')
             if professor_formset.is_valid():
                 professor_formset_is_valid = True
         else:
-            # Para professores, o formset não é enviado, então consideramos válido por padrão.
-            professor_formset = ProfessorFormSet(prefix='professores') # Cria um formset vazio para o contexto
+            professor_formset = ProfessorFormSet(prefix='professores')
             professor_formset_is_valid = True
-        # ★★★ FIM DA CORREÇÃO 1/2 ★★★
 
         if form.is_valid() and aluno_formset.is_valid() and professor_formset_is_valid:
-            # (O resto da sua lógica de extração de dados e criação de aulas permanece o mesmo)
             modalidade = form.cleaned_data.get('modalidade')
             alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
             data_hora_inicial = form.cleaned_data.get('data_hora')
@@ -266,84 +284,85 @@ def agendar_aula(request):
 
             is_ac = 'atividade complementar' in modalidade.nome.lower()
 
-            if is_ac and not professores_ids:
-                error_message = "Para Atividade Complementar, é obrigatório selecionar pelo menos um professor."
+            if (is_ac and not professores_ids) or (not is_ac and (not alunos_ids or not professores_ids)):
+                error_message = "Para Atividade Complementar, é obrigatório selecionar pelo menos um professor." if is_ac else "Para aulas normais, é obrigatório selecionar pelo menos um aluno E um professor."
                 if is_ajax:
                     return JsonResponse({'success': False, 'errors': [error_message]}, status=400)
                 else:
                     messages.error(request, error_message)
-                    contexto = { 'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset, 'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar') }
-                    return render(request, 'scheduler/aula_form.html', contexto)
             
-            elif not is_ac and (not alunos_ids or not professores_ids):
-                error_message = "Para aulas normais, é obrigatório selecionar pelo menos um aluno E um professor."
-                if is_ajax:
-                    return JsonResponse({'success': False, 'errors': [error_message]}, status=400)
+            else:
+                datas_para_agendar = []
+                
+                reposicao_de_id_hidden = request.POST.get('reposicao_de_id')
+                if reposicao_de_id_hidden:
+                    is_recorrente = False
+                
+                if is_recorrente:
+                    dia_semana = data_hora_inicial.weekday()
+                    mes, ano = data_hora_inicial.month, data_hora_inicial.year
+                    cal = calendar.Calendar()
+                    for dia in cal.itermonthdates(ano, mes):
+                        if dia.month == mes and dia.weekday() == dia_semana and dia >= data_hora_inicial.date():
+                            datas_para_agendar.append(data_hora_inicial.replace(year=dia.year, month=dia.month, day=dia.day))
                 else:
-                    messages.error(request, error_message)
-                    contexto = { 'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset, 'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar') }
-                    return render(request, 'scheduler/aula_form.html', contexto)
+                    datas_para_agendar.append(data_hora_inicial)
 
-            datas_para_agendar = []
-            if is_recorrente:
-                dia_semana = data_hora_inicial.weekday()
-                mes, ano = data_hora_inicial.month, data_hora_inicial.year
-                cal = calendar.Calendar()
-                for dia in cal.itermonthdates(ano, mes):
-                    if dia.month == mes and dia.weekday() == dia_semana and dia >= data_hora_inicial.date():
-                        datas_para_agendar.append(data_hora_inicial.replace(year=dia.year, month=dia.month, day=dia.day))
-            else:
-                datas_para_agendar.append(data_hora_inicial)
-
-            conflitos_encontrados = []
-            for data_agendamento in datas_para_agendar:
-                conflito_info = _check_conflito_aula(list(professores_ids), data_agendamento)
-                if conflito_info['conflito']:
-                    mensagem = conflito_info.get('mensagem', 'Conflito de horário')
-                    conflitos_encontrados.append(f"{mensagem} na data {data_agendamento.strftime('%d/%m')}.")
-            
-            if conflitos_encontrados:
-                if is_ajax:
-                    return JsonResponse({'success': False, 'errors': conflitos_encontrados}, status=400)
-                for erro in conflitos_encontrados:
-                    messages.error(request, erro)
-            else:
-                aulas_criadas_count = 0
+                conflitos_encontrados = []
                 for data_agendamento in datas_para_agendar:
-                    nova_aula = Aula.objects.create(modalidade=modalidade, data_hora=data_agendamento, status=status)
-                    nova_aula.alunos.set(list(alunos_ids))
-                    nova_aula.professores.set(list(professores_ids))
-                    aulas_criadas_count += 1
+                    conflito_info = _check_conflito_aula(list(professores_ids), data_agendamento)
+                    if conflito_info['conflito']:
+                        mensagem = conflito_info.get('mensagem', 'Conflito de horário')
+                        conflitos_encontrados.append(f"{mensagem} na data {data_agendamento.strftime('%d/%m')}.")
                 
-                message_text = f'{aulas_criadas_count} aulas recorrentes foram agendadas.' if aulas_criadas_count > 1 else 'Aula agendada com sucesso!'
-                if is_ajax:
-                    return JsonResponse({'success': True, 'message': message_text})
-                
-                messages.success(request, message_text)
-                return redirect('scheduler:dashboard')
-        else:
-            if is_ajax:
-                error_list = []
-                for field, errors in form.errors.items():
-                    error_list.append(f"{field.replace('_', ' ').title()}: {errors[0]}")
-                for fs_form in aluno_formset:
-                    for field, errors in fs_form.errors.items(): error_list.append(f"Aluno: {errors[0]}")
-                for fs_form in professor_formset:
-                    for field, errors in fs_form.errors.items(): error_list.append(f"Professor: {errors[0]}")
-                
-                if not error_list:
-                    error_list.append("Por favor, verifique os dados inseridos.")
-                return JsonResponse({'success': False, 'errors': error_list}, status=400)
-            
-            messages.error(request, 'Erro ao agendar a aula. Verifique os campos marcados.')
-
-    form = AulaForm()
-    aluno_formset = AlunoFormSet(prefix='alunos')
-    professor_formset = ProfessorFormSet(prefix='professores')
+                if conflitos_encontrados:
+                    if is_ajax:
+                        return JsonResponse({'success': False, 'errors': conflitos_encontrados}, status=400)
+                    for erro in conflitos_encontrados:
+                        messages.error(request, erro)
+                else:
+                    aulas_criadas_count = 0
+                    aula_principal_criada = None
+                    for data_agendamento in datas_para_agendar:
+                        nova_aula = Aula.objects.create(modalidade=modalidade, data_hora=data_agendamento, status=status)
+                        nova_aula.alunos.set(list(alunos_ids))
+                        nova_aula.professores.set(list(professores_ids))
+                        if aulas_criadas_count == 0:
+                            aula_principal_criada = nova_aula
+                        aulas_criadas_count += 1
+                    
+                    if reposicao_de_id_hidden and aula_principal_criada:
+                        try:
+                            presenca_a_repor = PresencaAluno.objects.get(id=reposicao_de_id_hidden)
+                            presenca_a_repor.aula_reposicao = aula_principal_criada
+                            presenca_a_repor.save()
+                            message_text = f"Aula de reposição para '{presenca_a_repor.aluno.nome_completo}' agendada com sucesso!"
+                        except PresencaAluno.DoesNotExist:
+                            message_text = "Aula agendada, mas não foi possível vincular à falta original (ID não encontrado)."
+                            messages.warning(request, message_text)
+                    else:
+                        message_text = f'{aulas_criadas_count} aulas recorrentes foram agendadas.' if aulas_criadas_count > 1 else 'Aula agendada com sucesso!'
+                    
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'message': message_text})
+                    
+                    messages.success(request, message_text)
+                    return redirect('scheduler:dashboard')
+    
+    form = AulaForm(request.POST or None, initial=initial_form_data)
+    aluno_formset = AlunoFormSet(request.POST or None, initial=initial_aluno_data, prefix='alunos')
+    professor_formset = ProfessorFormSet(request.POST or None, prefix='professores')
+    
     contexto = {
         'form': form, 'aluno_formset': aluno_formset, 'professor_formset': professor_formset,
         'titulo': 'Agendar Nova Aula', 'form_action': reverse('scheduler:aula_agendar')
     }
+    
+    if presenca_original:
+        contexto['presenca_original'] = presenca_original
+        contexto['titulo'] = f"Agendar Reposição para {presenca_original.aluno.nome_completo}"
+        contexto['form_action'] = f"{reverse('scheduler:aula_agendar')}?reposicao_de={presenca_original.id}"
+
     return render(request, 'scheduler/aula_form.html', contexto)
 
 
@@ -782,6 +801,8 @@ def detalhe_aluno(request, pk):
     total_ausencias = aulas_com_presenca.filter(
         status__in=['Realizada', 'Aluno Ausente'],
         status_presenca_aluno='ausente'
+    ).exclude(
+        status='Reposta'
     ).count()
     total_canceladas = aulas_com_presenca.filter(status="Cancelada").count()
     total_agendadas = aulas_com_presenca.filter(status="Agendada").count()
@@ -991,35 +1012,24 @@ def validar_aula(request, pk):
     if request.user.tipo == 'admin':
         pode_editar = True
     elif request.user.tipo == 'professor':
-        # Professor pode editar se a aula ainda não foi validada E ele é um dos atribuídos.
         if aula.status == 'Agendada' and request.user in aula.professores.all():
             pode_editar = True
-        # Ou se a aula JÁ FOI VALIDADA por ele mesmo (caso de substituição ou aula normal).
         elif relatorio.professor_que_validou == request.user:
             pode_editar = True
-        # Ou se a aula foi agendada para ele e ainda não foi validada por ninguém.
-        # (Este caso cobre a substituição onde ele clica para validar pela primeira vez)
         elif not relatorio.professor_que_validou and request.user in aula.professores.all():
             pode_editar = True
-        # Adicionado: Permite que o professor que vai substituir possa editar o relatório
         elif not relatorio.professor_que_validou:
             pode_editar = True
 
-
-    # 2. Determinar o modo de visualização (editar vs. visualizar).
-    view_mode = 'visualizar'  # O padrão é sempre visualizar.
+    view_mode = 'visualizar'
     if pode_editar:
-        # Se a aula ainda não tem relatório, o modo padrão é editar.
         if aula.status == 'Agendada':
             view_mode = 'editar'
-        # Se já tem relatório, só entra em modo de edição se o parâmetro 'mode' for passado na URL.
         elif request.GET.get('mode') == 'editar':
             view_mode = 'editar'
 
-    # Verifica se é uma Atividade Complementar para direcionar a lógica
     is_ac = "atividade complementar" in aula.modalidade.nome.lower()
     
-    # Prepara o formset de presença correto (para Alunos ou Professores)
     if is_ac:
         professores_da_aula = aula.professores.all()
         for prof in professores_da_aula:
@@ -1036,46 +1046,19 @@ def validar_aula(request, pk):
         presenca_formset_class = PresencaAlunoFormSet
         presenca_prefix = 'presencas_alunos'
 
-    # Lógica de histórico da última aula
     historico_ultima_aula = None
+    # (A sua lógica de buscar histórico de última aula permanece aqui, sem alterações)
     if is_ac:
-        # A lógica para Atividade Complementar permanece a mesma
-        ultima_aula = Aula.objects.filter(
-            modalidade=aula.modalidade,
-            status='Realizada',
-            data_hora__lt=aula.data_hora,
-            relatorioaula__isnull=False
-        ).order_by('-data_hora').first()
+        ultima_aula = Aula.objects.filter(modalidade=aula.modalidade, status='Realizada', data_hora__lt=aula.data_hora, relatorioaula__isnull=False).order_by('-data_hora').first()
     else:
-        # Lógica aprimorada para aulas de alunos
         if 'alunos_da_aula' in locals() and alunos_da_aula.exists():
-            # Critérios de busca para uma aula "relevante":
-            # 1. Status deve ser 'Realizada' (aluno estava presente).
-            # 2. O relatório deve ter pelo menos um item de exercício (rudimento, ritmo, etc.)
-            #    OU algum texto nos campos principais (teoria, repertório).
-            
-            query_aula_relevante = Aula.objects.filter(
-                alunos__in=alunos_da_aula,
-                status='Realizada',  # <-- MUDANÇA 1: Apenas aulas realizadas
-                data_hora__lt=aula.data_hora,
-                relatorioaula__isnull=False
-            ).filter(
-                # <-- MUDANÇA 2: Filtro para garantir que o relatório não está vazio
-                Q(relatorioaula__itens_rudimentos__isnull=False) |
-                Q(relatorioaula__itens_ritmo__isnull=False) |
-                Q(relatorioaula__itens_viradas__isnull=False) |
-                ~Q(relatorioaula__conteudo_teorico__exact='') |
-                ~Q(relatorioaula__repertorio_musicas__exact='')
-            ).distinct().order_by('-data_hora').first()
-            
+            query_aula_relevante = Aula.objects.filter(alunos__in=alunos_da_aula, status='Realizada', data_hora__lt=aula.data_hora, relatorioaula__isnull=False).filter(Q(relatorioaula__itens_rudimentos__isnull=False) | Q(relatorioaula__itens_ritmo__isnull=False) | Q(relatorioaula__itens_viradas__isnull=False) | ~Q(relatorioaula__conteudo_teorico__exact='') | ~Q(relatorioaula__repertorio_musicas__exact='')).distinct().order_by('-data_hora').first()
             ultima_aula = query_aula_relevante
         else:
             ultima_aula = None
-            
     if ultima_aula:
         historico_ultima_aula = ultima_aula.relatorioaula
 
-    # Lógica de POST
     if request.method == 'POST':
         if not pode_editar:
             messages.error(request, "Você não tem permissão para salvar este relatório.")
@@ -1087,70 +1070,58 @@ def validar_aula(request, pk):
         ritmo_formset = ItemRitmoFormSet(request.POST, instance=relatorio, prefix='ritmo')
         viradas_formset = ItemViradaFormSet(request.POST, instance=relatorio, prefix='viradas')
 
-        form_list = [form, presenca_formset, rudimentos_formset, ritmo_formset, viradas_formset]
-        
-        if all(f.is_valid() for f in form_list):
-            
-            # --- VALIDAÇÃO DE CONTEÚDO VAZIO (VERSÃO CORRIGIDA) ---
-            
-            # 1. Verifica se os campos do formulário principal foram preenchidos
-            campos_principais_preenchidos = any([
-                form.cleaned_data.get('conteudo_teorico', '').strip(),
-                form.cleaned_data.get('observacoes_teoria', '').strip(),
-                form.cleaned_data.get('repertorio_musicas', '').strip(),
-                form.cleaned_data.get('observacoes_repertorio', '').strip(),
-                form.cleaned_data.get('observacoes_gerais', '').strip(),
-            ])
+        if form.is_valid() and presenca_formset.is_valid() and rudimentos_formset.is_valid() and ritmo_formset.is_valid() and viradas_formset.is_valid():
+            try:
+                with transaction.atomic():
+                    relatorio.professor_que_validou = request.user
+                    relatorio.save()
+                    presenca_formset.save()
+                    
+                    if is_ac:
+                        aula.status = 'Realizada'
+                    else:
+                        num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
+                        if aula.alunos.exists() and num_presentes == 0:
+                            aula.status = 'Aluno Ausente'
+                        else:
+                            aula.status = 'Realizada'
+                    
+                    aula.save()
 
-            # 2. Verifica se algum dos formsets foi alterado pelo usuário
-            itens_adicionados = any([
-                rudimentos_formset.has_changed(),
-                ritmo_formset.has_changed(),
-                viradas_formset.has_changed(),
-            ])
+                    campos_principais_preenchidos = any([
+                        form.cleaned_data.get('conteudo_teorico', '').strip(),
+                        form.cleaned_data.get('observacoes_teoria', '').strip(),
+                        form.cleaned_data.get('repertorio_musicas', '').strip(),
+                        form.cleaned_data.get('observacoes_repertorio', '').strip(),
+                        form.cleaned_data.get('observacoes_gerais', '').strip(),
+                    ])
+                    itens_adicionados = any([
+                        rudimentos_formset.has_changed(),
+                        ritmo_formset.has_changed(),
+                        viradas_formset.has_changed(),
+                    ])
 
-            # 3. Se tudo estiver vazio, exibe o erro e interrompe.
-            if not campos_principais_preenchidos and not itens_adicionados:
-                messages.error(request, "Não é possível salvar um relatório vazio. Preencha pelo menos um campo ou adicione um exercício.")
-                # O fluxo agora vai pular o 'else' e renderizar o formulário novamente no final da view.
-            
-            # 4. Se houver conteúdo, prossegue com o salvamento.
-            else:
-                from django.core.exceptions import ValidationError
-                from django.db import DatabaseError
-
-                try:
-                    with transaction.atomic():
-                        relatorio_salvo = form.save(commit=False)
-                        relatorio_salvo.professor_que_validou = request.user
-                        relatorio_salvo.save()
-
-                        presenca_formset.save()
+                    if campos_principais_preenchidos or itens_adicionados:
                         rudimentos_formset.save()
                         ritmo_formset.save()
                         viradas_formset.save()
+                    
+                    if aula.status == 'Realizada' and hasattr(aula, 'aula_reposta_de'):
+                        presenca_original = aula.aula_reposta_de
+                        aula_original = presenca_original.aula
+                        aula_original.status = 'Reposta'
+                        aula_original.save()
+                        messages.info(request, f"A aula original de {aula_original.data_hora.strftime('%d/%m')} foi marcada como 'Reposta'.")
 
-                        if is_ac:
-                            aula.status = 'Realizada'
-                        else:
-                            num_presentes = PresencaAluno.objects.filter(aula=aula, status='presente').count()
-                            if aula.alunos.exists() and num_presentes == 0:
-                                aula.status = 'Aluno Ausente'
-                            else:
-                                aula.status = 'Realizada'
-                        
-                        aula.save()
+                messages.success(request, 'Relatório da aula salvo com sucesso!')
+                return redirect('scheduler:aula_validar', pk=aula.pk)
 
-                    messages.success(request, 'Relatório da aula salvo com sucesso!')
-                    return redirect('scheduler:aula_validar', pk=aula.pk)
-
-                except (ValidationError, DatabaseError, Exception) as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"Erro ao salvar relatório da aula {aula.pk}: {e}")
-                    messages.error(request, f"Ocorreu um erro inesperado ao salvar. Nenhuma alteração foi feita. Erro: {e}")
+            except (ValidationError, DatabaseError, Exception) as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Erro ao salvar relatório da aula {aula.pk}: {e}")
+                messages.error(request, f"Ocorreu um erro inesperado ao salvar. Nenhuma alteração foi feita. Erro: {e}")
     
-    # Lógica para GET ou para re-renderizar em caso de erro no POST
     else:
         form = RelatorioAulaForm(instance=relatorio)
         presenca_formset = presenca_formset_class(queryset=presenca_queryset, prefix=presenca_prefix)
@@ -1167,7 +1138,6 @@ def validar_aula(request, pk):
         'rudimentos_formset': rudimentos_formset,
         'ritmo_formset': ritmo_formset,
         'viradas_formset': viradas_formset,
-        'view_mode': "editar" if aula.status == "Agendada" else request.GET.get('mode', 'visualizar'),
         'historico_ultima_aula': historico_ultima_aula,
         'view_mode': view_mode,
         'pode_editar': pode_editar,
@@ -2367,3 +2337,31 @@ def marcar_tour_visto(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
     
+
+@login_required
+@user_passes_test(lambda u: u.tipo in ['admin', 'professor'])
+def listar_reposicoes_pendentes(request):
+    """
+    Lista todas as faltas justificadas que ainda não tiveram uma aula de 
+    reposição agendada.
+    """
+    reposicoes_pendentes_qs = PresencaAluno.objects.filter(
+        status='ausente',
+        tipo_falta='justificada',
+        aula_reposicao__isnull=True
+    ).select_related(
+        'aluno', 
+        'aula__modalidade'
+    ).prefetch_related(
+        'aula__professores'
+    ).order_by('aula__data_hora')
+
+    if request.user.tipo == 'professor':
+        alunos_do_professor = Aula.objects.filter(professores=request.user).values_list('alunos', flat=True)
+        reposicoes_pendentes_qs = reposicoes_pendentes_qs.filter(aluno_id__in=set(alunos_do_professor))
+
+    contexto = {
+        'titulo': 'Controle de Reposições Pendentes',
+        'reposicoes': reposicoes_pendentes_qs
+    }
+    return render(request, 'scheduler/reposicoes_listar.html', contexto)

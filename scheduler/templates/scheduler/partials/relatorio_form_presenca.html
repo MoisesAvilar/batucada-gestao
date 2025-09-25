@@ -5,9 +5,13 @@
         <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
             {{ presenca_form.id }}
             <div class="col-md-6 fw-medium"><i class="bi bi-person-video3 me-2"></i>{{ presenca_form.instance.professor.username|title }}</div>
-            <div class="col-md-6"><div class="d-flex justify-content-start justify-content-md-end">
-                {% for radio in presenca_form.status %}<div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
-            </div></div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-start justify-content-md-end">
+                    {% for radio in presenca_form.status %}
+                        <div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     {% endfor %}
 {% else %}
@@ -17,10 +21,27 @@
         {% for presenca_form in presenca_formset %}
             <div class="row align-items-center mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
                 {{ presenca_form.id }}
-                <div class="col-md-6 fw-medium"><i class="bi bi-person me-2"></i>{{ presenca_form.instance.aluno.nome_completo|title }}</div>
-                <div class="col-md-6"><div class="d-flex justify-content-start justify-content-md-end">
-                    {% for radio in presenca_form.status %}<div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
-                </div></div>
+                <div class="col-md-4 fw-medium"><i class="bi bi-person me-2"></i>{{ presenca_form.instance.aluno.nome_completo|title }}</div>
+                
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-start justify-content-md-end align-items-center gap-2 flex-wrap">
+                        
+                        <div class="status-field d-flex gap-3">
+                            {% for radio in presenca_form.status %}
+                                <div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="tipo-falta-field d-none ms-md-3 ps-md-3 border-start">
+                            <div class="d-flex gap-3">
+                            {% for radio in presenca_form.tipo_falta %}
+                                <div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                            {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
             </div>
         {% endfor %}
     {% else %}

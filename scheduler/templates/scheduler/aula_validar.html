@@ -225,6 +225,32 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+        document.querySelectorAll('input[name$="-status"]').forEach(radioStatus => {
+        const parentContainer = radioStatus.closest('.row');
+        if (!parentContainer) return;
+
+        const toggleTipoFalta = () => {
+            const selectedStatusInput = parentContainer.querySelector('input[name$="-status"]:checked');
+            if (!selectedStatusInput) return; // Se nada estiver selecionado, não faz nada
+            
+            const selectedStatus = selectedStatusInput.value;
+            const tipoFaltaField = parentContainer.querySelector('.tipo-falta-field');
+            
+            if (tipoFaltaField) {
+                if (selectedStatus === 'ausente') {
+                    tipoFaltaField.classList.remove('d-none');
+                } else {
+                    tipoFaltaField.classList.add('d-none');
+                }
+            }
+        };
+
+        parentContainer.querySelectorAll('input[name$="-status"]').forEach(radio => {
+            radio.addEventListener('change', toggleTipoFalta);
+        });
+
+        toggleTipoFalta();
+    });
 });
 </script>
 {% endblock %}

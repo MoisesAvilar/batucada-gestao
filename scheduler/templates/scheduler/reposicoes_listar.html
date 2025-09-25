@@ -1,0 +1,98 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">{{ titulo }}</h1>
+        <p class="text-muted mb-0">Aulas que precisam ser reagendadas devido a faltas justificadas.</p>
+    </div>
+</div>
+
+<div class="content-block">
+    {% if not reposicoes %}
+        <div class="text-center text-muted p-5">
+            <h4><i class="bi bi-check2-circle"></i></h4>
+            <p class="mb-0">Nenhuma reposição pendente no momento.</p>
+        </div>
+    {% else %}
+
+        <div class="d-none d-lg-block">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Aula Original</th>
+                            <th>Professor(es)</th>
+                            <th class="text-end">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for presenca in reposicoes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'scheduler:aluno_detalhe' presenca.aluno.pk %}">
+                                    {{ presenca.aluno.nome_completo|title }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ presenca.aula.modalidade.nome|title }}<br>
+                                <small class="text-muted">{{ presenca.aula.data_hora|date:"d/m/Y, H:i" }}</small>
+                            </td>
+                            <td>
+                                {% for prof in presenca.aula.professores.all %}
+                                    {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
+                                {% empty %}
+                                    N/A
+                                {% endfor %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-calendar-plus me-1"></i> Agendar Reposição
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-lg-none">
+            <div class="vstack gap-3">
+                {% for presenca in reposicoes %}
+                <div class="card">
+                    <div class="card-header bg-secondary-subtle">
+                        <h6 class="mb-0">
+                            <a href="{% url 'scheduler:aluno_detalhe' presenca.aluno.pk %}" class="text-decoration-none text-body">
+                                <i class="bi bi-person me-1"></i> {{ presenca.aluno.nome_completo|title }}
+                            </a>
+                        </h6>
+                    </div>
+                    <div class="card-body small">
+                        <p class="mb-2">
+                            <strong class="d-block text-muted">Aula Original:</strong>
+                            {{ presenca.aula.modalidade.nome|title }} em {{ presenca.aula.data_hora|date:"d/m/Y, H:i" }}
+                        </p>
+                        <p class="mb-0">
+                            <strong class="d-block text-muted">Professor(es):</strong>
+                            {% for prof in presenca.aula.professores.all %}
+                                {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
+                            {% empty %}
+                                N/A
+                            {% endfor %}
+                        </p>
+                    </div>
+                    <div class="card-footer text-end">
+                        <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id }}" class="btn btn-primary w-100">
+                            <i class="bi bi-calendar-plus me-1"></i> Agendar Reposição
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    {% endif %}
+</div>
+{% endblock %}

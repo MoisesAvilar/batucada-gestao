@@ -132,6 +132,7 @@ class Aula(models.Model):
         ("Realizada", "Realizada"),
         ("Cancelada", "Cancelada"),
         ("Aluno Ausente", "Aluno Ausente"),
+        ("Reposta", "Reposta"),
     )
 
     # --- CORRIGIDO ---
@@ -317,6 +318,27 @@ class PresencaAluno(models.Model):
     STATUS_CHOICES = (
         ("presente", "Presente"),
         ("ausente", "Ausente"),
+    )
+    TIPO_FALTA_CHOICES = (
+        ('injustificada', 'Injustificada'),
+        ('justificada', 'Justificada'),
+    )
+    tipo_falta = models.CharField(
+        max_length=15, 
+        choices=TIPO_FALTA_CHOICES, 
+        default='injustificada',
+        blank=True,
+        null=True,
+        verbose_name="Tipo de Falta"
+    )
+
+    aula_reposicao = models.OneToOneField(
+        'Aula', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='aula_reposta_de',
+        verbose_name="Aula de Reposição Agendada"
     )
     aula = models.ForeignKey(Aula, on_delete=models.CASCADE, related_name="presencas")
     aluno = models.ForeignKey(Aluno, on_delete=models.CASCADE)

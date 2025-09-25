@@ -3,6 +3,7 @@
 import pytest
 from django.urls import reverse
 from scheduler.models import Aula, Aluno
+from django.utils import timezone
 
 @pytest.mark.django_db
 def test_professor_nao_pode_acessar_lista_de_alunos(client, professor_user):
@@ -32,7 +33,7 @@ def test_admin_pode_excluir_aula(client, admin_user, professor_user, modalidade,
     """
     # Arrange
     client.login(username='admin_teste', password='password123')
-    aula = Aula.objects.create(modalidade=modalidade, data_hora='2025-08-02T10:00:00Z')
+    aula = Aula.objects.create(modalidade=modalidade, data_hora=timezone.make_aware(timezone.datetime(2025, 8, 2, 10, 0)))
     aula.professores.set([professor_user])
     aula.alunos.set([aluno])
     
@@ -55,7 +56,7 @@ def test_professor_nao_pode_excluir_aula(client, professor_user, modalidade, alu
     """
     # Arrange
     client.login(username='prof_teste', password='password123')
-    aula = Aula.objects.create(modalidade=modalidade, data_hora='2025-08-03T10:00:00Z')
+    aula = Aula.objects.create(modalidade=modalidade, data_hora=timezone.make_aware(timezone.datetime(2025, 8, 2, 10, 0)))
     aula.professores.set([professor_user])
     aula.alunos.set([aluno])
     

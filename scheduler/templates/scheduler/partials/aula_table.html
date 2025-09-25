@@ -117,7 +117,20 @@
                     
                     <td class="align-middle" data-label="Status">
                         <div class="d-flex flex-column gap-2">
-                            {% if aula.status == 'Realizada' %}
+                            {% if aula.status == 'Reposta' %}
+                                <span class="badge text-bg-success" data-bs-toggle="tooltip" title="A falta original foi compensada com uma aula de reposição.">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Reposta
+                                </span>
+                                {% with reposicao=aula.presencas.first.aula_reposicao %}
+                                    {% if reposicao %}
+                                    <small class="text-muted d-flex align-items-center gap-1">
+                                        <i class="bi bi-arrow-return-right"></i>
+                                        Realizada em {{ reposicao.data_hora|date:"d/m" }}
+                                    </small>
+                                    {% endif %}
+                                {% endwith %}
+
+                            {% elif aula.status == 'Realizada' %}
                                 {% if aula.foi_substituida %}
                                     <span class="badge text-bg-secondary shake-on-hover" data-bs-toggle="tooltip" title="Aula realizada por substituto"><i class="bi bi-arrow-repeat me-1"></i>Substituído</span>
                                 {% else %}
@@ -215,12 +228,18 @@
             
             <div class="d-flex justify-content-center align-items-center gap-2 small">
                 <span class="text-muted">{{ aula.data_hora|date:"d/m/Y, H:i" }}</span>
-                
-                {% if aula.status == 'Agendada' and aula.data_hora < now %}<span class="badge text-bg-danger pulse-slow"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pendente</span>
-                {% elif aula.status == 'Realizada' %}<span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Realizada</span>
-                {% elif aula.status == 'Agendada' %}<span class="badge text-bg-info"><i class="bi bi-clock-history me-1"></i>Agendada</span>
-                {% elif aula.status == 'Cancelada' %}<span class="badge text-bg-danger"><i class="bi bi-x-circle-fill me-1"></i>Cancelada</span>
-                {% elif aula.status == 'Aluno Ausente' %}<span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Aluno Ausente</span>
+                 {% if aula.status == 'Reposta' %}
+                    <span class="badge text-bg-success"><i class="bi bi-arrow-repeat me-1"></i>Reposta</span>
+                {% elif aula.status == 'Agendada' and aula.data_hora < now %}
+                    <span class="badge text-bg-danger pulse-slow"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pendente</span>
+                {% elif aula.status == 'Realizada' %}
+                    <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i>Realizada</span>
+                {% elif aula.status == 'Agendada' %}
+                    <span class="badge text-bg-info"><i class="bi bi-clock-history me-1"></i>Agendada</span>
+                {% elif aula.status == 'Cancelada' %}
+                    <span class="badge text-bg-danger"><i class="bi bi-x-circle-fill me-1"></i>Cancelada</span>
+                {% elif aula.status == 'Aluno Ausente' %}
+                    <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>Aluno Ausente</span>
                 {% endif %}
             </div>
         </div>

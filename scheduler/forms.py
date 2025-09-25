@@ -29,15 +29,12 @@ class TitlecaseModelChoiceField(forms.ModelChoiceField):
 class AulaForm(forms.ModelForm):
     """
     Formulário principal, contendo apenas os campos que não se repetem.
-    A seleção de alunos/professores será feita pelos formsets.
     """
-
     recorrente_mensal = forms.BooleanField(
         required=False,
         label="Agendar recorrentemente (todas as semanas do mês)",
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
-
     modalidade = TitlecaseModelChoiceField(
         queryset=Modalidade.objects.all().order_by("nome"),
         label="Categoria",
@@ -52,9 +49,13 @@ class AulaForm(forms.ModelForm):
                 attrs={"type": "datetime-local", "class": "form-control"},
                 format="%Y-%m-%dT%H:%M",
             ),
-            "modalidade": forms.Select(attrs={"class": "form-select"}),
             "status": forms.Select(attrs={"class": "form-select"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = self.fields['status'].choices
+        self.fields['status'].choices = [choice for choice in choices if choice[0] != 'Reposta']
 
 
 # --- Formulários Base para os Formsets ---
@@ -410,13 +411,20 @@ class UserProfileForm(forms.ModelForm):
 
 class PresencaAlunoForm(forms.ModelForm):
     """Formulário para um único registro de presença de aluno."""
+    status = forms.ChoiceField(
+        choices=PresencaAluno.STATUS_CHOICES,
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label=''
+    )
+    tipo_falta = forms.ChoiceField(
+        choices=PresencaAluno.TIPO_FALTA_CHOICES,
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label=''
+    )
 
     class Meta:
         model = PresencaAluno
-        fields = ["status"]
-        widgets = {
-            "status": forms.RadioSelect(attrs={"class": "form-check-input"}),
-        }
+        fields = ["status", "tipo_falta"]
 
 
 # Usamos modelformset_factory para criar/editar múltiplos registros de presença de uma vez.

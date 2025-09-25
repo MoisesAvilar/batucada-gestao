@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (statusCtx && statusData.some(item => item > 0)) {
             statusChartInstance = new Chart(statusCtx, {
                 type: 'doughnut',
-                data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: ['#4e73df','#1cc88a','#f6c23e','#e74a3b'], borderColor: 'var(--bs-tertiary-bg)', borderWidth: 2 }] },
+                data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: ['#1cc88a','#f6c23e','#e74a3b','#4e73df'], borderColor: 'var(--bs-tertiary-bg)', borderWidth: 2 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top', labels: { padding: 15, boxWidth: 12 } } } }
             });
         }

@@ -2,6 +2,7 @@
 
 import pytest
 from scheduler.models import Aula, RelatorioAula
+from django.utils import timezone
 
 # A anotação @pytest.mark.django_db dá ao teste acesso ao banco de dados.
 @pytest.mark.django_db
@@ -14,7 +15,7 @@ def test_aula_foi_substituida_property(admin_user, professor_user, modalidade):
     # Arrange: Cria uma aula atribuída APENAS ao admin
     aula = Aula.objects.create(
         modalidade=modalidade,
-        data_hora='2025-08-01T10:00:00Z',
+        data_hora=timezone.make_aware(timezone.datetime(2025, 8, 1, 10, 0)),
         status='Agendada'
     )
     aula.professores.set([admin_user])
@@ -41,7 +42,7 @@ def test_aula_nao_foi_substituida_property(admin_user, modalidade):
     # Arrange: Cria uma aula atribuída ao admin
     aula = Aula.objects.create(
         modalidade=modalidade,
-        data_hora='2025-08-01T11:00:00Z',
+        data_hora=timezone.make_aware(timezone.datetime(2025, 8, 1, 11, 0)),
         status='Agendada'
     )
     aula.professores.set([admin_user])
