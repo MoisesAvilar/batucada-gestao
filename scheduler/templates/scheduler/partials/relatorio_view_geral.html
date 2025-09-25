@@ -5,24 +5,25 @@
 <ul class="list-group list-group-flush mb-4">
     {% for presenca in aula.presencas.all %}
     <li class="list-group-item d-flex justify-content-between align-items-center">
-        <span>{{ presenca.aluno.nome_completo|title }}</span>
-        
-        <div>
-            {% if presenca.status == 'presente' %}
-                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Presente</span>
-            
-            {% elif presenca.status == 'ausente' %}
-                {# Primeiro, o badge de Ausente #}
-                <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill me-1">Ausente</span>
-                
-                {# Depois, o badge do TIPO de falta #}
-                {% if presenca.tipo_falta == 'justificada' %}
-                    <span class="badge bg-info-subtle text-info-emphasis rounded-pill">Justificada</span>
-                {% else %}
-                    <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill">Injustificada</span>
-                {% endif %}
-            {% endif %}
-        </div>
+        <div class="d-flex flex-column">
+                <strong class="mb-1">
+                    <a href="{% url 'scheduler:aluno_detalhe' presenca.aluno.pk %}" class="text-decoration-none" title="{{ presenca.aluno.nome_completo }}">
+                        {{ presenca.aluno.nome_completo|truncatewords:3|title }}
+                    </a>
+                </strong>              
+                <div class="d-flex flex-wrap gap-2">
+                    {% if presenca.status == 'presente' %}
+                        <span class="badge bg-success-subtle text-success-emphasis">Presente</span>
+                    {% elif presenca.status == 'ausente' %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis">Ausente</span>
+                        {% if presenca.tipo_falta == 'justificada' %}
+                            <span class="badge bg-info-subtle text-info-emphasis">Justificada</span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger-emphasis">Injustificada</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
         </li>
     {% endfor %}
 </ul>
