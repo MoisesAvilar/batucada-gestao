@@ -12,7 +12,7 @@
         <div class="swipe-foreground status-{{ aula.status|slugify }}">
             <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="text-decoration-none text-body">
                 <div class="d-flex justify-content-between">
-                    <span class="agenda-card-title">{% if aula.alunos.all|length == 1 %}{{ aula.alunos.first.nome_completo|title }}{% elif aula.alunos.all|length > 1 %}Grupo: {{ aula.modalidade.nome|title }}{% else %}{{ aula.modalidade.nome|title }}{% endif %}</span>
+                    <span class="agenda-card-title">{% if aula.alunos.all|length == 1 %} {{ aula.alunos.first.nome_completo|title }} {% elif aula.alunos.all|length > 1 %} Grupo: {{ aula.modalidade.nome|title }} {% else %} {{ aula.modalidade.nome|title }} {% endif %}</span>
                     <span class="agenda-card-time">{{ aula.data_hora|time:"H:i" }}</span>
                 </div>
                 <div class="small text-muted mt-1"><i class="bi bi-person-video3 me-1"></i>{% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% empty %}N/A{% endfor %}</div>

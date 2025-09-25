@@ -295,7 +295,7 @@
                         <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
                         <span class="ms-2 small">
                             {% if aula.alunos.all|length == 1 %}
-                                {{ aula.alunos.first.nome_completo|truncatewords:2 }}
+                                {{ aula.alunos.first.nome_completo|truncatewords:2|title }}
                             {% elif aula.alunos.all|length > 1 %}
                                 Grupo: {{ aula.modalidade.nome|title }}
                             {% else %}

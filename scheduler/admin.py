@@ -11,6 +11,7 @@ from .models import (
     ItemRudimento,
     ItemRitmo,
     ItemVirada,
+    PresencaAluno,
     TourVisto
 )
 
@@ -189,6 +190,27 @@ class SubstituicaoFilter(admin.SimpleListFilter):
         return queryset
 
 
+class ReposicaoStatusFilter(admin.SimpleListFilter):
+    """Filtra aulas baseadas no status de reposição."""
+    title = 'Status de Reposição'
+    parameter_name = 'reposicao_status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('e_reposicao', 'É uma aula de reposição'),
+            ('foi_reposta', 'Foi uma falta que já foi reposta'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'e_reposicao':
+            # Aulas que existem no campo 'aula_reposicao' de alguma falta
+            return queryset.filter(aula_reposta_de__isnull=False)
+        if self.value() == 'foi_reposta':
+            # Aulas com o status 'Reposta'
+            return queryset.filter(status='Reposta')
+        return queryset
+
+
 @admin.register(Aula)
 class AulaAdmin(admin.ModelAdmin):
     """
@@ -214,6 +236,7 @@ class AulaAdmin(admin.ModelAdmin):
         TamanhoTurmaFilter,  # Nosso filtro customizado
         StatusRelatorioFilter,  # Nosso filtro customizado
         SubstituicaoFilter,  # Nosso filtro customizado
+        ReposicaoStatusFilter,
         "professores",  # Filtro padrão por professor atribuído
     )
 
@@ -290,3 +313,50 @@ class TourVistoAdmin(admin.ModelAdmin):
     search_fields = ("usuario__username", "usuario__email", "tour_id")
     ordering = ("-data_visualizacao",)
     date_hierarchy = "data_visualizacao"
+
+
+@admin.register(PresencaAluno)
+class PresencaAlunoAdmin(admin.ModelAdmin):
+    """
+    Admin para o modelo de Presença de Alunos, focado em auditoria e reposições.
+    """
+    list_display = (
+        'aluno',
+        'get_aula_info',
+        'status',
+        'tipo_falta',
+        'aula_reposicao_link',
+        'foi_reposta',
+    )
+    list_filter = (
+        'status',
+        'tipo_falta',
+        'aula__data_hora',
+    )
+    search_fields = (
+        'aluno__nome_completo',
+        'aula__modalidade__nome',
+    )
+    autocomplete_fields = ('aluno', 'aula', 'aula_reposicao')
+    list_per_page = 25
+    ordering = ('-aula__data_hora',)
+
+    # Melhora a exibição da informação da aula na lista
+    @admin.display(description="Aula Original", ordering='aula__data_hora')
+    def get_aula_info(self, obj):
+        return f"{obj.aula.modalidade.nome} - {obj.aula.data_hora.strftime('%d/%m/%Y %H:%M')}"
+
+    # Cria um link clicável para a aula de reposição
+    @admin.display(description="Aula de Reposição")
+    def aula_reposicao_link(self, obj):
+        if obj.aula_reposicao:
+            from django.urls import reverse
+            from django.utils.html import format_html
+            url = reverse('admin:scheduler_aula_change', args=[obj.aula_reposicao.pk])
+            return format_html('<a href="{}">Ver Aula #{}</a>', url, obj.aula_reposicao.pk)
+        return "Nenhuma"
+    
+    @admin.display(description="Reposta?", boolean=True)
+    def foi_reposta(self, obj):
+        return obj.aula_reposicao is not None
+    
