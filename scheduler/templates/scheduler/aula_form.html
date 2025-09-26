@@ -69,18 +69,29 @@
         <div class="content-block">
             <h5 class="mb-4"><i class="bi bi-info-circle-fill me-2 text-primary"></i> Detalhes da Aula</h5>
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold small">Categoria</label>
-                    {{ form.modalidade }}
-                </div>
-                <div class="col-md-4">
-                    <label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold small">Data e Horário</label>
-                    {{ form.data_hora }}
-                </div>
-                <div class="col-md-4">
-                    <label for="{{ form.status.id_for_label }}" class="form-label fw-bold small">Status</label>
-                    {{ form.status }}
-                </div>
+                {% if form.status %}
+                    <div class="col-md-4">
+                        <label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold small">Categoria</label>
+                        {{ form.modalidade }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold small">Data e Horário</label>
+                        {{ form.data_hora }}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.status.id_for_label }}" class="form-label fw-bold small">Status</label>
+                        {{ form.status }}
+                    </div>
+                {% else %}
+                    <div class="col-md-6">
+                        <label for="{{ form.modalidade.id_for_label }}" class="form-label fw-bold small">Categoria</label>
+                        {{ form.modalidade }}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.data_hora.id_for_label }}" class="form-label fw-bold small">Data e Horário</label>
+                        {{ form.data_hora }}
+                    </div>
+                {% endif %}
             </div>
             <div class="mt-4 form-check form-switch">
                 {{ form.recorrente_mensal }}
@@ -264,11 +275,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const selectedOptionText = this.options[this.selectedIndex].text.toLowerCase();
             
             if (selectedOptionText.includes('atividade complementar')) {
-                alunosContainer.style.display = 'none';
-                professoresContainer.style.display = 'block';
+                if (alunosContainer) {
+                    alunosContainer.style.display = 'none';
+                }
+                if (professoresContainer) {
+                    professoresContainer.style.display = 'block';
+                }
             } else {
-                alunosContainer.style.display = 'block';
-                professoresContainer.style.display = 'block';
+                if (alunosContainer) {
+                    alunosContainer.style.display = 'block';
+                }
+                if (professoresContainer) {
+                    professoresContainer.style.display = 'block';
+                }
             }
         });
         modalidadeSelectEl.dispatchEvent(new Event('change'));

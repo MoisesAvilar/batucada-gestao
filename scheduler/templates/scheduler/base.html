@@ -308,12 +308,12 @@
                                         </li>
                                         <li class="nav-item">
                                             <a href="{% url 'finances:despesa_list' %}" class="nav-link {% if 'despesa' in request.resolver_match.view_name %}active{% endif %}">
-                                                Contas a Pagar
+                                                Saídas
                                             </a>
                                         </li>
                                         <li class="nav-item">
                                             <a href="{% url 'finances:receita_list' %}" class="nav-link {% if 'receita' in request.resolver_match.view_name %}active{% endif %}">
-                                                Contas a Receber
+                                                Entradas
                                             </a>
                                         </li>
                                         <li class="nav-item">
@@ -447,7 +447,7 @@
                                 <div class="user-avatar me-2">
                                     {{ user.username|first|upper }}
                                 </div>
-                                <span class="d-none d-sm-inline">{{ user.first_name|default:user.username }}</span>
+                                <span class="d-none d-sm-inline">{{ user.first_name|default:user.username|title }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg">
                                 {% if user.tipo == 'professor' or user.tipo == 'admin' %}

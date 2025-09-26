@@ -1,28 +1,92 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
+<style>
+    /* Estilos adaptados para a página de Lançamentos Recorrentes */
+
+    /* Cards de KPI (Key Performance Indicator) */
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        height: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--bs-box-shadow);
+    }
+    .kpi-card .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--bs-emphasis-color);
+    }
+    .kpi-card .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+        text-transform: uppercase;
+    }
+
+    /* Cards de Recorrência (Receita e Despesa) */
+    .recorrencia-card {
+        border-width: 1px;
+        border-left-width: 5px;
+        transition: box-shadow 0.2s ease;
+    }
+    .recorrencia-card.tipo-receita { border-left-color: var(--bs-success); }
+    .recorrencia-card.tipo-despesa { border-left-color: var(--bs-danger); }
+    
+    .recorrencia-card:hover {
+        box-shadow: var(--bs-box-shadow-sm);
+    }
+
+    .recorrencia-card .card-footer {
+        background-color: var(--bs-tertiary-bg);
+    }
+</style>
+
 <div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
-    <h1 class="h3 mb-0">Lançamentos Recorrentes</h1>
-    <p class="text-muted mb-0">Crie regras para lançar despesas e receitas automaticamente.</p>
+    <div>
+        <h1 class="h3 mb-0">Lançamentos Recorrentes</h1>
+        <p class="text-muted mb-0">Crie e gerencie regras para lançar despesas e receitas automaticamente.</p>
+    </div>
 </div>
 
+<!-- KPIs -->
 <div class="row g-4 mb-4">
-    <div class="col-md-4">
-        <div class="content-block text-center h-100">
-            <h6 class="text-success text-uppercase small">Receitas Recorrentes / Mês</h6>
-            <h2 class="h1 mb-0">R$ {{ total_receitas_recorrentes|floatformat:2 }}</h2>
+    <div class="col-md-6 col-xl-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label text-success">Receitas Recorrentes / Mês</div>
+                    <div class="kpi-value">R$ {{ total_receitas_recorrentes|floatformat:2 }}</div>
+                </div>
+                <i class="bi bi-graph-up-arrow fs-2 text-success opacity-50"></i>
+            </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="content-block text-center h-100">
-            <h6 class="text-danger text-uppercase small">Despesas Recorrentes / Mês</h6>
-            <h2 class="h1 mb-0">R$ {{ total_despesas_recorrentes|floatformat:2 }}</h2>
+    <div class="col-md-6 col-xl-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label text-danger">Despesas Recorrentes / Mês</div>
+                    <div class="kpi-value">R$ {{ total_despesas_recorrentes|floatformat:2 }}</div>
+                </div>
+                <i class="bi bi-graph-down-arrow fs-2 text-danger opacity-50"></i>
+            </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="content-block text-center h-100">
-            <h6 class="text-info text-uppercase small">Saldo Recorrente Previsto</h6>
-            <h2 class="h1 mb-0">R$ {{ saldo_recorrente_mensal|floatformat:2 }}</h2>
+    <div class="col-md-12 col-xl-4">
+        <div class="kpi-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="kpi-label text-info">Saldo Recorrente Previsto</div>
+                    <div class="kpi-value">R$ {{ saldo_recorrente_mensal|floatformat:2 }}</div>
+                </div>
+                <i class="bi bi-bar-chart-line fs-2 text-info opacity-50"></i>
+            </div>
         </div>
     </div>
 </div>

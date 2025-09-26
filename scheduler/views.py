@@ -173,7 +173,7 @@ def dashboard(request):
         "today_iso": today_iso,
         "week_start_iso": week_start_iso,
         "week_end_iso": week_end_iso,
-        'aula_form_modal': AulaForm(),
+        'aula_form_modal': AulaForm(user=request.user),
         'aluno_formset_modal': AlunoFormSetModal(prefix='alunos'),
         'professor_formset_modal': ProfessorFormSetModal(prefix='professores'),
         'form_action_modal': reverse('scheduler:aula_agendar'),
@@ -258,7 +258,8 @@ def agendar_aula(request):
             presenca_original_id = None
 
     if request.method == 'POST':
-        form = AulaForm(request.POST)
+        # Passamos o usuário para o formulário, como definido na solução anterior
+        form = AulaForm(request.POST, user=request.user)
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
         
         professor_formset_is_valid = False
@@ -275,7 +276,17 @@ def agendar_aula(request):
             alunos_ids = {f['aluno'].id for f in aluno_formset.cleaned_data if f and not f.get('DELETE')}
             data_hora_inicial = form.cleaned_data.get('data_hora')
             is_recorrente = form.cleaned_data.get('recorrente_mensal')
-            status = form.cleaned_data.get('status')
+            
+            # --- ★★★ INÍCIO DA CORREÇÃO ★★★ ---
+            # A lógica para obter o status agora considera o tipo de usuário.
+            if request.user.tipo == 'professor':
+                # Se for professor, o status é sempre 'Agendada' na criação.
+                status = 'Agendada'
+            else:
+                # Se for admin, pegamos o status do formulário (que já foi filtrado).
+                # Adicionamos 'Agendada' como um valor padrão por segurança.
+                status = form.cleaned_data.get('status', 'Agendada')
+            # --- ★★★ FIM DA CORREÇÃO ★★★ ---
             
             if request.user.tipo == 'admin':
                 professores_ids = {f['professor'].id for f in professor_formset.cleaned_data if f and not f.get('DELETE')}
@@ -324,6 +335,7 @@ def agendar_aula(request):
                     aulas_criadas_count = 0
                     aula_principal_criada = None
                     for data_agendamento in datas_para_agendar:
+                        # Agora, a variável 'status' sempre terá um valor válido.
                         nova_aula = Aula.objects.create(modalidade=modalidade, data_hora=data_agendamento, status=status)
                         nova_aula.alunos.set(list(alunos_ids))
                         nova_aula.professores.set(list(professores_ids))
@@ -349,7 +361,8 @@ def agendar_aula(request):
                     messages.success(request, message_text)
                     return redirect('scheduler:dashboard')
     
-    form = AulaForm(request.POST or None, initial=initial_form_data)
+    # Passamos o usuário aqui também para o caso de renderização GET
+    form = AulaForm(request.POST or None, initial=initial_form_data, user=request.user)
     aluno_formset = AlunoFormSet(request.POST or None, initial=initial_aluno_data, prefix='alunos')
     professor_formset = ProfessorFormSet(request.POST or None, prefix='professores')
     
@@ -364,7 +377,6 @@ def agendar_aula(request):
         contexto['form_action'] = f"{reverse('scheduler:aula_agendar')}?reposicao_de={presenca_original.id}"
 
     return render(request, 'scheduler/aula_form.html', contexto)
-
 
 @login_required
 @never_cache
@@ -386,7 +398,7 @@ def editar_aula(request, pk):
     ProfessorFormSet = formset_factory(ProfessorChoiceForm, extra=1, can_delete=True)
 
     if request.method == 'POST':
-        form = AulaForm(request.POST, instance=aula)
+        form = AulaForm(request.POST, instance=aula, user=request.user)
         aluno_formset = AlunoFormSet(request.POST, prefix='alunos')
         
         # Validação condicional do formset de professores (sem alterações)
@@ -459,7 +471,7 @@ def editar_aula(request, pk):
                 return redirect('scheduler:dashboard')
 
     else: # GET
-        form = AulaForm(instance=aula)
+        form = AulaForm(instance=aula, user=request.user)
         alunos_data = [{'aluno': aluno_obj} for aluno_obj in aula.alunos.all()]
         professores_data = [{'professor': prof_obj} for prof_obj in aula.professores.all()]
         aluno_formset = AlunoFormSet(initial=alunos_data, prefix='alunos')

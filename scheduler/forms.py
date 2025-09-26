@@ -29,6 +29,7 @@ class TitlecaseModelChoiceField(forms.ModelChoiceField):
 class AulaForm(forms.ModelForm):
     """
     Formulário principal, contendo apenas os campos que não se repetem.
+    AGORA COM LÓGICA DE STATUS INTELIGENTE.
     """
     recorrente_mensal = forms.BooleanField(
         required=False,
@@ -53,9 +54,18 @@ class AulaForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        choices = self.fields['status'].choices
-        self.fields['status'].choices = [choice for choice in choices if choice[0] != 'Reposta']
+
+        if 'status' in self.fields:
+            if user and user.tipo == "professor":
+                self.fields.pop("status", None)
+            else:
+                status_finais = ["Realizada", "Aluno Ausente", "Reposta"]
+                choices = self.fields["status"].choices
+                self.fields["status"].choices = [
+                    choice for choice in choices if choice[0] not in status_finais
+                ]
 
 
 # --- Formulários Base para os Formsets ---

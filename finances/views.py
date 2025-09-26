@@ -349,55 +349,9 @@ def despesa_list_view(request):
         messages.warning(request, "Selecione uma Unidade de Negócio.")
         return redirect("scheduler:dashboard")
 
-    # 1. Capturar parâmetros de filtro do GET
-    descricao = request.GET.get('descricao', '')
-    data_inicial = request.GET.get('data_inicial', '')
-    data_final = request.GET.get('data_final', '')
-    professor_id = request.GET.get('professor', '')
-    categoria_id = request.GET.get('categoria', '')
-    status = request.GET.get('status', '')
-
-    despesas_list = (
-        Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id)
-        .select_related("categoria", "professor")
-    )
-
-    # 2. Aplicar filtros na queryset
-    if descricao:
-        despesas_list = despesas_list.filter(descricao__icontains=descricao)
-    if data_inicial:
-        despesas_list = despesas_list.filter(data_competencia__gte=data_inicial)
-    if data_final:
-        despesas_list = despesas_list.filter(data_competencia__lte=data_final)
-    if professor_id:
-        despesas_list = despesas_list.filter(professor_id=professor_id)
-    if categoria_id:
-        despesas_list = despesas_list.filter(categoria_id=categoria_id)
-    if status:
-        despesas_list = despesas_list.filter(status=status)
-
-    # Ordenação padrão
-    despesas_list = despesas_list.order_by("-data_competencia")
-
-    titulo = "Contas a Pagar"
-
-    filtro_ativo = request.GET.get("filtro")
-    if filtro_ativo == "a_vencer":
-        hoje = now().date()
-        data_limite = hoje + timedelta(days=5)
-        despesas_list = despesas_list.filter(
-            status="a_pagar",
-            data_competencia__gte=hoje,
-            data_competencia__lte=data_limite,
-        ).order_by("data_competencia")
-        titulo = "Despesas a Vencer"
-
-    # --- LÓGICA DE PAGINAÇÃO INSERIDA ---
-    paginator = Paginator(despesas_list, 10)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-    # --- FIM DA LÓGICA DE PAGINAÇÃO ---
-
+    # --- Processamento do Formulário (POST) ---
+    # Colocamos a lógica de POST no início para que, após salvar,
+    # a página seja recarregada já com os dados atualizados.
     if request.method == "POST":
         form = DespesaForm(request.POST)
         if form.is_valid():
@@ -406,6 +360,7 @@ def despesa_list_view(request):
 
             if despesa.data_pagamento:
                 despesa.status = "pago"
+                # Cria a transação associada se a despesa já foi paga
                 transacao = Transaction.objects.create(
                     unidade_negocio_id=unidade_ativa_id,
                     description=f"Pagamento: {despesa.descricao}",
@@ -420,30 +375,107 @@ def despesa_list_view(request):
             despesa.save()
             messages.success(request, "Despesa registrada com sucesso!")
             return redirect("finances:despesa_list")
+        # Se o form for inválido, ele será renderizado com os erros abaixo
     else:
         form = DespesaForm()
 
-    return render(
-        request,
-        "finances/despesa_list.html",
-        {
-            "form": form,
-            "page_obj": page_obj,
-            "titulo": titulo,
-            "filtro_ativo": filtro_ativo,
-            "professores": CustomUser.objects.filter(tipo__in=['admin', 'professor']),
-            "categorias": Category.objects.filter(type='expense'),
-            "status_choices": Despesa.STATUS_CHOICES,
-            "filtros_aplicados": {
-                'descricao': descricao,
-                'data_inicial': data_inicial,
-                'data_final': data_final,
-                'professor': professor_id,
-                'categoria': categoria_id,
-                'status': status,
-            }
+    # --- Lógica de Listagem e Filtros (GET) ---
+
+    # 1. Capturar parâmetros de filtro
+    descricao = request.GET.get('descricao', '')
+    data_inicial = request.GET.get('data_inicial', '')
+    data_final = request.GET.get('data_final', '')
+    professor_id = request.GET.get('professor', '')
+    categoria_id = request.GET.get('categoria', '')
+    status = request.GET.get('status', '')
+
+    # --- Início do Cálculo dos KPIs ---
+    # Esta queryset é apenas para os KPIs, refletindo os totais da unidade de negócio
+    base_qs_kpi = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id)
+    
+    total_a_pagar = base_qs_kpi.filter(status='a_pagar').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
+    pago_qs = base_qs_kpi.filter(status='pago')
+    if data_inicial: 
+        pago_qs = pago_qs.filter(data_pagamento__gte=data_inicial)
+    if data_final: 
+        pago_qs = pago_qs.filter(data_pagamento__lte=data_final)
+    total_pago = pago_qs.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+    
+    total_recorrentes = DespesaRecorrente.objects.filter(unidade_negocio_id=unidade_ativa_id, ativa=True).count()
+    
+    today = now().date()
+    data_limite_vencimento = today + timedelta(days=5)
+    total_a_vencer = base_qs_kpi.filter(
+        status='a_pagar',
+        data_competencia__gte=today,
+        data_competencia__lte=data_limite_vencimento
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+    # --- Fim do Cálculo dos KPIs ---
+
+    # 2. Queryset principal para a lista, com filtros aplicados
+    despesas_list = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id).select_related("categoria", "professor")
+
+    if descricao:
+        despesas_list = despesas_list.filter(descricao__icontains=descricao)
+    if data_inicial:
+        despesas_list = despesas_list.filter(data_competencia__gte=data_inicial)
+    if data_final:
+        despesas_list = despesas_list.filter(data_competencia__lte=data_final)
+    if professor_id:
+        despesas_list = despesas_list.filter(professor_id=professor_id)
+    if categoria_id:
+        despesas_list = despesas_list.filter(categoria_id=categoria_id)
+    if status:
+        despesas_list = despesas_list.filter(status=status)
+
+    despesas_list = despesas_list.order_by("-data_competencia")
+    titulo = "Saídas"
+
+    filtro_ativo = request.GET.get("filtro")
+    if filtro_ativo == "a_vencer":
+        despesas_list = despesas_list.filter(
+            status="a_pagar",
+            data_competencia__gte=today,
+            data_competencia__lte=data_limite_vencimento,
+        ).order_by("data_competencia")
+        titulo = "Despesas a Vencer"
+
+    # Paginação
+    paginator = Paginator(despesas_list, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    
+    # Adiciona flag 'is_vencida' para o template
+    for despesa in page_obj:
+        despesa.is_vencida = despesa.data_competencia < today and despesa.status == 'a_pagar'
+
+    # 3. Montar o contexto para o template
+    context = {
+        "form": form,
+        "page_obj": page_obj,
+        "titulo": titulo,
+        "filtro_ativo": filtro_ativo,
+        "professores": CustomUser.objects.filter(tipo__in=['admin', 'professor']),
+        "categorias": Category.objects.filter(type='expense'),
+        "status_choices": Despesa.STATUS_CHOICES,
+        "filtros_aplicados": {
+            'descricao': descricao,
+            'data_inicial': data_inicial,
+            'data_final': data_final,
+            'professor': professor_id,
+            'categoria': categoria_id,
+            'status': status,
         },
-    )
+        "today": today,
+        # Adicionando os KPIs ao contexto
+        "total_a_pagar": total_a_pagar,
+        "total_pago": total_pago,
+        "total_recorrentes": total_recorrentes,
+        "total_a_vencer": total_a_vencer,
+    }
+
+    return render(request, "finances/despesa_list.html", context)
 
 
 @admin_required
@@ -591,7 +623,7 @@ def receita_list_view(request):
         receitas_list = receitas_list.filter(status=status)
 
     receitas_list = receitas_list.order_by("-data_competencia")
-    titulo = "Contas a Receber"
+    titulo = "Entradas"
 
     filtro_ativo = request.GET.get("filtro")
     if filtro_ativo == "a_vencer":
@@ -604,17 +636,34 @@ def receita_list_view(request):
         ).order_by("data_competencia")
         titulo = "Receitas a Vencer"
 
-    # --- LÓGICA DE PAGINAÇÃO INSERIDA ---
+    base_qs = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id)
+    
+    total_a_receber = base_qs.filter(status='a_receber').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
+    recebido_qs = base_qs.filter(status='recebido')
+    if data_inicial: recebido_qs = recebido_qs.filter(data_recebimento__gte=data_inicial)
+    if data_final: recebido_qs = recebido_qs.filter(data_recebimento__lte=data_final)
+    total_recebido = recebido_qs.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+    
+    total_recorrentes = ReceitaRecorrente.objects.filter(unidade_negocio_id=unidade_ativa_id, ativa=True).count()
+    
+    hoje = now().date()
+    data_limite = hoje + timedelta(days=5)
+    total_a_vencer = base_qs.filter(
+        status='a_receber',
+        data_competencia__gte=hoje,
+        data_competencia__lte=data_limite
+    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+
     paginator = Paginator(receitas_list, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    # --- FIM DA LÓGICA DE PAGINAÇÃO ---
 
     mensalidade_form = MensalidadeReceitaForm()
     venda_form = VendaReceitaForm()
 
     context = {
-        "page_obj": page_obj,  # <<< ALTERADO
+        "page_obj": page_obj,
         "mensalidade_form": mensalidade_form,
         "venda_form": venda_form,
         "titulo": titulo,
@@ -629,7 +678,11 @@ def receita_list_view(request):
             'aluno': aluno_id,
             'categoria': categoria_id,
             'status': status,
-        }
+        },
+        "total_a_receber": total_a_receber,
+        "total_recebido": total_recebido,
+        "total_recorrentes": total_recorrentes,
+        "total_a_vencer": total_a_vencer,
     }
     return render(request, "finances/receita_list.html", context)
 

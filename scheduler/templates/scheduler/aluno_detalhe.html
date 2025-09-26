@@ -288,6 +288,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedExercises = Array.from(exerciseCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
     const showTrendline = trendlineToggle ? trendlineToggle.checked : false;
 
+    let maxBpm = 0;
+    selectedExercises.forEach(exName => {
+        allEvolutionData[exName].data.forEach(p => {
+            if (p.y > maxBpm) {
+                maxBpm = p.y;
+            }
+        });
+    });
+    const yAxisMax = maxBpm > 0 ? maxBpm + 10 : 100;
+
     if (!selectedExercises.length) {
         evolutionChartCanvas.classList.add('d-none');
         chartPlaceholder.classList.remove('d-none');
@@ -356,6 +366,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const textColor = themeColors.fontColor;
     const bgColor = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'rgba(33, 37, 41, 1)' : 'rgba(255, 255, 255, 1)';
     const chartBgColor = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'rgba(33, 37, 41, 1)' : 'rgba(255, 255, 255, 1)';
+    const tooltipBgColor = document.documentElement.getAttribute('data-bs-theme') === 'dark'
+        ? 'rgba(33, 37, 41, 0.9)'
+        : 'rgba(255, 255, 255, 0.9)';
 
     evolutionChartInstance = new Chart(evolutionChartCanvas, {
         type: 'line',
@@ -370,21 +383,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     labels: allDates,
                     title: { display: true, text: 'Data da Aula', color: textColor },
                     ticks: { color: textColor },
-                    // ★★★ 2. APLICAMOS A COR DINÂMICA DO GRID ★★★
                     grid: { color: themeColors.gridColor }
                 },
                 y: {
                     beginAtZero: false,
                     title: { display: true, text: 'BPM (Batidas por Minuto)', color: textColor },
                     ticks: { color: textColor },
-                    // ★★★ 3. APLICAMOS A COR DINÂMICA DO GRID ★★★
-                    grid: { color: themeColors.gridColor }
+                    grid: { color: themeColors.gridColor },
+                    max: yAxisMax
                 }
             },
             plugins: {
                 legend: { display: true, position: 'top', labels: { color: textColor } },
-                tooltip: { mode:'index', intersect:false, titleColor: textColor, bodyColor: textColor },
-                datalabels: { display:true, align:'top', color:textColor, font:{weight:'bold',size:10}, formatter:v=>v.y },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    titleColor: textColor,
+                    bodyColor: textColor,
+                    backgroundColor: tooltipBgColor,
+                    borderColor: themeColors.gridColor,
+                    borderWidth: 1
+                },
+                datalabels: { display:true, align:'top', color:textColor, font:{weight:'bold',size:10}, formatter:v=>v.y},
                 title: { display:true, text:'Evolução do Aluno', font: { size: 18 }, color: textColor },
                 subtitle: { display:true, text:`Período: ${allDates[0] ? formatDateBR(allDates[0]) : ''} - ${allDates[allDates.length-1] ? formatDateBR(allDates[allDates.length-1]) : ''}`, font:{size:14}, color:textColor },
                 customCanvasBackgroundColor: {

@@ -1,6 +1,57 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
+<style>
+    /* Estilos específicos para a página de Contas a Pagar */
+
+    /* Cards de KPI (Key Performance Indicator) */
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        height: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--bs-box-shadow);
+    }
+    .kpi-card .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--bs-emphasis-color);
+    }
+    .kpi-card .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+        text-transform: uppercase;
+    }
+
+    /* Cards de Despesa (Visão Mobile) */
+    .despesa-card {
+        border-width: 1px;
+        border-left-width: 5px;
+        transition: box-shadow 0.2s ease;
+    }
+    .despesa-card.status-pago { border-left-color: var(--bs-success); }
+    .despesa-card.status-a_pagar { border-left-color: var(--bs-danger); }
+
+    .despesa-card:hover {
+        box-shadow: var(--bs-box-shadow-sm);
+    }
+
+    .despesa-card .card-footer {
+        background-color: var(--bs-tertiary-bg);
+    }
+
+    /* Tabela Desktop */
+    .table-hover > tbody > tr {
+        transition: background-color 0.2s ease;
+    }
+</style>
+
 <div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
     <div>
         <h1 class="h3 mb-0">{{ titulo }}</h1>
@@ -21,6 +72,60 @@
     </div>
 </div>
 
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=a_pagar" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-danger">A Pagar</div>
+                        <div class="kpi-value">R$ {{ total_a_pagar|floatformat:2 }}</div>
+                    </div>
+                    <i class="bi bi-hourglass-split fs-2 text-danger opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=pago" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-success">Pago (no período)</div>
+                        <div class="kpi-value">R$ {{ total_pago|floatformat:2 }}</div>
+                    </div>
+                    <i class="bi bi-check2-circle fs-2 text-success opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <a href="#" class="text-decoration-none"> <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-info">Despesas Recorrentes</div>
+                        <div class="kpi-value">{{ total_recorrentes }}</div>
+                    </div>
+                    <i class="bi bi-arrow-repeat fs-2 text-info opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <a href="{% url 'finances:despesa_list' %}?filtro=a_vencer" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-primary">A Vencer (5 dias)</div>
+                        <div class="kpi-value">R$ {{ total_a_vencer|floatformat:2 }}</div>
+                    </div>
+                    <i class="bi bi-calendar-week fs-2 text-primary opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
 <div class="accordion mb-4" id="accordionFiltros">
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingOne">
@@ -32,50 +137,14 @@
             <div class="accordion-body bg-body">
                 <form method="GET" action="{% url 'finances:despesa_list' %}">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="descricao" class="form-label">Descrição</label>
-                            <input type="text" name="descricao" id="descricao" class="form-control" value="{{ filtros_aplicados.descricao }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="status" class="form-label">Status</label>
-                            <select name="status" id="status" class="form-select">
-                                <option value="">Todos</option>
-                                {% for value, display in status_choices %}
-                                <option value="{{ value }}" {% if filtros_aplicados.status == value %}selected{% endif %}>{{ display }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                         <div class="col-md-3">
-                            <label for="categoria" class="form-label">Categoria</label>
-                            <select name="categoria" id="categoria" class="form-select">
-                                <option value="">Todas</option>
-                                {% for cat in categorias %}
-                                <option value="{{ cat.pk }}" {% if filtros_aplicados.categoria|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="professor" class="form-label">Professor</label>
-                            <select name="professor" id="professor" class="form-select">
-                                <option value="">Todos</option>
-                                {% for prof in professores %}
-                                <option value="{{ prof.pk }}" {% if filtros_aplicados.professor|stringformat:"s" == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.get_full_name|title }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="data_inicial" class="form-label">De</label>
-                            <input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ filtros_aplicados.data_inicial }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="data_final" class="form-label">Até</label>
-                            <input type="date" name="data_final" id="data_final" class="form-control" value="{{ filtros_aplicados.data_final }}">
-                        </div>
+                        <div class="col-md-6"><label for="descricao" class="form-label">Descrição</label><input type="text" name="descricao" id="descricao" class="form-control" value="{{ filtros_aplicados.descricao }}"></div>
+                        <div class="col-md-3"><label for="status" class="form-label">Status</label><select name="status" id="status" class="form-select"><option value="">Todos</option>{% for value, display in status_choices %}<option value="{{ value }}" {% if filtros_aplicados.status == value %}selected{% endif %}>{{ display }}</option>{% endfor %}</select></div>
+                        <div class="col-md-3"><label for="categoria" class="form-label">Categoria</label><select name="categoria" id="categoria" class="form-select"><option value="">Todas</option>{% for cat in categorias %}<option value="{{ cat.pk }}" {% if filtros_aplicados.categoria|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name|title }}</option>{% endfor %}</select></div>
+                        <div class="col-md-6"><label for="professor" class="form-label">Professor/Fornecedor</label><select name="professor" id="professor" class="form-select"><option value="">Todos</option>{% for prof in professores %}<option value="{{ prof.pk }}" {% if filtros_aplicados.professor|stringformat:"s" == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.get_full_name|title }}</option>{% endfor %}</select></div>
+                        <div class="col-md-3"><label for="data_inicial" class="form-label">De</label><input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ filtros_aplicados.data_inicial }}"></div>
+                        <div class="col-md-3"><label for="data_final" class="form-label">Até</label><input type="date" name="data_final" id="data_final" class="form-control" value="{{ filtros_aplicados.data_final }}"></div>
                     </div>
-                    <div class="mt-3 text-end">
-                        <a href="{% url 'finances:despesa_list' %}" class="btn btn-outline-secondary">Limpar Filtros</a>
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-2"></i>Filtrar</button>
-                    </div>
+                    <div class="mt-3 text-end"><a href="{% url 'finances:despesa_list' %}" class="btn btn-outline-secondary">Limpar Filtros</a><button type="submit" class="btn btn-primary"><i class="bi bi-search me-2"></i>Filtrar</button></div>
                 </form>
             </div>
         </div>
@@ -83,74 +152,107 @@
 </div>
 
 <div class="content-block">
-    <div class="row">
-        {% for d in page_obj %} {# <<< ALTERADO #}
-        <div class="col-12 col-xl-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-circle" style="width: 48px; height: 48px;">
-                                <i class="bi bi-receipt fs-4 text-danger"></i> </div>
-                        </div>
-
-                        <div class="col">
-                            <h6 class="card-title mb-0 fw-bold">{{ d.descricao|title }}</h6>
-                            <p class="card-text fs-5 mb-0"><strong>R$ {{ d.valor|floatformat:2 }}</strong></p>
-                        </div>
-                    </div>
-
-                    <div class="text-muted small mt-3">
-                        {% if d.professor %}
-                        <div class="d-flex align-items-center mb-1">
-                            <i class="bi bi-person-badge me-2"></i> <span>{{ d.professor.get_full_name|title }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-calendar-event me-2"></i>
-                            <span>Competência: {{ d.data_competencia|date:"M/Y" }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card-footer d-flex justify-content-between align-items-center py-2">
-                    <div>
-                        {% if d.status == 'pago' %}
-                            <span class="badge fs-6 bg-success-subtle text-success-emphasis rounded-pill">
-                                <i class="bi bi-check-circle-fill me-1"></i>
-                                Pago
-                            </span>
-                        {% else %}
-                            <span class="badge fs-6 bg-warning-subtle text-warning-emphasis rounded-pill">
-                                <i class="bi bi-hourglass-split me-1"></i>
-                                A Pagar
-                            </span>
-                        {% endif %}
-                    </div>
-
-                    <div class="btn-group">
-                        {% if d.status == 'a_pagar' %}
-                            <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
-                            <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mais Ações</span></button>
-                        {% else %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
-                        {% endif %}
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
-                            <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
-                        </ul>
-                    </div>
-                </div>
+    {% if not page_obj %}
+        <div class="text-center text-muted p-4">Nenhuma despesa encontrada para os filtros aplicados.</div>
+    {% else %}
+        <div class="d-none d-lg-block">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th>Professor / Fornecedor</th>
+                            <th class="text-center">Competência</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end">Valor</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in page_obj %}
+                        <tr>
+                            <td>
+                                <span class="fw-bold">{{ d.descricao|title }}</span><br>
+                                <small class="text-muted">{{ d.categoria.name|title }}</small>
+                            </td>
+                            <td>{{ d.professor.get_full_name|title|default:"--" }}</td>
+                            <td class="text-center">{{ d.data_competencia|date:"M/Y" }}</td>
+                            <td class="text-center">
+                                {% if d.status == 'pago' %}
+                                    <span class="badge bg-success-subtle text-success-emphasis rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Pago</span>
+                                {% else %}
+                                    <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill"><i class="bi bi-hourglass-split me-1"></i>A Pagar</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">R$ {{ d.valor|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    {% if d.status == 'a_pagar' %}
+                                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
+                                        <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"><span class="visually-hidden">Mais</span></button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                                    {% endif %}
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                        <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% empty %}
-        <div class="col">
-            <div class="text-center text-muted p-4">Nenhuma despesa encontrada.</div>
+
+        <div class="d-lg-none">
+            <div class="vstack gap-3">
+                {% for d in page_obj %}
+                <div class="card shadow-sm despesa-card status-{{ d.status }}">
+                    <div class="card-body">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="card-title mb-0 fw-bold">{{ d.descricao|title }}</h6>
+                                <small class="text-muted">{{ d.categoria.name|title }}</small>
+                            </div>
+                            <span class="fw-bold fs-5">R$ {{ d.valor|floatformat:2 }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-muted small">
+                            <span><i class="bi bi-person me-1"></i> {{ d.professor.get_full_name|title|default:"N/A" }}</span>
+                            <span><i class="bi bi-calendar-event me-1"></i> {{ d.data_competencia|date:"M/Y" }}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if d.status == 'pago' %}
+                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Pago</span>
+                            {% else %}
+                                <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill"><i class="bi bi-hourglass-split me-1"></i>A Pagar</span>
+                            {% endif %}
+                        </div>
+                        <div class="btn-group">
+                             {% if d.status == 'a_pagar' %}
+                                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#baixarDespesaModal-{{ d.pk }}">Pagar</button>
+                                <button type="button" class="btn btn-sm btn-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"><span class="visually-hidden">Mais</span></button>
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                            {% endif %}
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editDespesaModal" data-despesa-url="{% url 'finances:edit_despesa' d.pk %}"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                <li><button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'finances:delete_despesa' d.pk %}"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
-        {% endfor %}
-    </div>
-    
-    {% include "scheduler/partials/pagination.html" %}
+        
+        <div class="mt-4">
+            {% include "scheduler/partials/pagination.html" %}
+        </div>
+    {% endif %}
 </div>
 
 <div class="modal fade" id="addDespesaModal" tabindex="-1">
@@ -327,7 +429,7 @@
     </div>
 </div>
 
-{% for d in page_obj %} {# <<< ALTERADO #}
+{% for d in page_obj %}
 <div class="modal fade" id="baixarDespesaModal-{{ d.pk }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
