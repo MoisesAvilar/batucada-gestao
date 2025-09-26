@@ -123,7 +123,7 @@ def dashboard(request):
 
     aulas_por_dia = defaultdict(list)
     for aula in aulas_do_mes:
-        aulas_por_dia[aula.data_hora.day].append(aula)
+        aulas_por_dia[localtime(aula.data_hora).day].append(aula)
 
     cal = calendar.Calendar(firstweekday=6)
     semanas_do_mes = cal.monthdayscalendar(year, month)
@@ -240,7 +240,7 @@ def get_calendario_html(request):
 
     aulas_por_dia = defaultdict(list)
     for aula in aulas_do_mes:
-        aulas_por_dia[aula.data_hora.day].append(aula)
+        aulas_por_dia[localtime(aula.data_hora).day].append(aula)
 
     cal = calendar.Calendar(firstweekday=6)
     semanas_do_mes = cal.monthdayscalendar(year, month)
@@ -2791,7 +2791,7 @@ def get_horarios_ocupados(request):
                     aulas_do_dia = aulas_do_dia.exclude(id=aula_id)
 
                 for aula in aulas_do_dia:
-                    horarios_ocupados.append(aula.data_hora.strftime("%H:%M"))
+                    horarios_ocupados.append(localtime(aula.data_hora).strftime("%H:%M"))
 
             return JsonResponse(
                 {
