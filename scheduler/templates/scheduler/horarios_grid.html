@@ -1,0 +1,484 @@
+{% extends "scheduler/base.html" %}
+
+{% block extra_css %}
+<style>
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .kpi-value { font-size: 2.25rem; font-weight: 700; line-height: 1; }
+    .kpi-label { font-size: 0.8rem; font-weight: 600; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-icon { font-size: 2.5rem; opacity: 0.3; position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); }
+    .kpi-card.fixo { border-left: 5px solid var(--bs-success); }
+    .kpi-card.variavel { border-left: 5px solid var(--bs-warning); }
+    .kpi-card.ocupacao { border-left: 5px solid var(--bs-info); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between">
+        <div>
+            <h1 class="h3 mb-1">Grade de Horários</h1>
+            <p class="text-muted mb-0">Visão geral dos horários fixos e variáveis.</p>
+        </div>
+        <a href="{% url 'scheduler:dashboard' %}" class="btn btn-outline-secondary mt-3 mt-md-0">
+            <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+        </a>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-4">
+        <div class="col-lg-4 col-md-6">
+            <div class="kpi-card fixo position-relative">
+                <div class="kpi-value text-success-emphasis">{{ total_fixo }}</div>
+                <div class="kpi-label mt-1">Horários Fixos</div>
+                <i class="bi bi-pin-angle-fill kpi-icon text-success"></i>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="kpi-card variavel position-relative">
+                <div class="kpi-value text-warning-emphasis">{{ total_variavel }}</div>
+                <div class="kpi-label mt-1">Horários Variáveis</div>
+                <i class="bi bi-arrow-repeat kpi-icon text-warning"></i>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-12">
+            <div class="kpi-card ocupacao position-relative">
+                <div class="kpi-value text-info-emphasis">{{ taxa_ocupacao }}%</div>
+                <div class="kpi-label mt-1">Taxa de Ocupação</div>
+                <i class="bi bi-pie-chart-fill kpi-icon text-info"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div id="tour-step-2" class="badge-container d-flex flex-wrap gap-2 mb-3 justify-content-center">
+                <span class="badge text-bg-success badge-filter" data-status="fixo">Horário Fixo</span>
+                <span class="badge text-bg-warning badge-filter" data-status="variavel">Horário Variável</span>
+                <span class="badge text-bg-light badge-filter" data-status="livre">Horário Livre</span>
+                <span class="badge text-bg-secondary badge-filter active" data-status="todos">Todos</span>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <!-- Tabela Desktop -->
+                    <div id="horarios-grid-container" class="table-responsive d-none d-lg-block">
+                        <div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>
+                    </div>
+                    <!-- Cards Mobile -->
+                    <div id="horarios-grid-cards-mobile" class="d-lg-none">
+                        <div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="content-block h-100" style="background-color: var(--bs-body-bg);">
+                        <h5 class="mb-3 text-center">Ocupação por Dia</h5>
+                        <div style="height: 250px;"><canvas id="ocupacaoChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{{ ocupacao_chart_labels|json_script:"ocupacao-chart-labels" }}
+{{ ocupacao_chart_data|json_script:"ocupacao-chart-data" }}
+{{ mostrar_tour_horarios|json_script:"mostrar-tour-data" }}
+{{ user.tipo|json_script:"user-tipo-data" }}
+
+<style>
+    .slot-fixo {
+        background-color: var(--bs-success-bg-subtle) !important;
+        color: var(--bs-success-text-emphasis);
+        vertical-align: middle;
+    }
+    .slot-variavel {
+        background-color: var(--bs-warning-bg-subtle) !important;
+        color: var(--bs-warning-text-emphasis);
+        vertical-align: middle;
+    }
+    .slot-livre {
+        background-color: var(--bs-tertiary-bg) !important;
+        color: var(--bs-secondary-color);
+        font-style: italic;
+        vertical-align: middle;
+    }
+    #horarios-grid-container table {
+        border-collapse: separate;
+        border-spacing: 2px;
+    }
+    #horarios-grid-container th, #horarios-grid-container td {
+        text-align: center;
+        padding: 0.75rem 0.25rem;
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.3rem;
+    }
+
+    #horarios-grid-cards-mobile .card-header {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-emphasis-color);
+        font-size: 0.9rem;
+    }
+
+    #horarios-grid-cards-mobile .list-group-item {
+        font-size: 0.8rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    #horarios-grid-cards-mobile .slot-fixo {
+        background-color: var(--bs-success-bg-subtle) !important;
+    }
+    #horarios-grid-cards-mobile .slot-variavel {
+        background-color: var(--bs-warning-bg-subtle) !important;
+    }
+    #horarios-grid-cards-mobile .slot-livre {
+        background-color: var(--bs-tertiary-bg) !important;
+    }
+
+    .badge-filter {
+        cursor: pointer;
+        display: inline-block;
+        vertical-align: middle;
+        transition: all 0.2s ease-in-out;
+        width: 120px;
+        text-align: center;
+        transform-origin: center center;
+    }
+
+    .badge-filter.active {
+        box-shadow: 0 0 0.4rem rgba(0,0,0,0.3);
+        transform: scale(1.1);
+        border: 1px solid rgba(0,0,0,0.2);
+        z-index: 1;
+    }
+
+    /* Mobile: 2 badges por linha, mesma largura, centralizados */
+    @media (max-width: 768px) {
+        .badge-container {
+            gap: 0.5rem; /* espaço entre badges */
+        }
+        .badge-filter {
+            flex: 0 0 48%; /* cada badge ocupa ~50% */
+            text-align: center;
+        }
+    }
+
+    /* Estilos para o Tour */
+    shepherd-element {
+        background-color: var(--bs-body-bg);
+        color: var(--bs-body-color);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+    }
+    .shepherd-element .shepherd-title {
+        font-weight: bold;
+    }
+    .shepherd-element .shepherd-text {
+        color: var(--bs-body-color);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pageContent = document.querySelector('.card-body'); // Container principal da página
+
+    function carregarGradeHorarios() {
+        const gridContainer = document.getElementById('horarios-grid-container');
+        const cardsContainer = document.getElementById('horarios-grid-cards-mobile');
+        const spinnerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>`;
+        gridContainer.innerHTML = spinnerHTML;
+        cardsContainer.innerHTML = spinnerHTML;
+
+        fetch("{% url 'scheduler:get_horario_fixo_data' %}", {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                renderizarGrade(data);
+            })
+            .catch(err => {
+                console.error('Erro ao buscar dados da grade:', err);
+                const errorHTML = `<div class="alert alert-danger">Não foi possível carregar a grade de horários.</div>`;
+                gridContainer.innerHTML = errorHTML;
+                cardsContainer.innerHTML = errorHTML;
+            });
+    }
+
+    function renderizarGrade(data) {
+        const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        const horarios = [];
+        for (let i = 8; i <= 20; i++) horarios.push(`${String(i).padStart(2, '0')}:00`);
+        
+        let tableHTML = `<table class="table table-bordered text-center align-middle"><thead class="table-dark"><tr><th>Horário</th>${diasSemana.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>`;
+        horarios.forEach(horario => {
+            tableHTML += `<tr><td class="fw-bold">${horario}</td>`;
+            for (let i = 0; i < diasSemana.length; i++) {
+                const slotData = data[horario] && data[horario][i] ? data[horario][i] : null;
+                const texto = slotData ? slotData.texto.replace(/<br>/g, '<br> ') : 'Livre';
+                const status = slotData ? slotData.status : 'livre';
+                tableHTML += `<td class="slot-${status}">${texto}</td>`;
+            }
+            tableHTML += `</tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        document.getElementById('horarios-grid-container').innerHTML = tableHTML;
+
+        let cardsHTML = '';
+        diasSemana.forEach((dia, diaIndex) => {
+            cardsHTML += `<div class="card mb-2 day-card" data-day-index="${diaIndex}"><div class="card-header fw-bold">${dia}</div><ul class="list-group list-group-flush">`;
+            horarios.forEach(horario => {
+                const slotData = data[horario] && data[horario][diaIndex] ? data[horario][diaIndex] : null;
+                const status = slotData ? slotData.status : 'livre';
+                const texto = slotData ? slotData.texto : 'Livre';
+                cardsHTML += `<li class="list-group-item slot-${status} d-flex justify-content-between align-items-center"><span>${horario}</span><span class="text-end">${texto}</span></li>`;
+            });
+            cardsHTML += `</ul></div>`;
+        });
+        document.getElementById('horarios-grid-cards-mobile').innerHTML = cardsHTML;
+
+        const badges = pageContent.querySelectorAll('.badge-filter');
+        badges.forEach(badge => {
+            badge.addEventListener('click', () => {
+                const statusSelecionado = badge.dataset.status;
+
+                // ★★★ INÍCIO DA CORREÇÃO ★★★
+
+                // 1. CORREÇÃO DO FILTRO DESKTOP (evita desalinhamento)
+                // Em vez de 'display: none', usamos 'visibility: hidden' para manter o layout da tabela.
+                const slotsDesktop = pageContent.querySelectorAll('#horarios-grid-container td:not(:first-child)');
+                slotsDesktop.forEach(slot => {
+                    const isVisible = (statusSelecionado === 'todos' || slot.classList.contains(`slot-${statusSelecionado}`));
+                    slot.style.visibility = isVisible ? 'visible' : 'hidden';
+                });
+
+                // 2. ATUALIZAÇÃO DINÂMICA DO GRÁFICO
+                // Recalcula a contagem de slots visíveis por dia e atualiza o gráfico.
+                const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                const novaContagemPorDia = [0, 0, 0, 0, 0, 0];
+
+                // Itera sobre cada linha de horário da tabela
+                const linhasTabela = pageContent.querySelectorAll('#horarios-grid-container tbody tr');
+                linhasTabela.forEach(linha => {
+                    // Pega todas as células de dias da semana (exceto a primeira que é o horário)
+                    const celulasDia = linha.querySelectorAll('td:not(:first-child)');
+                    celulasDia.forEach((celula, diaIndex) => {
+                        // Verifica se a célula está visível E não está livre
+                        const isVisible = celula.style.visibility !== 'hidden';
+                        const isOcupada = !celula.classList.contains('slot-livre');
+
+                        if (isVisible && isOcupada) {
+                            novaContagemPorDia[diaIndex]++;
+                        }
+                    });
+                });
+
+                // Atualiza os dados e renderiza o gráfico novamente
+                updateOcupacaoChart(novaContagemPorDia);
+
+                // 3. FILTRO MOBILE (lógica original mantida, pois já funciona corretamente)
+                const dayCards = pageContent.querySelectorAll('#horarios-grid-cards-mobile .day-card');
+                dayCards.forEach(card => {
+                    const items = card.querySelectorAll('.list-group-item');
+                    let algumItemVisivelNoCard = false;
+                    items.forEach(item => {
+                        if (statusSelecionado === 'todos' || item.classList.contains(`slot-${statusSelecionado}`)) {
+                            item.classList.remove('d-none');
+                            item.classList.add('d-flex');
+                            algumItemVisivelNoCard = true;
+                        } else {
+                            item.classList.remove('d-flex');
+                            item.classList.add('d-none');
+                        }
+                    });
+                    card.style.display = algumItemVisivelNoCard ? '' : 'none';
+                });
+
+                badges.forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+                // ★★★ FIM DA CORREÇÃO ★★★
+            });
+        });
+    }
+
+    // Carrega a grade assim que a página é aberta
+    carregarGradeHorarios();
+
+    // --- LÓGICA DO GRÁFICO DE OCUPAÇÃO ---
+    const ocupacaoChartLabels = JSON.parse(document.getElementById('ocupacao-chart-labels').textContent);
+    const ocupacaoChartData = JSON.parse(document.getElementById('ocupacao-chart-data').textContent);
+    const ocupacaoCtx = document.getElementById('ocupacaoChart');
+    let ocupacaoChartInstance = null; // Guarda a instância do gráfico
+
+    if (ocupacaoCtx) {
+        function getChartThemeColors() {
+            return {
+                fontColor: getComputedStyle(document.documentElement).getPropertyValue('--bs-body-color').trim(),
+                gridColor: getComputedStyle(document.documentElement).getPropertyValue('--bs-border-color-translucent').trim(),
+                barColor: getComputedStyle(document.documentElement).getPropertyValue('--bs-primary').trim()
+            };
+        }
+
+        // Função para renderizar ou atualizar o gráfico
+        function updateOcupacaoChart(newData = null) {
+            if (ocupacaoChartInstance) {
+                ocupacaoChartInstance.destroy(); // Destrói o gráfico antigo antes de criar um novo
+            }
+
+            const themeColors = getChartThemeColors();
+            Chart.defaults.color = themeColors.fontColor;
+            Chart.defaults.borderColor = themeColors.gridColor;
+
+            ocupacaoChartInstance = new Chart(ocupacaoCtx, {
+                type: 'bar',
+                data: {
+                    labels: ocupacaoChartLabels,
+                    datasets: [{
+                        label: 'Slots Ocupados',
+                        data: newData || ocupacaoChartData, // Usa os novos dados se fornecidos
+                        backgroundColor: themeColors.barColor,
+                        borderRadius: 4,
+                        barThickness: 20,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        updateOcupacaoChart(); // Renderiza o gráfico pela primeira vez
+        // Opcional: recarregar o gráfico se o tema mudar
+        new MutationObserver(() => updateOcupacaoChart(ocupacaoChartInstance.data.datasets[0].data)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    }
+
+    // --- LÓGICA DO TOUR ---
+    // Verifica se o tour deve ser iniciado do zero (primeira visita)
+    const mostrarTourDoZero = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
+    // Verifica se o tour está continuando da página anterior
+    const tourInProgress = localStorage.getItem('tourInProgress');
+    const startStep = localStorage.getItem('tourCurrentStep');
+
+    const userTipo = JSON.parse(document.getElementById('user-tipo-data').textContent);
+
+    // O tour só roda se for a primeira visita OU se estiver continuando de outra página
+    if ((mostrarTourDoZero || tourInProgress === 'horarios_fixos_v1') && userTipo === 'admin') {
+        
+        // 1. Funções auxiliares (getCookie, marcarVisto)
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const tour = new Shepherd.Tour({
+            useModalOverlay: true,
+            defaultStepOptions: {
+                classes: 'shadow-md bg-body-secondary',
+                scrollTo: true,
+                cancelIcon: { enabled: true },
+                popperOptions: {
+                    modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport' } }],
+                },
+            }
+        });
+
+        function marcarVisto() {
+            // Limpa os marcadores do localStorage para não reiniciar o tour
+            localStorage.removeItem('tourInProgress');
+            localStorage.removeItem('tourCurrentStep');
+
+            const tourId = "horarios_fixos_v1";
+            fetch("/api/marcar-tour-visto/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+                body: JSON.stringify({ tour_id: tourId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("Tour marcado como visto");
+                } else {
+                    console.error("Erro ao marcar tour:", data.error);
+                }
+            });
+        }
+
+        // 2. Definição de TODOS os passos do tour
+        // (Mesmo os da página anterior, para o botão "Voltar" funcionar)
+        tour.addStep({
+            id: 'step-1-welcome', // Passo do dashboard
+            title: 'Nova Funcionalidade!',
+            text: 'Você está continuando o tour da Grade de Horários. Se quiser, pode voltar para o início.',
+            buttons: [
+                { text: 'Voltar ao Início', action: () => window.location.href = "{% url 'scheduler:dashboard' %}", secondary: true },
+                { text: 'Continuar Aqui', action: tour.next }
+            ]
+        });
+
+        tour.addStep({
+            id: 'step-3-grid-welcome', // O passo inicial desta página
+            title: 'Grade de Horários',
+            text: 'Bem-vindo à nova Grade de Horários! Aqui você verá todos os horários organizados: <span class="badge bg-success">Verde = Fixo</span>, <span class="badge bg-warning text-dark">Amarelo = Variável</span>, <span class="badge bg-light text-dark">Livre = Disponível</span>. Facilita encontrar vagas rapidamente!',
+            buttons: [
+                { text: 'Voltar', action: tour.back, secondary: true },
+                { text: 'Próximo', action: tour.next }
+            ]
+        });
+
+        tour.addStep({
+            id: 'step-4-badges',
+            title: 'Filtros de Horários',
+            text: 'Use esses badges para filtrar rapidamente os horários na tabela. Experimente clicar em um para ver o resultado!',
+            attachTo: { element: '#tour-step-2', on: 'bottom' },
+            buttons: [
+                { text: 'Voltar', action: tour.back, secondary: true },
+                { text: 'Entendi!', action: tour.next }
+            ]
+        });
+
+        tour.on('complete', marcarVisto);
+        tour.on('cancel', marcarVisto);
+
+        // 3. Lógica de inicialização
+        setTimeout(() => {
+            if (tourInProgress && startStep) {
+                // Se o tour estava em andamento, continua do passo salvo
+                localStorage.removeItem('tourInProgress'); // Limpa para não reiniciar
+                localStorage.removeItem('tourCurrentStep');
+                tour.start(startStep);
+            } else {
+                // Se não, é a primeira vez na página, começa do passo 3
+                tour.start('step-3-grid-welcome');
+            }
+        }, 1000);
+    }
+});
+</script>
+{% endblock %}

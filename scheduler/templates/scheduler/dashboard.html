@@ -79,9 +79,9 @@
 <div class="vstack gap-4">
     {% if user.tipo == 'admin' %}
        <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-end gap-2">
-            <button type="button" class="btn btn-outline-info w-100 w-md-auto" id="btnVerHorariosFixos">
+            <a id="btnVerHorariosFixos" href="{% url 'scheduler:get_horario_fixo_data' %}" class="btn btn-outline-info w-100 w-md-auto">
                 <i class="bi bi-eye-fill me-1"></i> Grade de Horários
-            </button>
+            </a>
             <button type="button" class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#agendamentoModal">
                 <i class="bi bi-plus-circle me-1"></i> Agendar Aula
             </button>
@@ -246,43 +246,6 @@
             <div class="modal-header"><h5 class="modal-title" id="agendamentoModalLabel">Agendar Nova Aula</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
             <div class="modal-body">
                 {% include 'scheduler/partials/aula_form_content.html' with form=aula_form_modal aluno_formset=aluno_formset_modal professor_formset=professor_formset_modal form_action=form_action_modal %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="horariosModal" tabindex="-1" aria-labelledby="horariosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header d-flex flex-column flex-md-row align-items-center text-center text-md-start">
-                <h5 class="modal-title w-100">Grade de Horários</h5>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="badge-container d-flex flex-wrap gap-2 mb-3 justify-content-center">
-                    <span class="badge text-bg-success badge-filter" data-status="fixo" style="cursor:pointer;">Horário Fixo</span>
-                    <span class="badge text-bg-warning badge-filter" data-status="variavel" style="cursor:pointer;">Horário Variável</span>
-                    <span class="badge text-bg-light badge-filter" data-status="livre" style="cursor:pointer;">Horário Livre</span>
-                    <span class="badge text-bg-secondary badge-filter" data-status="todos" style="cursor:pointer;">Todos</span>
-                </div>
-
-                <!-- Tabela Desktop -->
-                <div id="horarios-grid-container" class="table-responsive d-none d-lg-block">
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Carregando...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Cards Mobile -->
-                <div id="horarios-grid-cards-mobile" class="d-lg-none">
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Carregando...</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -752,152 +715,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, true);
 
-    // --- LÓGICA DA GRADE DE HORÁRIOS E TOUR ---
-    const btnVerHorarios = document.getElementById('btnVerHorariosFixos');
-    const horariosModalEl = document.getElementById('horariosModal');
-    const horariosModal = new bootstrap.Modal(horariosModalEl);
-
-    // ★★★ 1. FUNÇÃO REUTILIZÁVEL PARA CARREGAR A GRADE ★★★
-    function carregarGradeHorarios() {
-        const gridContainer = document.getElementById('horarios-grid-container');
-        const cardsContainer = document.getElementById('horarios-grid-cards-mobile');
-        const spinnerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>`;
-        gridContainer.innerHTML = spinnerHTML;
-        cardsContainer.innerHTML = spinnerHTML;
-
-        fetch("{% url 'scheduler:get_horario_fixo_data' %}")
-            .then(res => res.json())
-            .then(data => {
-                renderizarGrade(data);
-            })
-            .catch(err => {
-                console.error('Erro ao buscar dados da grade:', err);
-                const errorHTML = `<div class="alert alert-danger">Não foi possível carregar a grade de horários.</div>`;
-                gridContainer.innerHTML = errorHTML;
-                cardsContainer.innerHTML = errorHTML;
-            });
-    }
-
-    if (btnVerHorarios) {
-        btnVerHorarios.addEventListener('click', () => {
-            horariosModal.show();
-            carregarGradeHorarios();
-        });
-    }
-
-    function renderizarGrade(data) {
-        const diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-        const horarios = [];
-        for (let i = 8; i <= 20; i++) horarios.push(`${String(i).padStart(2, '0')}:00`);
-        let tableHTML = `<table class="table table-bordered text-center align-middle"><thead class="table-dark"><tr><th>Horário</th>${diasSemana.map(d => `<th>${d}</th>`).join('')}</tr></thead><tbody>`;
-        horarios.forEach(horario => {
-            tableHTML += `<tr><td class="fw-bold">${horario}</td>`;
-            for (let i = 0; i < diasSemana.length; i++) {
-                const slotData = data[horario] && data[horario][i] ? data[horario][i] : null;
-                const texto = slotData ? slotData.texto.replace(/<br>/g, '<br> ') : 'Livre';
-                const status = slotData ? slotData.status : 'livre';
-                tableHTML += `<td class="slot-${status}">${texto}</td>`;
-            }
-            tableHTML += `</tr>`;
-        });
-        tableHTML += `</tbody></table>`;
-        document.getElementById('horarios-grid-container').innerHTML = tableHTML;
-        let cardsHTML = '';
-        diasSemana.forEach((dia, diaIndex) => {
-            cardsHTML += `<div class="card mb-2 day-card" data-day-index="${diaIndex}"><div class="card-header fw-bold">${dia}</div><ul class="list-group list-group-flush">`;
-            horarios.forEach(horario => {
-                const slotData = data[horario] && data[horario][diaIndex] ? data[horario][diaIndex] : null;
-                const status = slotData ? slotData.status : 'livre';
-                const texto = slotData ? slotData.texto : 'Livre';
-                cardsHTML += `<li class="list-group-item slot-${status} d-flex justify-content-between align-items-center"><span>${horario}</span><span class="text-end">${texto}</span></li>`;
-            });
-            cardsHTML += `</ul></div>`;
-        });
-        document.getElementById('horarios-grid-cards-mobile').innerHTML = cardsHTML;
-        const badges = horariosModalEl.querySelectorAll('.badge-filter');
-        badges.forEach(badge => {
-            badge.addEventListener('click', () => {
-                const statusSelecionado = badge.dataset.status;
-                const slotsDesktop = horariosModalEl.querySelectorAll('#horarios-grid-container td:not(:first-child)');
-                slotsDesktop.forEach(slot => {
-                    slot.style.display = (statusSelecionado === 'todos' || slot.classList.contains(`slot-${statusSelecionado}`)) ? '' : 'none';
-                });
-                const dayCards = horariosModalEl.querySelectorAll('#horarios-grid-cards-mobile .day-card');
-                dayCards.forEach(card => {
-                    const items = card.querySelectorAll('.list-group-item');
-                    let algumItemVisivelNoCard = false;
-                    items.forEach(item => {
-                        if (statusSelecionado === 'todos' || item.classList.contains(`slot-${statusSelecionado}`)) {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                            algumItemVisivelNoCard = true;
-                        } else {
-                            item.classList.remove('d-flex');
-                            item.classList.add('d-none');
-                        }
-                    });
-                    card.style.display = algumItemVisivelNoCard ? '' : 'none';
-                });
-                badges.forEach(b => b.classList.remove('active'));
-                badge.classList.add('active');
-            });
-        });
-    }
-
-    const mostrarTour = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
+    // ★★★ INÍCIO DA LÓGICA DO TOUR MULTI-PÁGINA ★★★
+    const mostrarTourHorarios = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
     const userTipo = JSON.parse(document.getElementById('user-tipo-data').textContent);
 
-    if (mostrarTour && userTipo === 'admin') {
-        const isMobile = window.innerWidth <= 768;
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.startsWith(name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
+    if (mostrarTourHorarios && userTipo === 'admin') {
+        // 1. Inicializa o Shepherd Tour
         const tour = new Shepherd.Tour({
             useModalOverlay: true,
             defaultStepOptions: {
                 classes: 'shadow-md bg-body-secondary',
-                scrollTo: !isMobile,
+                scrollTo: true,
                 cancelIcon: { enabled: true },
-                popperOptions: {
-                    modifiers: [{ name: 'preventOverflow', options: { boundary: 'viewport' } }],
-                },
             }
         });
 
-        function marcarVisto() {
-            const tourId = "horarios_fixos_v1";
-            fetch("/api/marcar-tour-visto/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken")
-                },
-                body: JSON.stringify({ tour_id: tourId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    console.log("Tour marcado como visto");
-                } else {
-                    console.error("Erro ao marcar tour:", data.error);
-                }
-            });
-        }
-
-        // --- Passos do Tour ---
+        // 2. Define os passos do tour para esta página (Dashboard)
         tour.addStep({
             id: 'step-1-welcome',
             title: 'Nova Funcionalidade!',
@@ -909,75 +742,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         tour.addStep({
-            id: 'step-2-button',
-            title: 'Botão de Horários Fixos',
-            text: 'Este é o novo botão que permite acessar a visão completa dos horários recorrentes e variáveis dos alunos.',
+            id: 'step-2-continue',
+            title: 'Acesse a Grade de Horários',
+            text: 'Clique em "Continuar" para ser levado à nova página da Grade de Horários, onde o tour continuará.',
             attachTo: { element: '#btnVerHorariosFixos', on: 'bottom' },
             buttons: [
                 { text: 'Voltar', action: tour.back, secondary: true },
-                { text: 'Próximo', action: tour.next }
-            ]
-        });
-
-        tour.addStep({
-            id: 'step-3-modal',
-            title: 'A Grade de Horários',
-            text: 'Aqui você verá todos os horários organizados: <span class="badge bg-success">Verde = Fixo</span>, <span class="badge bg-warning text-dark">Amarelo = Variável</span>, <span class="badge bg-light text-dark">Livre = Disponível</span>. Facilita encontrar vagas rapidamente!',
-            attachTo: null,
-            buttons: [
-                { text: 'Voltar', action: tour.back, secondary: true },
-                { text: 'Próximo', action: tour.next }
-            ],
-            when: {
-                show: () => {
-                    if (horariosModal) {
-                        horariosModal.show();
-                        carregarGradeHorarios();
-                    }
-                },
-            }
-        });
-
-        tour.addStep({
-            id: 'step-4-badges',
-            title: 'Filtros de Horários',
-            text: 'Use esses badges para filtrar rapidamente os horários na tabela.',
-            attachTo: { element: '.badge-container', on: 'bottom' },
-            highlightClass: 'highlight-badge-tour',
-            buttons: [
-                { text: 'Voltar', action: tour.back, secondary: true },
-                { text: 'Próximo', action: tour.next }
-            ]
-            // O bloco 'when' para o highlight não é mais necessário.
-        });
-
-        // ★★★ PASSO 5 ATUALIZADO ★★★
-        tour.addStep({
-            id: 'step-5-badges-interativo',
-            title: 'Clique em um Badge',
-            text: 'Experimente clicar em um badge para ver apenas os horários correspondentes na tabela. Quando terminar, o modal será fechado automaticamente.',
-            // Anexa ao container também
-            attachTo: { element: '.badge-container', on: 'bottom' },
-            highlightClass: 'highlight-badge-tour',
-            buttons: [
-                { text: 'Voltar', action: tour.back, secondary: true },
-                { text: 'Finalizar', action: tour.next }
-            ],
-            when: {
-                hide: () => {
-                    if (horariosModal) {
-                        horariosModal.hide(); // Mantém a lógica de fechar o modal
+                {
+                    text: 'Continuar',
+                    action: function() {
+                        // Define os marcadores no localStorage para a próxima página saber que o tour está ativo
+                        localStorage.setItem('tourInProgress', 'horarios_fixos_v1');
+                        localStorage.setItem('tourCurrentStep', 'step-3-grid-welcome');
+                        
+                        // Clica no link para navegar para a página da grade
+                        document.getElementById('btnVerHorariosFixos').click();
                     }
                 }
-            }
+            ]
         });
 
-        // --- Finalização do Tour ---
-        tour.on('complete', marcarVisto);
-        tour.on('cancel', marcarVisto);
-
+        // 3. Inicia o tour
         tour.start();
     }
+    // ★★★ FIM DA LÓGICA DO TOUR MULTI-PÁGINA ★★★
 
 });
 </script>
