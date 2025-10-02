@@ -59,11 +59,11 @@
                             <td>{{ forloop.counter }}</td>
                             <td>
                                 <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none">
-                                    {{ lead.nome_interessado|title|smart_truncate:2 }}
+                                    {{ lead.nome_interessado|default_if_none:"Não informado"|title|smart_truncate:2 }}
                                 </a>
                             </td>
                             <td>
-                               {{ lead.nome_responsavel|title|smart_truncate:2 }}
+                               {{ lead.nome_responsavel|default_if_none:"—"|title|smart_truncate:2 }}
                             </td> 
                             <td>{{ lead.contato|format_contact }}</td>
                             <td>
@@ -128,7 +128,7 @@
                 <!-- Nome -->
                 <h6 class="fw-bold mb-2 text-truncate">
                     <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
-                        {{ lead.nome_interessado.title|smart_truncate:2 }}
+                        {{ lead.nome_interessado|default_if_none:"Não informado"|title|smart_truncate:2 }}
                     </a>
                 </h6>
 
@@ -141,7 +141,7 @@
                 <div class="mb-2 small text-muted">
                     <i class="bi bi-music-note-list me-1"></i>
                     {% if lead.curso_interesse %}
-                        {{ lead.get_curso_interesse_display|title }}
+                        {{ lead.get_curso_interesse_display|default_if_none:"Não informado"|title }}
                     {% else %}
                         <span class="text-muted">Curso não informado</span>
                     {% endif %}
