@@ -29,3 +29,5 @@ db.sqlite3
 
 notes.txt
 seed_data.py
+*/fixtures
+/Nova pasta

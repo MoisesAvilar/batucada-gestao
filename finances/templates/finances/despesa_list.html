@@ -140,7 +140,7 @@
                         <div class="col-md-6"><label for="descricao" class="form-label">Descrição</label><input type="text" name="descricao" id="descricao" class="form-control" value="{{ filtros_aplicados.descricao }}"></div>
                         <div class="col-md-3"><label for="status" class="form-label">Status</label><select name="status" id="status" class="form-select"><option value="">Todos</option>{% for value, display in status_choices %}<option value="{{ value }}" {% if filtros_aplicados.status == value %}selected{% endif %}>{{ display }}</option>{% endfor %}</select></div>
                         <div class="col-md-3"><label for="categoria" class="form-label">Categoria</label><select name="categoria" id="categoria" class="form-select"><option value="">Todas</option>{% for cat in categorias %}<option value="{{ cat.pk }}" {% if filtros_aplicados.categoria|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name|title }}</option>{% endfor %}</select></div>
-                        <div class="col-md-6"><label for="professor" class="form-label">Professor/Fornecedor</label><select name="professor" id="professor" class="form-select"><option value="">Todos</option>{% for prof in professores %}<option value="{{ prof.pk }}" {% if filtros_aplicados.professor|stringformat:"s" == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.get_full_name|title }}</option>{% endfor %}</select></div>
+                        <div class="col-md-6"><label for="professor" class="form-label">Professor/Categoria</label><select name="professor" id="professor" class="form-select"><option value="">Todos</option>{% for prof in professores %}<option value="{{ prof.pk }}" {% if filtros_aplicados.professor|stringformat:"s" == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.get_full_name|title }}</option>{% endfor %}</select></div>
                         <div class="col-md-3"><label for="data_inicial" class="form-label">De</label><input type="date" name="data_inicial" id="data_inicial" class="form-control" value="{{ filtros_aplicados.data_inicial }}"></div>
                         <div class="col-md-3"><label for="data_final" class="form-label">Até</label><input type="date" name="data_final" id="data_final" class="form-control" value="{{ filtros_aplicados.data_final }}"></div>
                     </div>
@@ -160,22 +160,23 @@
                 <table class="table table-hover align-middle">
                     <thead>
                         <tr>
-                            <th>Descrição</th>
-                            <th>Professor / Fornecedor</th>
-                            <th class="text-center">Competência</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-end">Valor</th>
-                            <th class="text-center">Ações</th>
+                            <th scope="col">ID</th>
+                            <th scope="col">Descrição</th>
+                            <th scope="col">Aluno</th>
+                            <th scope="col">Competência</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Valor</th>
+                            <th scope="col">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for d in page_obj %}
                         <tr>
+                            <td class="text-center">{{ forloop.counter }}</td>
                             <td>
                                 <span class="fw-bold">{{ d.descricao|title }}</span><br>
-                                <small class="text-muted">{{ d.categoria.name|title }}</small>
                             </td>
-                            <td>{{ d.professor.get_full_name|title|default:"--" }}</td>
+                            <td><small>{{ d.categoria.name|title }}</small></td>
                             <td class="text-center">{{ d.data_competencia|date:"M/Y" }}</td>
                             <td class="text-center">
                                 {% if d.status == 'pago' %}

@@ -2,8 +2,10 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.utils.html import format_html
+from django.db.models import Sum
 
 from .models import Category, Transaction, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente
+from .filters import AnoFilter
 
 
 @admin.register(Category)
@@ -91,17 +93,31 @@ class TransactionAdmin(admin.ModelAdmin):
 @admin.register(Despesa)
 class DespesaAdmin(admin.ModelAdmin):
     list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
-    list_filter = ('status', 'unidade_negocio', 'data_competencia')
+    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoFilter)
     search_fields = ('descricao',)
     ordering = ('-data_competencia',)
+
+    actions = ['calcular_total']
+
+    def calcular_total(self, request, queryset):
+        total = queryset.aggregate(Sum('valor'))['valor__sum'] or 0
+        self.message_user(request, f"💰 Total das despesas selecionadas: R$ {total:.2f}")
+    calcular_total.short_description = "Calcular total das despesas selecionadas"
 
 
 @admin.register(Receita)
 class ReceitaAdmin(admin.ModelAdmin):
     list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
-    list_filter = ('status', 'unidade_negocio', 'data_competencia')
+    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoFilter)
     search_fields = ('descricao', 'aluno__nome_completo')
     ordering = ('-data_competencia',)
+
+    actions = ['calcular_total']
+
+    def calcular_total(self, request, queryset):
+        total = queryset.aggregate(Sum('valor'))['valor__sum'] or 0
+        self.message_user(request, f"💰 Total das receitas selecionadas: R$ {total:.2f}")
+    calcular_total.short_description = "Calcular total das receitas selecionadas"
 
 
 @admin.register(DespesaRecorrente)

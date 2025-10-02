@@ -74,12 +74,11 @@ class AlunoChoiceForm(forms.Form):
     Um formulário simples que contém apenas um campo <select> para um Aluno.
     Este será o "molde" para cada linha no nosso formset de alunos.
     """
-
     aluno = TitlecaseModelChoiceField(
-        queryset=Aluno.objects.all().order_by("nome_completo"),
+        queryset=Aluno.objects.filter(status='ativo').order_by("nome_completo"),
         label="Aluno",
         widget=forms.Select(attrs={"class": "form-select"}),
-        empty_label="Selecione...",
+        empty_label="Selecione ou pesquise um aluno...",
     )
 
 

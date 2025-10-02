@@ -171,7 +171,7 @@ def transaction_list_view(request):
     income_chart_labels = [item["category__name"] for item in income_by_category]
     income_chart_data = [float(item["total"]) for item in income_by_category]
     
-    paginator = Paginator(transactions.order_by('-transaction_date'), 10)
+    paginator = Paginator(transactions.order_by('-transaction_date'), 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     form = TransactionForm(initial={"unidade_negocio": unidade_ativa_id})
@@ -442,7 +442,7 @@ def despesa_list_view(request):
         titulo = "Despesas a Vencer"
 
     # Paginação
-    paginator = Paginator(despesas_list, 10)
+    paginator = Paginator(despesas_list, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     
@@ -655,7 +655,7 @@ def receita_list_view(request):
         data_competencia__lte=data_limite
     ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
 
-    paginator = Paginator(receitas_list, 10)
+    paginator = Paginator(receitas_list, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 

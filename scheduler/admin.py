@@ -16,9 +16,36 @@ from .models import (
 )
 
 
-# Registros de outros modelos (sem alteração)
+class AnoAlunoFilter(admin.SimpleListFilter):
+    title = "Ano de Criação"
+    parameter_name = "ano_criacao"
+
+    def lookups(self, request, model_admin):
+        # Retorna anos distintos de criação dos alunos
+        anos = Aluno.objects.dates('data_criacao', 'year')
+        return [(ano.year, str(ano.year)) for ano in anos]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(data_criacao__year=self.value())
+        return queryset
+
+
 @admin.register(Aluno)
 class AlunoAdmin(admin.ModelAdmin):
+    @admin.action(description='Marcar alunos selecionados como "Inativo"')
+    def marcar_como_inativo(self, request, queryset):
+        updated = queryset.update(status='inativo')
+        self.message_user(request, f'{updated} alunos foram marcados como inativos.')
+
+    @admin.action(description='Marcar alunos selecionados como "Trancado"')
+    def marcar_como_trancado(self, request, queryset):
+        updated = queryset.update(status='trancado')
+        self.message_user(request, f'{updated} alunos foram marcados como trancados.')
+
+    actions = ['marcar_como_inativo', 'marcar_como_trancado']
+
+
     list_display = (
         "status",
         "nome_completo",
@@ -30,6 +57,10 @@ class AlunoAdmin(admin.ModelAdmin):
     )
     search_fields = ("nome_completo", "email", "cpf", "responsavel_nome")
     ordering = ("nome_completo",)
+    list_filter = (
+        AnoAlunoFilter,
+        "status",
+    )
     fieldsets = (
         (
             "Informações Pessoais",
