@@ -2,6 +2,7 @@ import re
 from django import template
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from scheduler.templatetags.filters import smart_truncate
 
 register = template.Library()
 

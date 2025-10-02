@@ -108,7 +108,7 @@
                         <a href="{% url 'leads:lead_detalhe' lead.pk %}">{{ lead.nome_interessado.title }}</a>
                     </h6>
                     <p class="mb-1 text-muted small"><i class="bi bi-phone me-1"></i>{{ lead.contato|format_contact }}</p>
-                    <small class="text-muted"><i class="bi bi-bookmark me-1"></i>Curso: {{ lead.get_curso_interesse_display|default:'N/A' }}</small>
+                    <small class="text-muted"><i class="bi bi-bookmark me-1"></i>Curso: {{ lead.get_curso_interesse_display|title|default:'N/A' }}</small>
                 </li>
                 {% endfor %}
             </ul>

@@ -31,27 +31,11 @@
                     <p><strong>Fonte:</strong> {{ lead.fonte|default:"Não informada" }}</p>
                 </div>
                 <div class="col-12 col-md-6">
-                    <p><strong>Curso de Interesse:</strong> {{ lead.get_curso_interesse_display|default:"Não informado" }}</p>
+                    <p><strong>Curso de Interesse:</strong> {{ lead.get_curso_interesse_display|title|default:"Não informado" }}</p>
                     <p><strong>Nível de Experiência:</strong> {{ lead.get_nivel_experiencia_display|default:"Não informado" }}</p>
                     <p><strong>Melhor Horário p/ Contato:</strong> {{ lead.get_melhor_horario_contato_display|default:"Não informado" }}</p>
                 </div>
-            </div>
-
-            <hr class="my-4">
-            <h5 class="mb-3">Questionário de Qualificação</h5>
-            <dl class="row">
-                <dt class="col-sm-4">{{ lead.proposito_estudo.verbose_name }}</dt>
-                <dd class="col-sm-8">{{ lead.proposito_estudo|default:"Não informado"|linebreaksbr }}</dd>
-
-                <dt class="col-sm-4">{{ lead.objetivo_tocar.verbose_name }}</dt>
-                <dd class="col-sm-8">{{ lead.objetivo_tocar|default:"Não informado"|linebreaksbr }}</dd>
-
-                <dt class="col-sm-4">{{ lead.motivo_interesse_especifico.verbose_name }}</dt>
-                <dd class="col-sm-8">{{ lead.motivo_interesse_especifico|default:"Não informado"|linebreaksbr }}</dd>
-
-                <dt class="col-sm-4">{{ lead.sobre_voce.verbose_name }}</dt>
-                <dd class="col-sm-8">{{ lead.sobre_voce|default:"Não informado"|linebreaksbr }}</dd>
-            </dl>
+            </div>            
             </div>
     </div>
 

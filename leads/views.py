@@ -15,34 +15,60 @@ import json
 
 @login_required
 def dashboard_leads(request):
-    total_leads = Lead.objects.count()
-    leads_convertidos = Lead.objects.filter(status='convertido').count()
+    # 1. Captura os parâmetros de filtro da URL (igual à view de listagem)
+    nome = request.GET.get("nome", "")
+    curso = request.GET.get("curso", "")
+    contato = request.GET.get("contato", "")
+    status = request.GET.get("status", "")
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+
+    # 2. Começa com todos os leads e aplica os filtros
+    leads_filtrados = Lead.objects.all()
+    if nome:
+        leads_filtrados = leads_filtrados.filter(nome_interessado__icontains=nome)
+    if curso:
+        leads_filtrados = leads_filtrados.filter(curso_interesse__icontains=curso)
+    if contato:
+        leads_filtrados = leads_filtrados.filter(contato__icontains=contato)
+    if status:
+        leads_filtrados = leads_filtrados.filter(status=status)
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, '%Y-%m-%d').date()
+            leads_filtrados = leads_filtrados.filter(data_criacao__date__gte=data_inicial)
+        except ValueError:
+            pass
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, '%Y-%m-%d').date()
+            leads_filtrados = leads_filtrados.filter(data_criacao__date__lte=data_final)
+        except ValueError:
+            pass
+
+    # 3. Calcula os KPIs e gráficos com base nos leads JÁ FILTRADOS
+    total_leads = leads_filtrados.count()
+    leads_convertidos = leads_filtrados.filter(status='convertido').count()
 
     taxa_conversao = 0
     if total_leads > 0:
         taxa_conversao = (leads_convertidos / total_leads) * 100
 
-    # Agrupando leads por fonte para o gráfico
     leads_por_fonte = (
-        Lead.objects.values('fonte')
+        leads_filtrados.values('fonte')
         .annotate(total=Count('id'))
         .order_by('-total')
     )
-
-    # Agrupando leads por status para outro gráfico
     leads_por_status = (
-        Lead.objects.values('status')
+        leads_filtrados.values('status')
         .annotate(total=Count('id'))
         .order_by('-total')
     )
-
-    # Últimos 5 leads adicionados
-    ultimos_leads = Lead.objects.order_by('-data_criacao')[:5]
+    ultimos_leads = leads_filtrados.order_by('-data_criacao')[:5]
 
     fontes_labels = json.dumps([item['fonte'] or 'Não especificado' for item in leads_por_fonte])
     fontes_data = json.dumps([item['total'] for item in leads_por_fonte])
-
-    status_labels = json.dumps([item['status'].replace('_', ' ').title() for item in leads_por_status])
+    status_labels = json.dumps([lead.get('status').replace('_', ' ').title() for lead in leads_por_status])
     status_data = json.dumps([item['total'] for item in leads_por_status])
 
     contexto = {
@@ -55,6 +81,16 @@ def dashboard_leads(request):
         'status_data': status_data,
         'ultimos_leads': ultimos_leads,
         "add_lead_form": LeadForm(),
+
+        # 4. Adiciona as opções de filtro e valores selecionados ao contexto
+        "nome": nome,
+        "curso_selecionado": curso,
+        "contato": contato,
+        "status_selecionado": status,
+        "status_choices": Lead.STATUS_CHOICES,
+        "curso_choices": Lead.CURSO_CHOICES,
+        "data_inicial": data_inicial_str,
+        "data_final": data_final_str,
     }
 
     return render(request, 'leads/dashboard_leads.html', contexto)
@@ -106,10 +142,11 @@ def lead_listar(request):
         "add_lead_form": LeadForm(),
         "form": LeadForm(),
         "nome": nome,
-        "curso": curso,
+        "curso_selecionado": curso, 
         "contato": contato,
         "status_selecionado": status,
         "status_choices": Lead.STATUS_CHOICES,
+        "curso_choices": Lead.CURSO_CHOICES,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
     }
@@ -267,12 +304,6 @@ def update_lead_status(request):
 @login_required
 def lead_edit(request, pk):
     lead = get_object_or_404(Lead, pk=pk)
-
-    if lead.status == 'convertido':
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Não é possível editar um lead que já foi convertido em aluno.'
-        }, status=403)
 
     if request.method == 'POST':
         form = LeadForm(request.POST, instance=lead)

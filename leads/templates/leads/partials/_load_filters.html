@@ -1,0 +1,43 @@
+{# Campos do formulário de filtro para Leads #}
+<div class="mb-3">
+    <label for="id_nome" class="form-label small fw-bold">Nome do Interessado</label>
+    <input type="text" id="id_nome" name="nome" class="form-control" value="{{ nome }}">
+</div>
+
+<div class="mb-3">
+    <label for="id_data_inicial" class="form-label small fw-bold">Data Inicial</label>
+    <input type="date" id="id_data_inicial" name="data_inicial" class="form-control" value="{{ data_inicial }}">
+</div>
+<div class="mb-3">
+    <label for="id_data_final" class="form-label small fw-bold">Data Final</label>
+    <input type="date" id="id_data_final" name="data_final" class="form-control" value="{{ data_final }}">
+</div>
+
+<div class="mb-3">
+    <label for="id_status" class="form-label small fw-bold">Status</label>
+    <select id="id_status" name="status" class="form-select">
+        <option value="">Todos</option>
+        {% for status_value, status_label in status_choices %}
+            <option value="{{ status_value }}" {% if status_value == status_selecionado %}selected{% endif %}>
+                {{ status_label }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="id_curso" class="form-label small fw-bold">Curso de Interesse</label>
+    <select id="id_curso" name="curso" class="form-select">
+        <option value="">Todos</option>
+        {% for curso_value, curso_label in curso_choices %}
+            <option value="{{ curso_value }}" {% if curso_value == curso_selecionado %}selected{% endif %}>
+                {{ curso_label }}
+            </option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="id_contato" class="form-label small fw-bold">Contato (Telefone ou E-mail)</label>
+    <input type="text" id="id_contato" name="contato" class="form-control" value="{{ contato }}">
+</div>

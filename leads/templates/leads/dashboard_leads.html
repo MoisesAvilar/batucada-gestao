@@ -1,10 +1,9 @@
 {% extends "scheduler/base.html" %}
+{% load filters %}
 
 {% block content %}
 <div class="container mt-4">
     {% include 'leads/_leads_nav.html' %}
-
-    <!-- KPIs -->
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3 mb-4">
         <div class="col">
             <div class="card text-center h-100 text-primary">
@@ -32,7 +31,6 @@
         </div>
     </div>
 
-    <!-- Gráficos -->
     <div class="row g-4 mb-4">
         <div class="col-12 col-md-6">
             <div class="card h-100">
@@ -56,34 +54,77 @@
         </div>
     </div>
 
-    <!-- Últimos Leads -->
     <div class="row">
         <div class="col-12">
             <div class="card mb-4">
                 <div class="card-body">
-                    <h5 class="card-title">Últimos Leads</h5>
-                    <ul class="list-group list-group-flush">
-                        {% for lead in ultimos_leads %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
-                            <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-truncate" style="max-width: 70%;">
-                                {{ lead.nome_interessado.title }}
-                            </a>
-                            <span class="badge 
-                                {% if lead.status == 'convertido' %}bg-success
-                                {% elif lead.status == 'perdido' %}bg-danger
-                                {% elif lead.status == 'em_contato' %}bg-warning text-dark
-                                {% elif lead.status == 'negociando' %}bg-warning text-dark
-                                {% elif lead.status == 'em_andamento' %}bg-info
-                                {% else %}bg-secondary
-                                {% endif %}
-                                text-uppercase">
-                                {{ lead.get_status_display }}
-                            </span>
-                        </li>
-                        {% empty %}
-                        <li class="list-group-item text-muted">Nenhum lead recente.</li>
-                        {% endfor %}
-                    </ul>
+                    <h5 class="card-title mb-3">Últimos Leads</h5>
+                    
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Nome</th>
+                                    <th scope="col" class="text-center">Status</th>
+                                    <th scope="col" class="text-end">Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in ultimos_leads %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="fw-semibold text-decoration-none">
+                                            {{ lead.nome_interessado.title }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge rounded-pill
+                                            {% if lead.status == 'convertido' %} bg-success-subtle text-success-emphasis
+                                            {% elif lead.status == 'perdido' %} bg-danger-subtle text-danger-emphasis
+                                            {% elif lead.status == 'em_contato' %} bg-warning-subtle text-warning-emphasis
+                                            {% elif lead.status == 'negociando' %} bg-info-subtle text-info-emphasis
+                                            {% else %} bg-secondary-subtle text-secondary-emphasis {% endif %}">
+                                            {{ lead.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end text-muted small">
+                                        {{ lead.data_criacao|date:"d/m/Y" }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">Nenhum lead recente.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-md-none">
+                        <ul class="list-group list-group-flush">
+                            {% for lead in ultimos_leads %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="fw-semibold text-decoration-none d-block">
+                                        {{ lead.nome_interessado.title|smart_truncate:2 }}
+                                    </a>
+                                    <small class="text-muted">{{ lead.data_criacao|date:"d/m/Y" }}</small>
+                                </div>
+                                <span class="badge rounded-pill flex-shrink-0 ms-2
+                                    {% if lead.status == 'convertido' %} bg-success-subtle text-success-emphasis
+                                    {% elif lead.status == 'perdido' %} bg-danger-subtle text-danger-emphasis
+                                    {% elif lead.status == 'em_contato' %} bg-warning-subtle text-warning-emphasis
+                                    {% elif lead.status == 'negociando' %} bg-info-subtle text-info-emphasis
+                                    {% else %} bg-secondary-subtle text-secondary-emphasis {% endif %}">
+                                    {{ lead.get_status_display }}
+                                </span>
+                            </li>
+                            {% empty %}
+                            <li class="list-group-item px-0 text-center text-muted py-4">Nenhum lead recente.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -91,6 +132,18 @@
 </div>
 
 <style>
+:root {
+    --chart-text-color: #6c757d;
+    --chart-grid-color: rgba(0, 0, 0, 0.1);
+    --chart-pie-border-color: #fff;
+}
+
+[data-bs-theme="dark"] {
+    --chart-text-color: #adb5bd;
+    --chart-grid-color: rgba(255, 255, 255, 0.1);
+    --chart-pie-border-color: #212529;
+}
+
 .chart-container {
     position: relative;
     width: 100%;
@@ -103,18 +156,23 @@
     }
 }
 </style>
+{% include 'leads/partials/_filter_panel.html' %}
 {% endblock %}
-
 {% block extra_js %}
 {{ block.super }}
+{% include 'leads/partials/_filter_panel_js.html' %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
+    const getCssVar = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+
+    // --- Gráfico de Fontes (Bar) ---
+    // Nenhuma alteração aqui
     const ctxFontes = document.getElementById('graficoFontes').getContext('2d');
     const fontesLabels = JSON.parse('{{ fontes_labels|safe }}');
     const fontesData = JSON.parse('{{ fontes_data|safe }}');
-
-    new Chart(ctxFontes, {
+    const barChart = new Chart(ctxFontes, {
         type: 'bar',
         data: {
             labels: fontesLabels,
@@ -130,46 +188,150 @@ document.addEventListener('DOMContentLoaded', function() {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        color: getCssVar('--chart-text-color') // Cor dinâmica
+                    },
+                    grid: {
+                        color: getCssVar('--chart-grid-color') // Cor dinâmica
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: getCssVar('--chart-text-color') // Cor dinâmica
+                    },
+                    grid: {
+                        color: 'transparent'
+                    }
+                }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
         }
     });
 
+
+    // --- Gráfico de Status (Pie) ---
     const ctxStatus = document.getElementById('graficoStatus').getContext('2d');
     const statusLabels = JSON.parse('{{ status_labels|safe }}');
     const statusData = JSON.parse('{{ status_data|safe }}');
 
-    new Chart(ctxStatus, {
+    const statusColorMap = {
+        'Novo':       { light: '--bs-secondary', dark: '--bs-secondary-text-emphasis' },
+        'Em Contato': { light: '--bs-warning',   dark: '--bs-warning-text-emphasis'   },
+        'Negociando': { light: '--bs-info',      dark: '--bs-info-text-emphasis'      },
+        'Convertido': { light: '--bs-success',   dark: '--bs-success-text-emphasis'   },
+        'Perdido':    { light: '--bs-danger',    dark: '--bs-danger-text-emphasis'    }
+    };
+
+    // ★ ALTERAÇÃO PRINCIPAL: Função centralizada para definir as cores da pizza
+    function updatePieChartColors(chart) {
+        // 1. Detecta se o modo escuro está ativo
+        const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+
+        // 2. Gera os arrays de cores com a lógica de inversão
+        const backgroundColors = statusLabels.map(label => {
+            const mapEntry = statusColorMap[label] || statusColorMap['Novo'];
+            // Se for dark mode, usa a cor 'dark'. Senão, usa a cor 'light'.
+            const varName = isDarkMode ? mapEntry.dark : mapEntry.light;
+            return getCssVar(varName);
+        });
+
+        // ★ ALTERAÇÃO: A cor da borda agora é sempre a mesma, adaptável ao tema
+        // Isso cria um efeito de "recorte" limpo que funciona em ambos os modos.
+        const borderColor = getCssVar('--chart-pie-border-color');
+
+        chart.data.datasets[0].backgroundColor = backgroundColors;
+        chart.data.datasets[0].borderColor = borderColor; // Aplicado a todas as fatias
+        chart.options.plugins.legend.labels.color = getCssVar('--chart-text-color');
+        chart.update();
+    }
+
+    let activeSliceIndex = null;
+    const pieChart = new Chart(ctxStatus, {
         type: 'pie',
         data: {
             labels: statusLabels,
             datasets: [{
                 label: 'Leads por Status',
                 data: statusData,
-                backgroundColor: [
-                    'rgba(54, 162, 235, 0.7)',   // Novo
-                    'rgba(255, 206, 86, 0.7)',   // Em Contato
-                    'rgba(75, 192, 192, 0.7)',   // Negociando
-                    'rgba(40, 167, 69, 0.7)',    // Convertido
-                    'rgba(220, 53, 69, 0.7)'     // Perdido
-                ],
-                borderColor: '#fff',
-                borderWidth: 2
+                // Os arrays de cores serão preenchidos pela nossa função
+                backgroundColor: [],
+                borderColor: [],
+                borderWidth: 3, // Aumentei um pouco a borda para destacar o efeito
+                offset: new Array(statusData.length).fill(0),
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            onClick: (event, elements) => {
+                if (elements.length === 0) {
+                    // Clicou fora de uma fatia, não faz nada
+                    return;
+                }
+
+                const clickedIndex = elements[0].index;
+                const offsetArray = pieChart.data.datasets[0].offset;
+
+                // Lógica de toggle:
+                // Se clicou na mesma fatia que já estava ativa, a recolhe.
+                if (clickedIndex === activeSliceIndex) {
+                    offsetArray[clickedIndex] = 0;
+                    activeSliceIndex = null;
+                } else {
+                    // Se clicou em uma nova fatia:
+                    // 1. Recolhe a fatia que estava ativa anteriormente (se houver)
+                    if (activeSliceIndex !== null) {
+                        offsetArray[activeSliceIndex] = 0;
+                    }
+                    // 2. Destaca a nova fatia
+                    offsetArray[clickedIndex] = 20; // O valor do deslocamento em pixels
+                    activeSliceIndex = clickedIndex;
+                }
+
+                // Atualiza o gráfico para mostrar a mudança
+                pieChart.update();
+            },
             plugins: {
                 legend: {
                     position: window.innerWidth < 768 ? 'bottom' : 'right',
-                    labels: { padding: 10 }
+                    labels: {
+                        padding: 10,
+                        color: getCssVar('--chart-text-color')
+                    }
                 },
                 tooltip: { enabled: true }
             }
         }
     });
+
+    // ★ CHAMA A FUNÇÃO PELA PRIMEIRA VEZ para definir as cores iniciais
+    updatePieChartColors(pieChart);
+
+    // --- Observador de Tema ---
+    const themeObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'data-bs-theme') {
+                // Atualiza o gráfico de barras (lógica anterior)
+                barChart.options.scales.y.ticks.color = getCssVar('--chart-text-color');
+                barChart.options.scales.x.ticks.color = getCssVar('--chart-text-color');
+                barChart.options.scales.y.grid.color = getCssVar('--chart-grid-color');
+                barChart.update();
+
+                // ★ CHAMA A MESMA FUNÇÃO para atualizar a pizza quando o tema muda
+                updatePieChartColors(pieChart);
+            }
+        });
+    });
+
+    themeObserver.observe(document.documentElement, { attributes: true });
+
 });
 </script>
 {% endblock %}

@@ -1,31 +1,22 @@
 {% extends "scheduler/base.html" %}
 {% load lead_extras %}
+{% load filters %}
+<style>
+    .thead-custom th {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+@media (prefers-color-scheme: dark) {
+  .thead-custom th {
+    background-color: #1f1f1f;
+    color: #e9ecef;
+  }
+}
+
+</style>
 {% block content %}
     {% include 'leads/_leads_nav.html' %}
-    <div class="d-flex justify-content-end mb-3">
-        <div class="d-grid d-lg-none w-100">
-            <button class="btn btn-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasFilters">
-                <i class="bi bi-funnel me-1"></i> Filtros e Busca
-            </button>
-        </div>
-        <div class="d-none d-lg-block">
-            <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFiltersDesktop" aria-expanded="false" aria-controls="collapseFiltersDesktop">
-                <i class="bi bi-funnel me-1"></i> Filtros e Busca
-            </button>
-        </div>
-    </div>
-
-    <div class="collapse" id="collapseFiltersDesktop">
-        <form method="get" class="content-block mb-4">
-            {% include 'leads/partials/_lead_filters.html' %}
-            <div class="pt-3 mt-3 border-top text-end">
-                <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary">Limpar</a>
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-1"></i>Aplicar Filtros
-                </button>
-            </div>
-        </form>
-    </div>
 
   {% if page_obj.paginator.count > 0 %}
     <div class="mb-3">
@@ -45,143 +36,175 @@
 
 <div class="content-block">
     <div class="row">
-        {% for lead in page_obj %}
 
-        <div class="col-12 col-xl-6 mb-4 d-none d-md-block">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center justify-content-center bg-body-secondary rounded-circle" style="width: 48px; height: 48px;">
-                                <i class="bi bi-person-circle fs-4 text-primary"></i>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <h6 class="card-title mb-0 fw-bold">
-                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
-                                    {{ lead.nome_interessado.title }}
+        <!-- TABELA DESKTOP -->
+        <div class="content-block d-none d-md-block">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-custom">
+                        <tr>
+                            <th>ID</th>
+                            <th>Interessado</th>
+                            <th>Responsável</th>
+                            <th>Contato</th>
+                            <th>Curso de Interesse</th>
+                            <th>Data de Criação</th>
+                            <th>Status</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lead in page_obj %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none">
+                                    {{ lead.nome_interessado|title|smart_truncate:2 }}
                                 </a>
-                            </h6>
-                            <p class="card-text text-muted mb-0">{{ lead.contato|format_contact }}</p>
-                        </div>
-                    </div>
-                    <div class="text-muted small mt-3">
-                        {% if lead.curso_interesse %}
-                        <div class="d-flex align-items-center mb-1">
-                            <i class="bi bi-book me-2"></i>
-                            <span>{{ lead.get_curso_interesse_display }}</span>
-                        </div>
-                        {% endif %}
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-calendar-event me-2"></i>
-                            <span>Criado em {{ lead.data_criacao|date:"d/m/Y" }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card-footer d-flex justify-content-between align-items-center py-2">
-                    <div>
-                        {% include 'leads/partials/_status_badge.html' with status=lead.status %}
-                    </div>
-                    
-                    <div>
-                        {% if lead.status == 'convertido' and lead.aluno_convertido %}
-                            <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-sm btn-info">
-                                <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
-                            </a>
-                        {% else %}
-                            <div class="btn-group">
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#editLeadModal"
-                                        data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
-                                    Editar
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <span class="visually-hidden">Mais Ações</span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'leads:converter_lead' lead.pk %}">
-                                            <i class="bi bi-check2-circle me-2"></i>Converter
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <button class="dropdown-item text-danger" type="button"
-                                                data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
-                                                data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
-                                            <i class="bi bi-trash me-2"></i>Excluir
+                            </td>
+                            <td>
+                               {{ lead.nome_responsavel|title|smart_truncate:2 }}
+                            </td> 
+                            <td>{{ lead.contato|format_contact }}</td>
+                            <td>
+                                {% if lead.curso_interesse %}
+                                    {{ lead.get_curso_interesse_display|title }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ lead.data_criacao|date:"F" }}</td>
+                            <td>{% include 'leads/partials/_status_badge.html' with status=lead.status %}</td>
+                            <td class="text-end">
+                                {% if lead.status == 'convertido' and lead.aluno_convertido %}
+                                    <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
+                                    </a>
+                                {% else %}
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal" data-bs-target="#editLeadModal"
+                                                data-lead-url="{% url 'leads:lead_edit' lead.pk %}">Editar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">Mais Ações</span>
                                         </button>
-                                    </li>
-                                </ul>
-                            </div>
-                        {% endif %}
-                    </div>
-                    </div>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            {% if lead.status != 'convertido' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'leads:converter_lead' lead.pk %}">
+                                                    <i class="bi bi-check2-circle me-2"></i>Converter
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            {% endif %}
+                                            <li>
+                                                <button class="dropdown-item text-danger" type="button"
+                                                        data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                                                        data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                                    <i class="bi bi-trash me-2"></i>Excluir
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">Nenhum lead encontrado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
+        <!-- CARDS MOBILE -->
         <div class="d-md-none">
-            <div class="card shadow-sm mb-3 border-0 rounded-3">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1 fw-bold">
-                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
-                                    {{ lead.nome_interessado.title }}
-                                </a>
-                            </h6>
-                            <small class="text-muted">
-                                <i class="bi bi-phone me-1"></i>{{ lead.contato|format_contact }}
-                            </small>
-                        </div>
+        {% for lead in page_obj %}
+        <div class="card shadow-sm mb-3 border-0 rounded-3">
+            <div class="card-body">
+                <!-- Nome e status -->
+                <div class="d-flex flex-column">
+                    <h6 class="mb-2 fw-bold">
+                        <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                        {{ lead.nome_interessado.title|smart_truncate:2 }}
+                        </a>
+                    </h6>
+                    <div>
                         {% include 'leads/partials/_status_badge.html' with status=lead.status %}
                     </div>
+                </div>
 
-                    <div class="text-muted small mb-3">
-                        <i class="bi bi-calendar3 me-1"></i>
-                        Criado em: {{ lead.data_criacao|date:"d/m/Y H:i" }}
-                    </div>
+                <!-- Contato -->
+                <div class="mb-2 small text-muted">
+                    {{ lead.contato|format_contact }}
+                </div>
 
-                    {% if lead.status == 'convertido' and lead.aluno_convertido %}
-                         <div class="d-grid">
-                            <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-info btn-sm">
-                                <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
-                            </a>
-                        </div>
+                <!-- Curso de interesse -->
+                <div class="mb-2 small text-muted">
+                    <i class="bi bi-music-note-list me-1"></i>
+                    {% if lead.curso_interesse %}
+                        {{ lead.get_curso_interesse_display|title }}
                     {% else %}
-                        <div class="btn-group w-100" role="group">
-                            <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-success btn-sm w-75">
-                                <i class="bi bi-check-circle me-1"></i>Converter
-                            </a>
-                            <button type="button" class="btn btn-outline-success btn-sm dropdown-toggle dropdown-toggle-split w-25" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="visually-hidden">Mais ações</span>
+                        <span class="text-muted">Curso não informado</span>
+                    {% endif %}
+                </div>
+
+                <!-- Data de criação -->
+                <div class="mb-3 small text-muted">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    Criado em: {{ lead.data_criacao|date:"F" }}
+                </div>
+
+                <!-- Ações -->
+                {% if lead.status == 'convertido' and lead.aluno_convertido %}
+                    <div class="d-grid">
+                        <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-info btn-sm">
+                            <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="d-flex justify-content-between gap-2">
+                        {% if lead.status != 'convertido' %}
+                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-success btn-sm w-100">
+                            <i class="bi bi-check-circle me-1"></i>Converter
+                        </a>
+                        {% endif %}
+                        <div class="dropup w-100">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle w-100"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-three-dots"></i> Mais
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>
-                                    <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal" data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                    <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal"
+                                            data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
                                         <i class="bi bi-pencil me-2"></i>Editar
                                     </button>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                    <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                                            data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
                                         <i class="bi bi-trash me-2"></i>Excluir
                                     </button>
                                 </li>
                             </ul>
                         </div>
-                    {% endif %}
                     </div>
+                {% endif %}
             </div>
         </div>
         {% empty %}
-        <div class="col">
-            <div class="text-center text-muted p-4">Nenhum lead encontrado.</div>
-        </div>
+        <div class="text-center text-muted p-4">Nenhum lead encontrado.</div>
         {% endfor %}
     </div>
+
+    </div>
 </div>
+
 
 <div class="modal fade" id="editLeadModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -226,10 +249,12 @@
 </div>
 
 {% include 'scheduler/partials/pagination.html' with page_obj=page_obj request=request %}
+{% include 'leads/partials/_filter_panel.html' %}
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
+{% include 'leads/partials/_filter_panel_js.html' %}
 <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasFilters" aria-labelledby="offcanvasFiltersLabel">
   <div class="offcanvas-header">
     <h5 class="offcanvas-title" id="offcanvasFiltersLabel"><i class="bi bi-funnel me-2"></i>Filtros de Leads</h5>

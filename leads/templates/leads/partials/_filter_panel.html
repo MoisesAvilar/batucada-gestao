@@ -1,0 +1,25 @@
+<div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="filtersOffcanvasLabel"><i class="bi bi-funnel-fill me-2"></i>Filtros de Leads</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+        <form method="GET" action="" id="filter-form" class="flex-grow-1">
+            
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-today">Hoje</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-week">Esta Semana</button>
+                <button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="filter-month">Este Mês</button>
+            </div>
+            
+            {% include 'leads/partials/_lead_filters.html' %}
+
+            <div class="mt-auto pt-3 border-top">
+                <div class="d-flex gap-2">
+                    <a href="{{ request.path }}" class="btn btn-outline-secondary w-100">Limpar</a>
+                    <button class="btn btn-primary w-100" type="submit">Aplicar Filtros</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

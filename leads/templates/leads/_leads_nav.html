@@ -1,33 +1,40 @@
 <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-4 pb-3 border-bottom gap-3">
-
     <h2 class="h4 text-center text-md-start mb-0">Gestão de Leads</h2>
 
     <div class="d-none d-md-flex gap-2 align-items-center">
         <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary {% if request.resolver_match.url_name == 'lead_listar' %}active{% endif %}">
             <i class="bi bi-list me-1"></i> Lista
         </a>
-        <a href="{% url 'leads:kanban_board' %}" class="btn btn-outline-secondary {% if request.resolver_match.url_name == 'kanban_board' %}active{% endif %}">
-            <i class="bi bi-columns-gap me-1"></i> Kanban
-        </a>
         <a href="{% url 'leads:dashboard_leads' %}" class="btn btn-outline-secondary {% if request.resolver_match.url_name == 'dashboard_leads' %}active{% endif %}">
             <i class="bi bi-bar-chart-line me-1"></i> Dashboard
         </a>
+        
+        {% if request.resolver_match.url_name == 'lead_listar' or request.resolver_match.url_name == 'dashboard_leads' %}
+        <button class="btn btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersOffcanvas" aria-controls="filtersOffcanvas">
+            <i class="bi bi-funnel me-1"></i> Filtros
+        </button>
+        {% endif %}
+
         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addLeadModal">
-            <i class="bi bi-plus-circle me-1"></i> Adicionar Novo Lead
+            <i class="bi bi-plus-circle me-1"></i> Adicionar Lead
         </button>
     </div>
 </div>
 
 <div class="d-flex d-md-none flex-wrap justify-content-center gap-2 mb-3">
+    
     <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary btn-sm {% if request.resolver_match.url_name == 'lead_listar' %}active{% endif %}">
         <i class="bi bi-list me-1"></i> Lista
-    </a>
-    <a href="{% url 'leads:kanban_board' %}" class="btn btn-outline-secondary btn-sm {% if request.resolver_match.url_name == 'kanban_board' %}active{% endif %}">
-        <i class="bi bi-columns-gap me-1"></i> Kanban
     </a>
     <a href="{% url 'leads:dashboard_leads' %}" class="btn btn-outline-secondary btn-sm {% if request.resolver_match.url_name == 'dashboard_leads' %}active{% endif %}">
         <i class="bi bi-bar-chart-line me-1"></i> Dash
     </a>
+    {% if request.resolver_match.url_name == 'lead_listar' or request.resolver_match.url_name == 'dashboard_leads' %}
+    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersOffcanvas" aria-controls="filtersOffcanvas">
+        <i class="bi bi-funnel me-1"></i> Filtros
+    </button>
+    {% endif %}
+    
     <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addLeadModal">
         <i class="bi bi-plus-circle me-1"></i> Novo
     </button>

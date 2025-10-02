@@ -1,0 +1,41 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filter-form');
+    if (!form) return;
+
+    const dateStartInput = form.querySelector('#id_data_inicial');
+    const dateEndInput = form.querySelector('#id_data_final');
+    
+    // Função auxiliar para formatar datas (YYYY-MM-DD)
+    function formatDate(date) { return date.toISOString().split('T')[0]; }
+
+    // Lógica dos botões de atalho de data
+    document.getElementById('filter-today')?.addEventListener('click', () => {
+        const today = formatDate(new Date());
+        dateStartInput.value = today;
+        dateEndInput.value = today;
+        form.submit();
+    });
+
+    document.getElementById('filter-week')?.addEventListener('click', () => {
+        const today = new Date();
+        // Ajuste para semana começar na segunda-feira
+        const firstDayOfWeek = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1); 
+        const firstDay = new Date(today.setDate(firstDayOfWeek));
+        const lastDay = new Date(new Date(firstDay).setDate(firstDay.getDate() + 6));
+        
+        dateStartInput.value = formatDate(firstDay);
+        dateEndInput.value = formatDate(lastDay);
+        form.submit();
+    });
+
+    document.getElementById('filter-month')?.addEventListener('click', () => {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        dateStartInput.value = formatDate(firstDay);
+        dateEndInput.value = formatDate(lastDay);
+        form.submit();
+    });
+});
+</script>
