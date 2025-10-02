@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from core.models import UnidadeNegocio
 from scheduler.models import Aluno
+from datetime import date
 
 
 def get_escola_unidade_negocio():
@@ -104,7 +105,10 @@ class Lead(models.Model):
     )
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="novo")
-    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_criacao = models.DateField(
+        default=date.today,
+        verbose_name="Data de Criação"
+    )
     unidade_negocio = models.ForeignKey(
         UnidadeNegocio, on_delete=models.PROTECT, default=get_escola_unidade_negocio
     )

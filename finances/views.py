@@ -93,56 +93,47 @@ def transaction_list_view(request):
         - timedelta(days=1)
     )
 
-    # Totais a pagar/receber
-    total_a_pagar = Despesa.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status="a_pagar",
-        data_competencia__range=[start_date, end_date],
-    ).aggregate(total=Sum("valor"))["total"] or 0
-
-    total_a_receber = Receita.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status="a_receber",
-        data_competencia__range=[start_date, end_date],
-    ).aggregate(total=Sum("valor"))["total"] or 0
-
-    contas_vencidas = Despesa.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status='a_pagar',
-        data_competencia__lt=today
-    ).aggregate(count=Count('id'), total=Sum('valor'))
-
-    receitas_atrasadas = Receita.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status='a_receber',
-        data_competencia__lt=today
-    ).aggregate(count=Count('id'), total=Sum('valor'))
-
-    transactions = Transaction.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        transaction_date__range=[start_date, end_date],
-    ).select_related("category")
-
-    # --- FLUXO DE CAIXA REALISTA ---
+    # ... (o restante da lógica de KPIs e contas vencidas permanece igual) ...
+    total_a_pagar = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id, status="a_pagar", data_competencia__range=[start_date, end_date]).aggregate(total=Sum("valor"))["total"] or 0
+    total_a_receber = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id, status="a_receber", data_competencia__range=[start_date, end_date]).aggregate(total=Sum("valor"))["total"] or 0
+    contas_vencidas = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_pagar', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
+    receitas_atrasadas = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_receber', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
+    transactions = Transaction.objects.filter(unidade_negocio_id=unidade_ativa_id, transaction_date__range=[start_date, end_date]).select_related("category")
+    
+    # ==============================================================================
+    # --- FLUXO DE CAIXA REALISTA (COM MESES EM PORTUGUÊS) ---
+    # ==============================================================================
     def get_monthly_data(transactions, tipo):
         qs = transactions.filter(category__type=tipo)
         monthly = qs.annotate(month=TruncMonth("transaction_date")) \
                       .values("month") \
                       .annotate(total=Sum("amount")) \
                       .order_by("month")
-        month_map = {d["month"].strftime("%b/%y"): float(d["total"]) for d in monthly}
+        # ★ ALTERAÇÃO 1: Usar o objeto 'date' como chave, em vez de uma string formatada
+        month_map = {d["month"]: float(d["total"]) for d in monthly}
         return month_map
 
     income_map = get_monthly_data(transactions, "income")
     expense_map = get_monthly_data(transactions, "expense")
 
+    # Obtém um conjunto de todas as datas (objetos date)
     months_set = set(income_map.keys()).union(expense_map.keys())
-    flow_chart_labels = sorted(months_set, key=lambda d: datetime.strptime(d, "%b/%y"))
+    # Ordena as datas cronologicamente
+    flow_chart_dates = sorted(list(months_set))
 
-    flow_chart_income_data = [income_map.get(m, 0) for m in flow_chart_labels]
-    flow_chart_expense_data = [expense_map.get(m, 0) for m in flow_chart_labels]
+    # ★ ALTERAÇÃO 2: Cria as legendas em português usando o dicionário MESES_PT
+    flow_chart_labels = [f"{MESES_PT[d.month]}/{d.strftime('%y')}" for d in flow_chart_dates]
+
+    # ★ ALTERAÇÃO 3: Busca os dados usando as chaves de data ordenadas
+    flow_chart_income_data = [income_map.get(m, 0) for m in flow_chart_dates]
+    flow_chart_expense_data = [expense_map.get(m, 0) for m in flow_chart_dates]
+    
+    # ==============================================================================
+    # --- FIM DAS ALTERAÇÕES NO FLUXO DE CAIXA ---
+    # ==============================================================================
 
     def rolling_average(data, window=3):
+        # ... (função rolling_average sem alterações) ...
         result = []
         for i in range(len(data)):
             slice_data = data[max(0, i-window+1):i+1]
@@ -155,19 +146,12 @@ def transaction_list_view(request):
     total_income = sum(flow_chart_income_data)
     total_expenses = sum(flow_chart_expense_data)
     balance = total_income - total_expenses
-
-    # Gráficos por categoria
-    expenses_by_category = transactions.filter(category__type="expense") \
-                                       .values("category__name") \
-                                       .annotate(total=Sum("amount")) \
-                                       .order_by("-total")
+    
+    expenses_by_category = transactions.filter(category__type="expense").values("category__name").annotate(total=Sum("amount")).order_by("-total")
     chart_labels = [item["category__name"] for item in expenses_by_category]
     chart_data = [float(item["total"]) for item in expenses_by_category]
 
-    income_by_category = transactions.filter(category__type="income") \
-                                     .values("category__name") \
-                                     .annotate(total=Sum("amount")) \
-                                     .order_by("-total")
+    income_by_category = transactions.filter(category__type="income").values("category__name").annotate(total=Sum("amount")).order_by("-total")
     income_chart_labels = [item["category__name"] for item in income_by_category]
     income_chart_data = [float(item["total"]) for item in income_by_category]
     
@@ -209,10 +193,7 @@ def transaction_list_view(request):
         'flow_chart_expense_data': flow_chart_expense_data,
         'flow_chart_income_avg': flow_chart_income_avg,
         'flow_chart_expense_avg': flow_chart_expense_avg,
-        'top_produtos_vendidos': Produto.objects.filter(
-            unidade_negocio_id=unidade_ativa_id,
-            receitas__data_competencia__range=[start_date, end_date]
-        ).annotate(total_vendido=Sum('receitas__valor')).order_by('-total_vendido').filter(total_vendido__gt=0)[:5],
+        'top_produtos_vendidos': Produto.objects.filter(unidade_negocio_id=unidade_ativa_id, receitas__data_competencia__range=[start_date, end_date]).annotate(total_vendido=Sum('receitas__valor')).order_by('-total_vendido').filter(total_vendido__gt=0)[:5],
         'top_despesas': transactions.filter(category__type='expense').order_by('-amount')[:5],
     })
 

@@ -6,6 +6,14 @@ from django.core.validators import validate_email
 
 
 class LeadForm(forms.ModelForm):
+    data_criacao = forms.DateField(
+        label="Data de Criação",
+        widget=forms.DateInput(
+            attrs={'class': 'form-control', 'type': 'date'}
+        ),
+        required=False
+    )
+
     class Meta:
         model = Lead
         fields = [
@@ -14,6 +22,7 @@ class LeadForm(forms.ModelForm):
             "contato",
             "idade",
             "status",
+            "data_criacao",
             "curso_interesse",
             "nivel_experiencia",
             "melhor_horario_contato",
@@ -51,6 +60,12 @@ class LeadForm(forms.ModelForm):
             ),
             "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Formata o valor da data para o formato do widget HTML5
+        if self.instance and self.instance.data_criacao:
+            self.initial['data_criacao'] = self.instance.data_criacao.strftime('%Y-%m-%d')
 
     def clean_contato(self):
         contato = self.cleaned_data.get("contato", "").strip()

@@ -28,12 +28,12 @@
                         <strong>Status:</strong> 
                         <span class="badge text-bg-primary">{{ lead.get_status_display }}</span>
                     </p>
-                    <p><strong>Fonte:</strong> {{ lead.fonte|default:"Não informada" }}</p>
+                    <p><strong>Fonte:</strong> {{ lead.fonte|default_if_none:"Não informado"|title}}</p>
                 </div>
                 <div class="col-12 col-md-6">
-                    <p><strong>Curso de Interesse:</strong> {{ lead.get_curso_interesse_display|title|default:"Não informado" }}</p>
-                    <p><strong>Nível de Experiência:</strong> {{ lead.get_nivel_experiencia_display|default:"Não informado" }}</p>
-                    <p><strong>Melhor Horário p/ Contato:</strong> {{ lead.get_melhor_horario_contato_display|default:"Não informado" }}</p>
+                    <p><strong>Curso de Interesse:</strong> {{ lead.get_curso_interesse_display|default_if_none:"Não informado"|title }}</p>
+                    <p><strong>Nível de Experiência:</strong> {{ lead.get_nivel_experiencia_display|default_if_none:"Não informado"|title }}</p>
+                    <p><strong>Melhor Horário p/ Contato:</strong> {{ lead.get_melhor_horario_contato_display|default_if_none:"Não informado"|title }}</p>
                 </div>
             </div>            
             </div>
@@ -79,7 +79,7 @@
                         <p class="card-text">{{ interacao.notas.capitalize }}</p>
                         <small class="text-muted">
                             <strong>{{ interacao.get_tipo_display }}</strong> por 
-                            <em>{{ interacao.responsavel.get_full_name|default:"Usuário" }}</em> em 
+                            <em>{{ interacao.responsavel.get_full_name|title|default:"Usuário" }}</em> em 
                             {{ interacao.data_interacao|date:"d/m/Y à\s H:i" }}
                         </small>
                     </div>

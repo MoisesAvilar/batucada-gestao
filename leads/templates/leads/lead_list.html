@@ -125,17 +125,12 @@
         {% for lead in page_obj %}
         <div class="card shadow-sm mb-3 border-0 rounded-3">
             <div class="card-body">
-                <!-- Nome e status -->
-                <div class="d-flex flex-column">
-                    <h6 class="mb-2 fw-bold">
-                        <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                <!-- Nome -->
+                <h6 class="fw-bold mb-2 text-truncate">
+                    <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
                         {{ lead.nome_interessado.title|smart_truncate:2 }}
-                        </a>
-                    </h6>
-                    <div>
-                        {% include 'leads/partials/_status_badge.html' with status=lead.status %}
-                    </div>
-                </div>
+                    </a>
+                </h6>
 
                 <!-- Contato -->
                 <div class="mb-2 small text-muted">
@@ -151,11 +146,16 @@
                         <span class="text-muted">Curso não informado</span>
                     {% endif %}
                 </div>
-
+                
                 <!-- Data de criação -->
-                <div class="mb-3 small text-muted">
+                <div class="small text-muted mb-1">
                     <i class="bi bi-calendar3 me-1"></i>
                     Criado em: {{ lead.data_criacao|date:"F" }}
+                </div>
+
+                <!-- Status -->
+                <div class="mb-3">
+                    {% include 'leads/partials/_status_badge.html' with status=lead.status %}
                 </div>
 
                 <!-- Ações -->

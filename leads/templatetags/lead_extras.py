@@ -1,28 +1,26 @@
+# Em leads/templatetags/lead_extras.py
+
 import re
 from django import template
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
-from scheduler.templatetags.filters import smart_truncate
 
 register = template.Library()
 
 
-@register.filter(name="format_contact")
+@register.filter(name="format_contact", is_safe=True)
 def format_contact(value):
     """
     Formata um valor de contato.
-    - Se for e-mail, cria um link 'mailto:' com um ícone.
-    - Se for telefone, aplica a máscara (XX) XXXX-XXXX ou (XX) XXXXX-XXXX
-      e cria um link 'tel:' com um ícone.
+    - Se for e-mail, cria um link 'mailto:'.
+    - Se for telefone, cria um dropdown com opções para WhatsApp e ligação.
     """
     if not isinstance(value, str):
         return value
 
     value = value.strip()
 
-    # Se for um E-mail
+    # --- Lógica para E-mail (sem alteração) ---
     if "@" in value:
-        # A tag 'safe' é necessária para renderizar o HTML do ícone
         return format_html(
             '<a href="mailto:{0}" class="text-decoration-none">'
             '<i class="bi bi-envelope me-2"></i>{0}'
@@ -30,28 +28,49 @@ def format_contact(value):
             value,
         )
 
-    # Se for um Telefone
+    # --- NOVA LÓGICA PARA TELEFONE (COM DROPDOWN) ---
     else:
         digits_only = re.sub(r"\D", "", value)
+        formatted_phone = ""
 
-        # Formato para 11 dígitos (celular com 9)
         if len(digits_only) == 11:
             formatted_phone = "({0}) {1}-{2}".format(
                 digits_only[0:2], digits_only[2:7], digits_only[7:11]
             )
-        # Formato para 10 dígitos (fixo ou celular antigo)
         elif len(digits_only) == 10:
             formatted_phone = "({0}) {1}-{2}".format(
                 digits_only[0:2], digits_only[2:6], digits_only[6:10]
             )
-        # Se não tiver 10 ou 11 dígitos, retorna o valor original
         else:
-            return value
+            return value  # Retorna o original se não for um telefone válido
 
-        return format_html(
-            '<a href="tel:{0}" class="text-decoration-none">'
-            '<i class="bi bi-telephone me-2"></i>{1}'
-            "</a>",
-            digits_only,
+        # Prepara os números para os links (assumindo código do Brasil 55 para o WhatsApp)
+        whatsapp_number = "55" + digits_only
+        tel_number = digits_only
+
+        # Monta o HTML do dropdown do Bootstrap
+        dropdown_html = format_html(
+            """
+            <div class="dropdown d-inline-block">
+                <a href="#" class="text-decoration-none dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-telephone me-2"></i>{0}
+                </a>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a class="dropdown-item" href="https://wa.me/{1}" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-whatsapp me-2 text-success"></i>Abrir WhatsApp
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="tel:{2}">
+                            <i class="bi bi-telephone-outbound me-2"></i>Fazer Ligação
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            """,
             formatted_phone,
+            whatsapp_number,
+            tel_number,
         )
+        return dropdown_html

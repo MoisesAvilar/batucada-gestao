@@ -319,6 +319,7 @@ def lead_edit(request, pk):
         'contato': lead.contato,
         'idade': lead.idade,
         'status': lead.status,
+        'data_criacao': lead.data_criacao, 
         'curso_interesse': lead.curso_interesse,
         'nivel_experiencia': lead.nivel_experiencia,
         'melhor_horario_contato': lead.melhor_horario_contato,
