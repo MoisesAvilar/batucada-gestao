@@ -1,6 +1,10 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
+{# 1. Dependências de CSS para o Select2 #}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
 <style>
     /* Estilos Gerais (Modo Claro) */
     .content-block {
@@ -28,27 +32,21 @@
     [data-bs-theme="dark"] .formset-row:nth-child(even) {
         background-color: var(--bs-gray-800);
     }
-
     [data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-selection {
         background-color: var(--bs-body-bg);
         border-color: var(--bs-border-color);
     }
-    
     [data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-dropdown {
         background-color: var(--bs-body-bg);
         border-color: var(--bs-border-color-translucent);
     }
-    
     [data-bs-theme="dark"] .select2-results__option {
         color: var(--bs-body-color);
     }
-
     [data-bs-theme="dark"] .select2-results__option--highlighted {
         background-color: var(--bs-primary);
         color: white;
     }
-
-    /* ★★★ CORREÇÃO PARA O TEXTO DO ITEM JÁ SELECIONADO ★★★ */
     [data-bs-theme="dark"] .select2-container--bootstrap-5 .select2-selection__rendered {
         color: var(--bs-body-color);
     }
@@ -156,89 +154,94 @@
 
 {% block extra_js %}
 {{ block.super }}
-<script>
-function updateSelectOptions() {
-    const processSelects = (selector, selectedSet) => {
-        document.querySelectorAll(selector).forEach(select => {
-            if (select.closest('.formset-row').style.display === 'none') return;
-            Array.from(select.options).forEach(option => {
-                if (!option.dataset.originalText) { option.dataset.originalText = option.text; }
-                const isSelectedElsewhere = option.value && selectedSet.has(option.value);
-                const isCurrentSelection = select.value === option.value;
-                if (isSelectedElsewhere && !isCurrentSelection) {
-                    option.disabled = true;
-                    option.text = `✓ ${option.dataset.originalText} (Selecionado)`;
-                } else {
-                    option.disabled = false;
-                    option.text = option.dataset.originalText;
-                }
-            });
-        });
-    };
-    const selectedAlunos = new Set();
-    document.querySelectorAll('[id^="id_alunos-"][id$="-aluno"] select').forEach(select => {
-        if (select.value && select.closest('.formset-row').style.display !== 'none') { selectedAlunos.add(select.value); }
-    });
-    processSelects('[id^="id_alunos-"][id$="-aluno"] select', selectedAlunos);
-    const selectedProfessores = new Set();
-    document.querySelectorAll('[id^="id_professores-"][id$="-professor"] select').forEach(select => {
-        if (select.value && select.closest('.formset-row').style.display !== 'none') { selectedProfessores.add(select.value); }
-    });
-    processSelects('[id^="id_professores-"][id$="-professor"] select', selectedProfessores);
-}
+{# 2. Dependência de JS para o Select2 #}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // Pega o formulário pelo ID único que adicionamos.
     const aulaForm = document.getElementById('aula-form');
+    if (!aulaForm) return;
 
-    // Se o formulário não for encontrado, interrompe o script para evitar erros.
-    if (!aulaForm) {
-        console.error("ERRO: Formulário com id 'aula-form' não foi encontrado.");
-        return;
+    // Função para atualizar as opções desabilitadas/habilitadas
+    function updateSelectOptions() {
+        const processSelects = (selector, selectedSet) => {
+            // Usa o seletor corrigido para encontrar os campos
+            document.querySelectorAll(selector).forEach(select => {
+                if (select.closest('.formset-row')?.style.display === 'none') return;
+                
+                Array.from(select.options).forEach(option => {
+                    if (!option.dataset.originalText) { option.dataset.originalText = option.text; }
+                    const isSelectedElsewhere = option.value && selectedSet.has(option.value);
+                    const isCurrentSelection = select.value === option.value;
+                    
+                    if (isSelectedElsewhere && !isCurrentSelection) {
+                        option.disabled = true;
+                        option.text = `✓ ${option.dataset.originalText} (Selecionado)`;
+                    } else {
+                        option.disabled = false;
+                        option.text = option.dataset.originalText;
+                    }
+                });
+                // Notifica o Select2 sobre a mudança nas opções
+                $(select).trigger('change.select2');
+            });
+        };
+
+        const selectedAlunos = new Set();
+        document.querySelectorAll('[id^="id_alunos-"][id$="-aluno"]').forEach(select => {
+            if (select.value && select.closest('.formset-row').style.display !== 'none') { selectedAlunos.add(select.value); }
+        });
+        processSelects('[id^="id_alunos-"][id$="-aluno"]', selectedAlunos);
+
+        const selectedProfessores = new Set();
+        document.querySelectorAll('[id^="id_professores-"][id$="-professor"]').forEach(select => {
+            if (select.value && select.closest('.formset-row').style.display !== 'none') { selectedProfessores.add(select.value); }
+        });
+        processSelects('[id^="id_professores-"][id$="-professor"]', selectedProfessores);
     }
 
-    // ★★★ LÓGICA DE REMOÇÃO REVISADA ★★★
+    // Função para inicializar o Select2 em um elemento
+    function initializeSelect2(element) {
+        $(element).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Selecione...'
+        });
+    }
+
+    // Inicializa o Select2 em todos os selects que já existem na página
+    $('#aula-form select').each(function() {
+        initializeSelect2(this);
+    });
+    
+    // Delegação de evento para os botões de remoção
     aulaForm.addEventListener('click', function(e) {
-        // Encontra o botão de remoção mais próximo do elemento que foi clicado (seja o ícone ou o botão em si)
         const removeButton = e.target.closest('.btn-remove-row');
-
-        // Se nenhum botão de remoção foi clicado, não faz nada.
-        if (!removeButton) {
-            return;
-        }
+        if (!removeButton) return;
         
-        // Impede qualquer comportamento padrão do botão
         e.preventDefault();
-
         const row = removeButton.closest('.formset-row');
         if (row) {
             const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
-            
-            // Marca a caixa de deleção (se ela existir)
-            if (deleteCheckbox) {
-                deleteCheckbox.checked = true;
-            }
-            
-            // Esconde a linha para o usuário
+            if (deleteCheckbox) { deleteCheckbox.checked = true; }
             row.style.display = 'none';
-
-            // Atualiza as opções dos outros selects
             updateSelectOptions();
         }
     });
 
-    // O resto da sua lógica de inicialização (intocada)
-    updateSelectOptions();
+    // Atualiza as opções quando um select é alterado
     aulaForm.addEventListener('change', function(e) {
-        if (e.target.matches('[id^="id_alunos-"][id$="-aluno"] select, [id^="id_professores-"][id$="-professor"] select')) {
+        if (e.target.matches('[id$="-aluno"], [id$="-professor"]')) {
             updateSelectOptions();
         }
     });
-
+    
+    // Lógica para adicionar novas linhas de formset
     function setupFormset(buttonId, containerId, templateId, prefix) {
         const addButton = document.getElementById(buttonId);
         if (!addButton) return;
+
         const formContainer = document.getElementById(containerId);
         const template = document.getElementById(templateId);
         const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
@@ -247,50 +250,41 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentFormCount = parseInt(totalFormsInput.value);
             const newFormHtml = template.innerHTML.replace(/__prefix__/g, currentFormCount);
             
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = newFormHtml;
-            const newRow = tempDiv.firstElementChild;
-            
-            formContainer.appendChild(newRow);
+            formContainer.insertAdjacentHTML('beforeend', newFormHtml);
             totalFormsInput.value = currentFormCount + 1;
             
-            updateSelectOptions();
-            
-            // Garante que o Select2 seja aplicado na nova linha
-            const newSelect = $(newRow).find('select');
-            if (newSelect.length) {
-                newSelect.select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Selecione...' });
+            // Pega a nova linha adicionada
+            const newRow = formContainer.lastElementChild;
+            const newSelect = newRow.querySelector('select');
+
+            // ★ INICIALIZA O SELECT2 NA NOVA LINHA ★
+            if (newSelect) {
+                initializeSelect2(newSelect);
             }
+            
+            // Atualiza as opções para todos os selects
+            updateSelectOptions();
         });
     }
 
     setupFormset('add-aluno-form', 'aluno-forms', 'empty-form-alunos', 'alunos');
     setupFormset('add-professor-form', 'professor-forms', 'empty-form-professores', 'professores');
 
+    // Executa a primeira atualização para os dados iniciais
+    updateSelectOptions();
+
+    // Lógica para esconder/mostrar o campo de alunos (inalterada)
     const modalidadeSelectEl = document.getElementById('id_modalidade');
     if (modalidadeSelectEl) {
-        modalidadeSelectEl.addEventListener('change', function() {
+        function toggleAlunosVisibility() {
             const alunosContainer = document.getElementById('alunos-formset-container');
-            const professoresContainer = document.getElementById('professores-formset-container');
-            const selectedOptionText = this.options[this.selectedIndex].text.toLowerCase();
-            
-            if (selectedOptionText.includes('atividade complementar')) {
-                if (alunosContainer) {
-                    alunosContainer.style.display = 'none';
-                }
-                if (professoresContainer) {
-                    professoresContainer.style.display = 'block';
-                }
-            } else {
-                if (alunosContainer) {
-                    alunosContainer.style.display = 'block';
-                }
-                if (professoresContainer) {
-                    professoresContainer.style.display = 'block';
-                }
+            const selectedOptionText = modalidadeSelectEl.options[modalidadeSelectEl.selectedIndex].text.toLowerCase();
+            if (alunosContainer) {
+                alunosContainer.style.display = selectedOptionText.includes('atividade complementar') ? 'none' : 'block';
             }
-        });
-        modalidadeSelectEl.dispatchEvent(new Event('change'));
+        }
+        modalidadeSelectEl.addEventListener('change', toggleAlunosVisibility);
+        toggleAlunosVisibility(); // Executa ao carregar a página
     }
 });
 </script>

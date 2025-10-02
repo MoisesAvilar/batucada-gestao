@@ -1,6 +1,9 @@
 {% extends "scheduler/base.html" %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
 <div style="display:none;">{% csrf_token %}</div>
 <style>
     .content-block {
@@ -61,6 +64,9 @@
     #pending-card .badge.bg-danger-subtle {
         background-color: var(--bs-danger-bg-subtle);
         color: var(--bs-danger-emphasis);
+    }
+    .select2-container--open {
+        z-index: 1100 !important;
     }
 </style>
 
@@ -258,6 +264,7 @@
 {% block extra_js %}
 {# O seu bloco de javascript permanece aqui, sem alterações #}
 {{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <style>
 	/* Estilos Gerais (compartilhados) */
 	.calendario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
@@ -532,7 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let dataAtual = new Date("{{ mes_atual|date:'Y-m-d' }}T00:00:00");
 
-    // --- 2. FUNÇÕES DO CALENDÁRIO ---
+    // --- 2. FUNÇÕES DO CALENDÁRIO (inalteradas) ---
     function handleDateClick(e) {
         const diaClicado = e.target.closest('.js-day-cell');
         if (!diaClicado || e.target.closest('a') || diaClicado.classList.contains('fora-do-mes')) return;
@@ -590,29 +597,79 @@ document.addEventListener('DOMContentLoaded', function() {
         calendarioWrapper.querySelector('#cal-next-mobile')?.addEventListener('click', () => acaoNavegacao(1));
     }
 
-    // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO ---
+    // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO (ATUALIZADAS) ---
+
+    // ★ NOVA FUNÇÃO: Atualiza as opções dos selects para desabilitar itens já escolhidos
+    function updateSelectOptionsInModal() {
+        const processSelects = (selector, selectedSet) => {
+            document.querySelectorAll(`#agendamentoModal ${selector}`).forEach(select => {
+                if (select.closest('.formset-row')?.style.display === 'none') return;
+                
+                Array.from(select.options).forEach(option => {
+                    if (!option.dataset.originalText) { option.dataset.originalText = option.text; }
+                    const isSelectedElsewhere = option.value && selectedSet.has(option.value);
+                    const isCurrentSelection = select.value === option.value;
+                    
+                    if (isSelectedElsewhere && !isCurrentSelection) {
+                        option.disabled = true;
+                        option.text = `✓ ${option.dataset.originalText} (Selecionado)`;
+                    } else {
+                        option.disabled = false;
+                        option.text = option.dataset.originalText;
+                    }
+                });
+                // Atualiza o Select2 para refletir as mudanças
+                $(select).trigger('change.select2');
+            });
+        };
+
+        const selectedAlunos = new Set();
+        document.querySelectorAll('#agendamentoModal [id^="id_alunos-"][id$="-aluno"]').forEach(select => {
+            if (select.value && select.closest('.formset-row')?.style.display !== 'none') { selectedAlunos.add(select.value); }
+        });
+        processSelects('[id^="id_alunos-"][id$="-aluno"]', selectedAlunos);
+
+        const selectedProfessores = new Set();
+        document.querySelectorAll('#agendamentoModal [id^="id_professores-"][id$="-professor"]').forEach(select => {
+            if (select.value && select.closest('.formset-row')?.style.display !== 'none') { selectedProfessores.add(select.value); }
+        });
+        processSelects('[id^="id_professores-"][id$="-professor"]', selectedProfessores);
+    }
+
     function setupModalInteractions() {
         if (!modalEl) return;
         const form = modalEl.querySelector('form');
         if (!form) return;
+
+        // ★ ATUALIZADO: Evento 'shown.bs.modal' para inicializar Select2 nos campos existentes
+        modalEl.addEventListener('shown.bs.modal', function() {
+            $(modalEl).find('select:not(.select2-hidden-accessible)').each(function() {
+                $(this).select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Selecione...',
+                    width: '100%',
+                    dropdownParent: $('#agendamentoModal .modal-body')
+                });
+            });
+            updateSelectOptionsInModal();
+        });
+        
         modalEl.addEventListener('show.bs.modal', function (event) {
             const popoverAberto = document.querySelector('.popover.show');
             if (popoverAberto) {
                 const triggerElement = document.querySelector(`[aria-describedby="${popoverAberto.id}"]`);
-                if (triggerElement) {
-                    bootstrap.Popover.getInstance(triggerElement)?.hide();
-                }
+                if (triggerElement) bootstrap.Popover.getInstance(triggerElement)?.hide();
             }
             const button = event.relatedTarget;
             if (!button) return;
             const dateToSchedule = button.getAttribute('data-date-agenda');
             if (dateToSchedule) {
                 const inputDataHora = modalEl.querySelector('#id_data_hora');
-                if (inputDataHora) {
-                    inputDataHora.value = dateToSchedule + "T09:00";
-                }
+                if (inputDataHora) inputDataHora.value = dateToSchedule + "T09:00";
             }
         });
+
+        // ★ ATUALIZADO: Lógica de remoção de linha para chamar updateSelectOptionsInModal
         form.addEventListener('click', function(e) {
             const removeButton = e.target.closest('.btn-remove-row-modal');
             if (!removeButton) return;
@@ -620,12 +677,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const row = removeButton.closest('.formset-row');
             if (row) {
                 const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
-                if (deleteCheckbox) {
-                    deleteCheckbox.checked = true;
-                }
+                if (deleteCheckbox) deleteCheckbox.checked = true;
                 row.style.display = 'none';
+                updateSelectOptionsInModal(); // Atualiza as opções
             }
         });
+
+        // ★ NOVO: Event listener para 'change' nos selects para atualizar as opções
+        form.addEventListener('change', function(e) {
+            if (e.target.matches('[id$="-aluno"], [id$="-professor"]')) {
+                updateSelectOptionsInModal();
+            }
+        });
+
+        // ★ ATUALIZADO: setupFormset para aplicar Select2 na nova linha
         function setupFormset(buttonId, containerId, templateId, prefix) {
             const addButton = modalEl.querySelector(`#${buttonId}`);
             addButton?.addEventListener('click', function() {
@@ -633,13 +698,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 const template = document.getElementById(templateId);
                 const totalFormsInput = modalEl.querySelector(`#id_${prefix}-TOTAL_FORMS`);
                 if (!container || !template || !totalFormsInput) return;
+
                 const count = parseInt(totalFormsInput.value);
                 container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__prefix__/g, count));
                 totalFormsInput.value = count + 1;
+                
+                const newRow = container.lastElementChild;
+                const newSelect = $(newRow).find('select');
+                if (newSelect.length) {
+                    newSelect.select2({
+                        theme: 'bootstrap-5',
+                        placeholder: 'Selecione...',
+                        width: '100%',
+                        dropdownParent: $('#agendamentoModal .modal-body')
+                    });
+                }
+                updateSelectOptionsInModal(); // Atualiza as opções
             });
         }
         setupFormset('add-aluno-form-modal', 'aluno-forms-modal', 'empty-form-alunos-modal', 'alunos');
         setupFormset('add-professor-form-modal', 'professor-forms-modal', 'empty-form-professores-modal', 'professores');
+
+        // Lógica de submit (inalterada)
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
@@ -663,28 +743,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
         const modalidadeSelectModal = modalEl.querySelector('#id_modalidade');
         if (modalidadeSelectModal) {
             function toggleAlunosVisibility() {
                 const alunosContainerModal = modalEl.querySelector('#alunos-formset-container-modal');
                 const selectedOptionText = modalidadeSelectModal.options[modalidadeSelectModal.selectedIndex].text.toLowerCase();
                 if (alunosContainerModal) {
-                    if (selectedOptionText.includes('atividade complementar')) {
-                        alunosContainerModal.style.display = 'none';
-                    } else {
-                        alunosContainerModal.style.display = 'block';
-                    }
+                    alunosContainerModal.style.display = selectedOptionText.includes('atividade complementar') ? 'none' : 'block';
                 }
             }
             modalidadeSelectModal.addEventListener('change', toggleAlunosVisibility);
-            modalEl.addEventListener('show.bs.modal', function() {
-                toggleAlunosVisibility();
-            });
+            modalEl.addEventListener('show.bs.modal', toggleAlunosVisibility);
         }
         modalEl.addEventListener('hidden.bs.modal', () => form.reset());
     }
 
-    // --- 4. INICIALIZAÇÃO GERAL ---
+    // --- 4. INICIALIZAÇÃO GERAL (inalterada) ---
     associarEventosNavegacao();
     setupCalendarInteractions();
     if (userType === 'admin' || userType === 'professor') {
@@ -694,8 +769,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (target) target.value = source.value;
                 carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
             };
-            if (professorFiltroDesktop) { professorFiltroDesktop.addEventListener('change', () => handleFilterChange(professorFiltroDesktop, professorFiltroMobile)); }
-            if (professorFiltroMobile) { professorFiltroMobile.addEventListener('change', () => handleFilterChange(professorFiltroMobile, professorFiltroDesktop)); }
+            if (professorFiltroDesktop) professorFiltroDesktop.addEventListener('change', () => handleFilterChange(professorFiltroDesktop, professorFiltroMobile));
+            if (professorFiltroMobile) professorFiltroMobile.addEventListener('change', () => handleFilterChange(professorFiltroMobile, professorFiltroDesktop));
         }
     }
     if (overlay) {
@@ -703,70 +778,25 @@ document.addEventListener('DOMContentLoaded', function() {
         calendarioWrapper.addEventListener('hide.bs.popover', () => overlay.classList.remove('is-visible'));
     }
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.popover')) { return; }
+        if (e.target.closest('.popover')) return;
         if (!e.target.closest('.js-day-cell')) {
             const popoverAberto = document.querySelector('.popover');
             if (popoverAberto) {
                 const triggerElement = document.querySelector(`[aria-describedby="${popoverAberto.id}"]`);
-                if (triggerElement) {
-                    bootstrap.Popover.getInstance(triggerElement)?.hide();
-                }
+                if (triggerElement) bootstrap.Popover.getInstance(triggerElement)?.hide();
             }
         }
     }, true);
 
-    // ★★★ INÍCIO DA LÓGICA DO TOUR MULTI-PÁGINA ★★★
     const mostrarTourHorarios = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
     const userTipo = JSON.parse(document.getElementById('user-tipo-data').textContent);
 
     if (mostrarTourHorarios && userTipo === 'admin') {
-        // 1. Inicializa o Shepherd Tour
-        const tour = new Shepherd.Tour({
-            useModalOverlay: true,
-            defaultStepOptions: {
-                classes: 'shadow-md bg-body-secondary',
-                scrollTo: true,
-                cancelIcon: { enabled: true },
-            }
-        });
-
-        // 2. Define os passos do tour para esta página (Dashboard)
-        tour.addStep({
-            id: 'step-1-welcome',
-            title: 'Nova Funcionalidade!',
-            text: 'Agora você pode visualizar rapidamente todos os horários dos alunos em um único lugar. Vamos explorar juntos!',
-            buttons: [
-                { text: 'Pular', action: tour.cancel, secondary: true },
-                { text: 'Começar', action: tour.next }
-            ]
-        });
-
-        tour.addStep({
-            id: 'step-2-continue',
-            title: 'Acesse a Grade de Horários',
-            text: 'Clique em "Continuar" para ser levado à nova página da Grade de Horários, onde o tour continuará.',
-            attachTo: { element: '#btnVerHorariosFixos', on: 'bottom' },
-            buttons: [
-                { text: 'Voltar', action: tour.back, secondary: true },
-                {
-                    text: 'Continuar',
-                    action: function() {
-                        // Define os marcadores no localStorage para a próxima página saber que o tour está ativo
-                        localStorage.setItem('tourInProgress', 'horarios_fixos_v1');
-                        localStorage.setItem('tourCurrentStep', 'step-3-grid-welcome');
-                        
-                        // Clica no link para navegar para a página da grade
-                        document.getElementById('btnVerHorariosFixos').click();
-                    }
-                }
-            ]
-        });
-
-        // 3. Inicia o tour
+        const tour = new Shepherd.Tour({ useModalOverlay: true, defaultStepOptions: { classes: 'shadow-md bg-body-secondary', scrollTo: true, cancelIcon: { enabled: true } } });
+        tour.addStep({ id: 'step-1-welcome', title: 'Nova Funcionalidade!', text: 'Agora você pode visualizar rapidamente todos os horários dos alunos em um único lugar. Vamos explorar juntos!', buttons: [{ text: 'Pular', action: tour.cancel, secondary: true }, { text: 'Começar', action: tour.next }] });
+        tour.addStep({ id: 'step-2-continue', title: 'Acesse a Grade de Horários', text: 'Clique em "Continuar" para ser levado à nova página da Grade de Horários, onde o tour continuará.', attachTo: { element: '#btnVerHorariosFixos', on: 'bottom' }, buttons: [{ text: 'Voltar', action: tour.back, secondary: true }, { text: 'Continuar', action: function() { localStorage.setItem('tourInProgress', 'horarios_fixos_v1'); localStorage.setItem('tourCurrentStep', 'step-3-grid-welcome'); document.getElementById('btnVerHorariosFixos').click(); } }] });
         tour.start();
     }
-    // ★★★ FIM DA LÓGICA DO TOUR MULTI-PÁGINA ★★★
-
 });
 </script>
 
@@ -774,32 +804,19 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', () => {
     const wrapper = document.querySelector('.agenda-wrapper');
     if (!wrapper) return;
-
     const hojeEl = wrapper.querySelector('.agenda-day-header.hoje');
     if (!hojeEl) return;
-
     const scrollPos = hojeEl.offsetTop - wrapper.offsetTop - 10;
-
     function smoothScroll(element, target, duration) {
-        const start = element.scrollTop;
-        const change = target - start;
-        const startTime = performance.now();
-
+        const start = element.scrollTop, change = target - start, startTime = performance.now();
         function animateScroll(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
+            const elapsed = currentTime - startTime, progress = Math.min(elapsed / duration, 1);
             element.scrollTop = start + change * progress;
-            if (progress < 1) {
-                requestAnimationFrame(animateScroll);
-            }
+            if (progress < 1) requestAnimationFrame(animateScroll);
         }
-
         requestAnimationFrame(animateScroll);
     }
-
     smoothScroll(wrapper, scrollPos, 600);
 });
 </script>
-
-
 {% endblock %}

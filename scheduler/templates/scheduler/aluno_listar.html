@@ -1,4 +1,5 @@
 {% extends "scheduler/base.html" %}
+{% load filters %}
 
 {% block content %}
 <style>
@@ -17,6 +18,29 @@
         padding: 1rem;
         margin-bottom: 0.75rem;
     }
+    .table-responsive {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .table-responsive table thead th {
+        position: sticky;
+        top: 0;
+        background-color: var(--bs-light);
+        z-index: 1;
+    }
+    @media (max-width: 768px) {
+        .mobile-card h6 {
+            font-size: 1rem;
+        }
+        .mobile-card .badge {
+            font-size: 0.75rem;
+            padding: 0.35em 0.6em;
+        }
+        .mobile-card .btn-sm {
+            font-size: 0.85rem;
+        }
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -29,16 +53,34 @@
     {% endif %}
 </div>
 
+{# ★ INÍCIO DO FORMULÁRIO DE FILTRO ATUALIZADO ★ #}
 <form method="get" action="{% url 'scheduler:aluno_listar' %}" class="mb-4">
-    <div class="input-group">
-        <input type="text" class="form-control" name="q" placeholder="Buscar por nome, email ou telefone..." value="{{ search_query }}">
-        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-        {% if search_query %}<a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-lg"></i></a>{% endif %}
+    <div class="row g-2">
+        <div class="col-md-8">
+            <input type="text" class="form-control" name="q" placeholder="Buscar por nome, email ou telefone..." value="{{ search_query }}">
+        </div>
+        <div class="col-md-4">
+            <select name="status_filtro" class="form-select">
+                <option value="">Todos os Status</option>
+                {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if value == status_filtro %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-2">
+        <button class="btn btn-primary w-100" type="submit"><i class="bi bi-search me-1"></i> Filtrar</button>
+        <a href="{% url 'scheduler:aluno_listar' %}" class="btn btn-outline-secondary w-100">Limpar</a>
     </div>
 </form>
+{# ★ FIM DO FORMULÁRIO DE FILTRO ATUALIZADO ★ #}
+
 
 <div class="content-block">
     <h5 class="px-3 pt-3 pb-2 mb-0">Lista de Alunos</h5>
+    <div class="px-3 text-muted small mb-3">
+        Total encontrados: <strong>{{ total_alunos_filtrados }}</strong>
+    </div>
     {% if not alunos %}
         <div class="text-center text-muted p-5">
             <i class="bi bi-people display-4"></i>
@@ -48,29 +90,35 @@
         {# --- VISÃO DE DESKTOP (TABELA) --- #}
         <div class="table-responsive d-none d-lg-block">
             <table class="table table-hover table-borderless align-middle mb-0">
-                <thead>
+                <thead class="table-light">
                     <tr>
-                        <th scope="col" class="ps-3">Nome</th>
+                        <th scope="col" class="ps-3">Nome e Status</th>
                         <th scope="col">Email / Telefone</th>
-                        <th scope="col" class="text-center">Total de Aulas</th>
-                        <th scope="col">Próxima Aula</th>
+                        <th scope="col" class="text-center"><i class="bi bi-calendar-check me-1"></i> Aulas</th>
+                        <th scope="col"><i class="bi bi-clock me-1"></i> Próxima Aula</th>
                         <th scope="col" class="text-end pe-3">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for aluno in alunos %}
+                    {% for aluno in page_obj %}
                     <tr>
                         <td class="ps-3">
                             <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none text-body">
-                                <strong class="d-block">{{ aluno.nome_completo|title }}</strong>
-                                {% if aluno.status == 'ativo' %}
-                                    <span class="badge bg-success ms-2">Ativo</span>
-                                {% elif aluno.status == 'inativo' %}
-                                    <span class="badge bg-danger ms-2">Inativo</span>
-                                {% elif aluno.status == 'trancado' %}
-                                    <span class="badge bg-secondary ms-2">Trancado</span>
+                                <div class="d-flex align-items-center">
+                                    <strong class="me-2">{{ aluno.nome_completo|title|smart_truncate:2 }}</strong>
+                                    {% if aluno.status == 'ativo' %}
+                                        <span class="badge bg-success">Ativo</span>
+                                    {% elif aluno.status == 'inativo' %}
+                                        <span class="badge bg-danger">Inativo</span>
+                                    {% elif aluno.status == 'trancado' %}
+                                        <span class="badge bg-secondary">Trancado</span>
+                                    {% endif %}
+                                </div>
+                                {% if aluno.responsavel_nome %}
+                                    <small class="text-muted d-block mt-1">Responsável: {{ aluno.responsavel_nome|title|smart_truncate:2 }}</small>
+                                {% else %}
+                                    <small class="text-muted">Responsável: Indisponível</small>
                                 {% endif %}
-                                <small class="text-muted">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</small>
                             </a>
                         </td>
                         <td>
@@ -82,12 +130,18 @@
                         <td class="text-center"><span class="badge fs-6 text-bg-secondary">{{ aluno.total_aulas }}</span></td>
                         <td>{% if aluno.proxima_aula %}{{ aluno.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
                         <td class="text-end pe-3">
-                            <div class="d-flex justify-content-end gap-2">
+                            <div class="btn-group" role="group">
                                 {% if user.tipo == 'admin' %}
-                                    <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}"><i class="bi bi-trash"></i></button>
+                                    <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 {% endif %}
-                                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-primary">Ver Perfil</a>
+                                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-primary" title="Ver Perfil">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                             </div>
                         </td>
                     </tr>
@@ -96,33 +150,64 @@
             </table>
         </div>
 
-        {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
+        {# ★ INÍCIO DA VISÃO DE MOBILE ATUALIZADA ★ #}
         <div class="d-lg-none p-2">
-            {% for aluno in alunos %}
+            {% for aluno in page_obj %}
             <div class="mobile-card">
-                <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="text-decoration-none text-body">
-                    <h6 class="mb-1">{{ aluno.nome_completo|title }}</h6>
-                    <p class="text-muted small mb-2">Matrícula: {{ aluno.data_criacao|date:"d/m/Y" }}</p>
-                </a>
-                <div class="row text-center small g-2 border-top border-bottom py-2 my-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">{{ aluno.nome_completo|title|smart_truncate:2 }}</h6>
+                    {% if aluno.status == 'ativo' %}
+                        <span class="badge bg-success">Ativo</span>
+                    {% elif aluno.status == 'inativo' %}
+                        <span class="badge bg-danger">Inativo</span>
+                    {% elif aluno.status == 'trancado' %}
+                        <span class="badge bg-secondary">Trancado</span>
+                    {% endif %}
+                </div>
+
+                {% if aluno.responsavel_nome %}
+                    <p class="text-muted small mb-2"><strong>Responsável:</strong> {{ aluno.responsavel_nome|title|smart_truncate:2 }}</p>
+                {% endif %}
+
+                <div class="row text-center small g-0 border-top border-bottom py-2 my-2">
                     <div class="col">
                         <div class="text-muted">Aulas</div>
-                        <strong>{{ aluno.total_aulas }}</strong>
+                        <strong class="fs-6">{{ aluno.total_aulas }}</strong>
                     </div>
                     <div class="col">
                         <div class="text-muted">Próxima Aula</div>
-                        <strong>{{ aluno.proxima_aula|date:"d/m H:i"|default:"N/A" }}</strong>
+                        <strong class="fs-6">{{ aluno.proxima_aula|date:"d/m H:i"|default:"—" }}</strong>
                     </div>
                 </div>
-                <div class="d-flex justify-content-end gap-2 mt-2">
+
+                <div class="d-grid gap-2 mt-2">
+                    <a href="{% url 'scheduler:aluno_detalhe' aluno.pk %}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-person"></i> Ver Perfil
+                    </a>
+
                     {% if user.tipo == 'admin' %}
-                        <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">Excluir</button>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'scheduler:aluno_editar' aluno.pk %}" class="btn btn-sm btn-primary w-100">
+                            <i class="bi bi-pencil-square"></i> Editar
+                        </a>
+                        <button type="button" class="btn btn-sm btn-danger w-100" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aluno_excluir' aluno.pk %}">
+                            <i class="bi bi-trash"></i> Excluir
+                        </button>
+                    </div>
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
+
+        {# ★ FIM DA VISÃO DE MOBILE ATUALIZADA ★ #}
     {% endif %}
+</div>
+
+<div class="d-flex justify-content-between align-items-center px-3 mt-3 flex-wrap">
+    <small class="text-muted flex-shrink-1" style="min-width: 150px;">
+        Exibindo {{ page_obj.start_index }}–{{ page_obj.end_index }} de {{ total_alunos_filtrados }}
+    </small>
+    {% include 'scheduler/partials/pagination.html' with page_obj=page_obj %}
 </div>
 {% endblock %}

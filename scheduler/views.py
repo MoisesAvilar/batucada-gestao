@@ -714,13 +714,13 @@ def listar_alunos(request):
     search_query = request.GET.get("q", "")
     data_inicial_str = request.GET.get("data_inicial", "")
     data_final_str = request.GET.get("data_final", "")
+    if 'status_filtro' in request.GET:
+        status_filtro = request.GET.get("status_filtro", "")
+    else:
+        status_filtro = 'ativo'
     now = timezone.now()
 
     if request.user.tipo == "professor":
-        # ★★★ INÍCIO DA CORREÇÃO ★★★
-        # Agora, a consulta para professores inclui:
-        # 1. Alunos que já têm aulas com o professor logado.
-        # 2. Alunos que não têm nenhuma aula agendada (aulas_aluno__isnull=True).
         alunos_queryset = (
             Aluno.objects.filter(
                 Q(aulas_aluno__professores=request.user) | Q(aulas_aluno__isnull=True)
@@ -742,8 +742,7 @@ def listar_alunos(request):
                 ),
             )
         )
-        # ★★★ FIM DA CORREÇÃO ★★★
-    else:  # Visão do Admin (sem alterações)
+    else:
         alunos_queryset = Aluno.objects.all().annotate(
             total_aulas=Count("aulas_aluno"),
             proxima_aula=Min(
@@ -756,13 +755,15 @@ def listar_alunos(request):
             ),
         )
 
-    # O resto da lógica de filtros e renderização permanece o mesmo
     if search_query:
         alunos_queryset = alunos_queryset.filter(
             Q(nome_completo__icontains=search_query)
             | Q(email__icontains=search_query)
             | Q(telefone__icontains=search_query)
         ).distinct()
+
+    if status_filtro:
+        alunos_queryset = alunos_queryset.filter(status=status_filtro)
 
     if data_inicial_str:
         try:
@@ -778,14 +779,29 @@ def listar_alunos(request):
         except ValueError:
             pass
 
+    orderby = request.GET.get("orderby", "nome_completo")
+    if orderby not in ["nome_completo", "-nome_completo", "proxima_aula", "-proxima_aula"]:
+        orderby = "nome_completo"
+
+    alunos_queryset = alunos_queryset.order_by(orderby)
+
     alunos = alunos_queryset.order_by("nome_completo")
+    aulas_ordenadas = alunos.order_by("nome_completo")
+    total_alunos_filtrados = alunos.count()
+    paginator = Paginator(aulas_ordenadas, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
 
     contexto = {
         "alunos": alunos,
         "titulo": "Gerenciamento de Alunos",
+        "total_alunos_filtrados": total_alunos_filtrados,
         "search_query": search_query,
         "data_inicial": data_inicial_str,
         "data_final": data_final_str,
+        "status_filtro": status_filtro,
+        "status_choices": Aluno.STATUS_CHOICES,
+        "orderby": orderby,
+        "page_obj": page_obj,
     }
     return render(request, "scheduler/aluno_listar.html", contexto)
 
