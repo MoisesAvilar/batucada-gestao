@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from django.db.models import Sum
 
 from .models import Category, Transaction, Despesa, Receita, DespesaRecorrente, ReceitaRecorrente
-from .filters import AnoFilter
+from .filters import AnoMesFilter
 
 
 @admin.register(Category)
@@ -93,7 +93,7 @@ class TransactionAdmin(admin.ModelAdmin):
 @admin.register(Despesa)
 class DespesaAdmin(admin.ModelAdmin):
     list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
-    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoFilter)
+    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoMesFilter)
     search_fields = ('descricao',)
     ordering = ('-data_competencia',)
 
@@ -108,7 +108,7 @@ class DespesaAdmin(admin.ModelAdmin):
 @admin.register(Receita)
 class ReceitaAdmin(admin.ModelAdmin):
     list_display = ('descricao', 'valor', 'categoria', 'data_competencia', 'status', 'unidade_negocio')
-    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoFilter)
+    list_filter = ('status', 'unidade_negocio', 'data_competencia', AnoMesFilter)
     search_fields = ('descricao', 'aluno__nome_completo')
     ordering = ('-data_competencia',)
 

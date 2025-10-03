@@ -4,19 +4,18 @@
 {% block content %}
 <div class="d-flex flex-column flex-lg-row justify-content-lg-between align-items-lg-center text-center text-lg-start gap-3 mb-4">
     <div>
-        <h1 class="h3 mb-0">Detalhes da Categoria: {{ category_name }}</h1>
+        <h1 class="h3 mb-0">Itens da Categoria: {{ category_name }}</h1>
         <p class="text-muted mb-0">
-            Exibindo lançamentos no período de {{ start_date|date:"d/m/Y" }} a {{ end_date|date:"d/m/Y" }}.
+            Exibindo lançamentos para o período de {{ start_date|date:"d/m" }} a {{ end_date|date:"d/m" }} de cada ano.
         </p>
     </div>
-    <a href="{% url 'finances:dre_report' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-outline-secondary">
+    <a href="{% url 'finances:dre_report' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-2"></i>Voltar para o DRE
     </a>
 </div>
 
-<!-- Desktop Table -->
 <div class="d-none d-lg-block content-block">
-    <table class="table table-striped table-hover">
+    <table class="table table-hover">
         <thead>
             <tr>
                 <th scope="col">Descrição</th>
@@ -27,7 +26,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for lancamento in lancamentos %}
+        {% for ano, dados in dados_agrupados %}
+            <tr class="table-dark">
+                <td colspan="5" class="fw-bold fs-5">
+                    <i class="bi bi-calendar-event me-2"></i>Ano de {{ ano|stringformat:"d" }}
+                </td>
+            </tr>
+            {% for lancamento in dados.itens %}
             <tr>
                 <td>{{ lancamento.descricao|title }}</td>
                 <td>{{ lancamento.data_competencia|date:"d/m/Y" }}</td>
@@ -47,70 +52,77 @@
                 </td>
                 <td class="text-end fw-bold">R$ {{ lancamento.valor|floatformat:2|intcomma }}</td>
             </tr>
-            {% empty %}
-            <tr>
+            {% endfor %}
+            <tr class="table-light">
+                <td colspan="4" class="text-end fw-bold">Total de {{ ano|stringformat:"d" }}:</td>
+                <td class="text-end fw-bold h6 mb-0">R$ {{ dados.total_ano|floatformat:2|intcomma }}</td>
+            </tr>
+        {% empty %}
+             <tr>
                 <td colspan="5" class="text-center text-muted p-4">
-                    Nenhum lançamento encontrado para esta categoria no período selecionado.
+                    Nenhum lançamento encontrado para esta categoria.
                 </td>
             </tr>
-            {% endfor %}
+        {% endfor %}
         </tbody>
+        {% if dados_agrupados %}
         <tfoot>
-            <tr class="table-light">
-                <td colspan="4" class="text-end fw-bold">TOTAL:</td>
+            <tr class="table-primary">
+                <td colspan="4" class="text-end fw-bold">TOTAL GERAL:</td>
                 <td class="text-end h5 mb-0">
-                    R$ {{ total_categoria|floatformat:2|intcomma }}
+                    R$ {{ total_geral|floatformat:2|intcomma }}
                 </td>
             </tr>
         </tfoot>
+        {% endif %}
     </table>
 </div>
 
-<!-- Mobile Cards -->
 <div class="d-lg-none">
-    {% for lancamento in lancamentos %}
-    <div class="card shadow-sm mb-3">
-        <div class="card-body">
-            <h6 class="fw-bold mb-2">{{ lancamento.descricao|title }}</h6>
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-muted">Competência:</span>
-                <span>{{ lancamento.data_competencia|date:"d/m/Y" }}</span>
+{% for ano, dados in dados_agrupados %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white fw-bold fs-5">
+            <i class="bi bi-calendar-event me-2"></i>Ano de {{ ano|stringformat:"d" }}
+        </div>
+        <div class="list-group list-group-flush">
+        {% for lancamento in dados.itens %}
+            <div class="list-group-item">
+                <h6 class="fw-bold mb-2">{{ lancamento.descricao|title }}</h6>
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">Competência:</small>
+                    <small>{{ lancamento.data_competencia|date:"d/m/Y" }}</small>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">{% if modelo == 'receita' %}Aluno{% else %}Professor{% endif %}:</small>
+                    <small>
+                        {% if modelo == 'receita' %}
+                            {{ lancamento.aluno.nome_completo|title|default:"-" }}
+                        {% else %}
+                            {{ lancamento.professor.get_full_name|title|default:"-" }}
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="d-flex justify-content-between fw-bold mt-2">
+                    <span>Valor:</span>
+                    <span>R$ {{ lancamento.valor|floatformat:2|intcomma }}</span>
+                </div>
             </div>
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-muted">{% if modelo == 'receita' %}Recebimento{% else %}Pagamento{% endif %}:</span>
-                <span>
-                    {% if modelo == 'receita' %}
-                        {{ lancamento.data_recebimento|date:"d/m/Y"|default:"-" }}
-                    {% else %}
-                        {{ lancamento.data_pagamento|date:"d/m/Y"|default:"-" }}
-                    {% endif %}
-                </span>
-            </div>
-            <div class="d-flex justify-content-between mb-1">
-                <span class="text-muted">{% if modelo == 'receita' %}Aluno{% else %}Professor{% endif %}:</span>
-                <span>
-                    {% if modelo == 'receita' %}
-                        {{ lancamento.aluno.nome_completo|title|default:"-" }}
-                    {% else %}
-                        {{ lancamento.professor.get_full_name|title|default:"-" }}
-                    {% endif %}
-                </span>
-            </div>
-            <div class="d-flex justify-content-between fw-bold">
-                <span class="text-muted">Valor:</span>
-                <span>R$ {{ lancamento.valor|floatformat:2|intcomma }}</span>
-            </div>
+        {% endfor %}
+        </div>
+        <div class="card-footer text-end fw-bold">
+            Total de {{ ano|stringformat:"d" }}: <span class="ms-2 h6 mb-0">R$ {{ dados.total_ano|floatformat:2|intcomma }}</span>
         </div>
     </div>
-    {% empty %}
+{% empty %}
     <div class="text-center text-muted p-4">
-        Nenhum lançamento encontrado para esta categoria no período selecionado.
+        Nenhum lançamento encontrado para esta categoria.
     </div>
-    {% endfor %}
-
-    <!-- Total -->
-    <div class="card shadow-sm mb-3 bg-dark text-white p-3 text-end fw-bold">
-        TOTAL: R$ {{ total_categoria|floatformat:2|intcomma }}
+{% endfor %}
+{% if dados_agrupados %}
+    <div class="card shadow-sm mb-3 bg-primary text-white p-3 text-end fw-bold">
+        TOTAL GERAL:
+        <span class="h5 mb-0">R$ {{ total_geral|floatformat:2|intcomma }}</span>
     </div>
+{% endif %}
 </div>
 {% endblock %}

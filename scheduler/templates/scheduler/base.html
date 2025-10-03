@@ -224,7 +224,7 @@
                     {% if user.is_authenticated %}
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'scheduler:dashboard' %}">
-                                <i class="bi bi-speedometer2"></i> Dashboard
+                                <i class="bi bi-house"></i> Página Inicial
                             </a>
                         </li>
                         {% if user.tipo in 'admin,professor' %}
@@ -242,7 +242,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.url_name == 'reposicao_listar' %}active{% endif %}" href="{% url 'scheduler:reposicao_listar' %}">
-                                <i class="bi bi-arrow-repeat"></i> Reposições <span class="badge bg-success">Novo</span>
+                                <i class="bi bi-arrow-repeat"></i> Reposições
                             </a>
                         </li>
                         {% if user.tipo == 'admin' %}
@@ -269,7 +269,7 @@
                             </li>
                              <li class="nav-item">
                                 <a class="nav-link {% if 'modalidade_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'scheduler:modalidade_listar' %}">
-                                    <i class="bi bi-tags"></i> Categorias
+                                    <i class="bi bi-tags"></i> Cursos
                                 </a>
                             </li>
                              <li class="nav-item">
@@ -280,7 +280,7 @@
 
                             <li class="nav-item">
                                 <a class="nav-link {% if 'lead_listar' in request.resolver_match.view_name %}active{% endif %}" href="{% url 'leads:lead_listar' %}">
-                                    <i class="bi bi-person-lines-fill"></i> Leads <span class="badge bg-success">Novo</span>
+                                    <i class="bi bi-person-lines-fill"></i> Leads
                                 </a>
                             </li>
 
@@ -293,7 +293,7 @@
                                 aria-controls="finance-submenu">
                                     <span class="d-flex align-items-center gap-2">
                                         <i class="bi bi-cash-coin"></i> Financeiro 
-                                        <span class="badge bg-success">Novo</span>
+                                    
                                     </span>
                                     <i class="bi bi-caret-down-fill"></i>
                                 </a>
@@ -332,7 +332,7 @@
 
                             <li class="nav-item">
                                 <a class="nav-link {% if request.resolver_match.app_name == 'store' %}active{% endif %}" href="{% url 'store:produto_list' %}">
-                                    <i class="bi bi-box-seam"></i> Produtos <span class="badge bg-success ms-2">Novo</span>
+                                    <i class="bi bi-box-seam"></i> Produtos
                                 </a>
                             </li>
                             {% endif %}

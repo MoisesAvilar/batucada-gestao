@@ -174,7 +174,7 @@
                     <tbody>
                         {% for r in page_obj %}
                         <tr>
-                            <td class="text-center">{{ r.pk }}</td>
+                            <td class="text-center">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                             <td>
                                 <span class="fw-bold">{{ r.descricao|title }}</span><br>
                                 <small class="text-muted">{{ r.categoria.name|title }}</small>

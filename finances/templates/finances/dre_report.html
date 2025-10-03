@@ -1,332 +1,556 @@
 {% extends "scheduler/base.html" %}
 {% load humanize %}
-{% load dre_extras %}
 
 {% block content %}
 <style>
-    /* Accordion toggle */
-    .accordion-toggle { cursor: pointer; }
-    .accordion-toggle .bi-chevron-down { transition: transform 0.2s; }
-    .accordion-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+    /* ===== ESTILOS UNIFICADOS PARA AMBAS AS VIEWS (Light/Dark Mode) ===== */
 
-    /* Estilos dos Cards do DRE */
-    .dre-card-body table { width: 100%; }
-    .dre-card-body td, .dre-card-body th { padding: 0.5rem; font-size: 0.9rem; }
-    .dre-card-body .sub-item td { padding-left: 1.5rem; }
-    .dre-card-body .text-end { text-align: right !important; }
 
-    /* Gráficos responsivos */
-    canvas { width: 100% !important; height: auto !important; }
+    /* Mobile (sem alterações, apenas mantido) */
+    .dre-item-mobile {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+    }
+    .dre-item-mobile:last-child {
+        border-bottom: none;
+    }
+    .dre-item-mobile .category-name {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .dre-item-mobile .values-block {
+        text-align: right;
+    }
+    .dre-item-mobile .main-value {
+        font-weight: 600;
+    }
+    .dre-item-mobile .comp-value {
+        font-size: 0.8rem;
+        color: var(--bs-secondary-color);
+        white-space: nowrap;
+    }
+    .dre-card-body-scrollable {
+        /* Remove o padding do card-body para dar controle total aos filhos */
+        padding: 0 !important;
+    }
+    .dre-card-header-sticky {
+        /* Este é o cabeçalho com "Categoria" e "Valores" */
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        /* Usa a cor de fundo do card para que o conteúdo não passe por baixo */
+        background-color: var(--bs-card-bg); 
+    }
+    .dre-card-content {
+        /* Este será o novo container rolável para os itens */
+        max-height: 45vh; /* 45% da altura da tela, ajuste se preferir */
+        overflow-y: auto;
+        padding: 0 0.5rem; /* Adiciona padding lateral */
+    }
+
+    /* ===== ESTILOS ATUALIZADOS PARA VIEW DESKTOP (Light/Dark Mode) ===== */
+    .dre-table-desktop {
+        font-size: 0.9rem;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .dre-table-desktop th {
+        background-color: var(--bs-tertiary-bg);
+        color: var(--bs-secondary-color);
+        font-weight: 600;
+        text-align: right;
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+    .dre-table-desktop th:first-child {
+        text-align: left;
+    }
+    .dre-table-desktop td {
+        text-align: right;
+        padding: 0.6rem 0.75rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+    }
+    .dre-table-desktop thead th {
+        border-bottom: 2px solid var(--bs-border-color);
+    }
+    .dre-table-desktop thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: var(--bs-secondary-bg);
+    }
+    .dre-table-desktop tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .dre-table-desktop .col-description {
+        text-align: left;
+        width: 38%;
+    }
+    .dre-table-desktop .row-item .col-description {
+        padding-left: 2rem;
+    }
+    .dre-table-desktop a {
+        text-decoration: none;
+    }
+     .dre-table-desktop a:hover {
+        text-decoration: underline;
+    }
+
+    /* Hierarquia Visual (Adaptado para Light/Dark Mode) */
+    .dre-table-desktop .row-total {
+        font-weight: bold;
+        background-color: var(--bs-secondary-bg);
+    }
+    .dre-table-desktop .row-subtotal {
+        font-weight: 500;
+        background-color: var(--bs-tertiary-bg);
+    }
+    .dre-table-desktop .row-final {
+        font-size: 1.1rem;
+        font-weight: bold;
+        background-color: var(--bs-primary);
+        color: white;
+    }
+     .dre-table-desktop .row-final td, .dre-table-desktop .row-final a {
+        color: white !important;
+    }
+    .stat-card .card-body {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+    }
+    .stat-card .stat-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 0.5rem;
+        background-color: var(--bs-tertiary-bg);
+        margin-right: 1rem;
+        font-size: 1.5rem;
+    }
+    .stat-card .stat-info .stat-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--bs-secondary-color);
+        margin-bottom: 0.25rem;
+    }
+    .stat-card .stat-info .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--bs-body-color);
+        line-height: 1.2;
+    }
+    .stat-card .stat-info .stat-comparison {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+        .filter-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .filter-presets {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .date-picker-input {
+        min-width: 220px;
+    }
+
+    /* Indicadores de Variação (Já existentes e corretos) */
+    .var-positive { color: var(--bs-success); }
+    .var-negative { color: var(--bs-danger); }
+
+    /* Animações (mantidas do mobile) */
+    @media (max-width: 991.98px) {
+        .accordion-toggle { cursor: pointer; }
+        .accordion-toggle .bi-chevron-down { transition: transform 0.2s; }
+        .accordion-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+    }
 </style>
 
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-2">
-    <!-- Título -->
     <h1 class="h3 mb-2 mb-md-0 text-center text-md-start">Demonstrativo de Resultados (DRE)</h1>
-
-    <!-- Botões de export -->
     <div class="d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
-        <a href="{% url 'finances:export_dre_xlsx' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if start_date_comp %}&start_date_comp={{ start_date_comp|date:'Y-m-d' }}&end_date_comp={{ end_date_comp|date:'Y-m-d' }}{% endif %}" class="btn btn-outline-success">
+        <a href="{% if not no_data %}{% url 'finances:export_dre_xlsx' %}?{{ request.GET.urlencode }}{% else %}#{% endif %}" class="btn btn-outline-success {% if no_data %}disabled{% endif %}">
             <i class="bi bi-file-earmark-spreadsheet me-2"></i>Excel
         </a>
-        <a href="{% url 'finances:export_dre_pdf' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% if start_date_comp %}&start_date_comp={{ start_date_comp|date:'Y-m-d' }}&end_date_comp={{ end_date_comp|date:'Y-m-d' }}{% endif %}" class="btn btn-outline-danger">
+        <a href="{% if not no_data %}{% url 'finances:export_dre_pdf' %}?{{ request.GET.urlencode }}{% else %}#{% endif %}" class="btn btn-outline-danger {% if no_data %}disabled{% endif %}">
             <i class="bi bi-file-earmark-pdf me-2"></i>PDF
         </a>
     </div>
 </div>
 
+<div class="content-block mb-4 p-3 border rounded shadow-sm">
+    <form method="get" id="filter-form">
+        <input type="hidden" name="start_date" id="hidden_start_date" value="{{ start_date|date:'Y-m-d' }}">
+        <input type="hidden" name="end_date" id="hidden_end_date" value="{{ end_date|date:'Y-m-d' }}">
+        <input type="hidden" name="start_date_comp" id="hidden_start_date_comp" value="{{ request.GET.start_date_comp }}">
+        <input type="hidden" name="end_date_comp" id="hidden_end_date_comp" value="{{ request.GET.end_date_comp }}">
 
-<div class="content-block mb-4">
-    <form method="get" class="row g-3 align-items-end">
-        <div class="col-12 col-sm-6 col-lg-3">
-            <label for="id_start_date" class="form-label small fw-bold">Período (De):</label>
-            <input type="date" name="start_date" id="id_start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+        <div class="d-flex flex-wrap align-items-end gap-3">
+            <!-- Período Principal -->
+            <div class="flex-grow-1 flex-md-grow-0" style="min-width: 250px;">
+                <label for="date_range_principal" class="form-label fw-bold small">Período Principal</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar-range"></i></span>
+                    <input type="text" id="date_range_principal" class="form-control date-picker-input" placeholder="Selecione o período">
+                </div>
+            </div>
+
+            <!-- Período Comparativo -->
+            <div id="comp-period-container" style="display: {% if dre_comp %}block{% else %}none{% endif %}; min-width: 250px;">
+                <label for="date_range_comp" class="form-label fw-bold small text-muted">Período Comparativo</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar-range"></i></span>
+                    <input type="text" id="date_range_comp" class="form-control date-picker-input" placeholder="Selecione o período">
+                </div>
+            </div>
+
+            <!-- Botões à extrema direita -->
+            <div class="d-flex ms-auto gap-2 flex-wrap">
+                <div class="btn-group filter-presets">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="this_month">Este Mês</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="last_month">Mês Passado</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-preset="this_year">Este Ano</button>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Analisar</button>
+            </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <label for="id_end_date" class="form-label small fw-bold">Período (Até):</label>
-            <input type="date" name="end_date" id="id_end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
-        </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <label for="id_start_date_comp" class="form-label small text-muted">Comparativo (De):</label>
-            <input type="date" name="start_date_comp" id="id_start_date_comp" class="form-control" value="{{ request.GET.start_date_comp }}">
-        </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <label for="id_end_date_comp" class="form-label small text-muted">Comparativo (Até):</label>
-            <input type="date" name="end_date_comp" id="id_end_date_comp" class="form-control" value="{{ request.GET.end_date_comp }}">
-        </div>
-        <div class="col-12">
-            <button type="submit" class="btn btn-primary w-100">Analisar</button>
+
+        <!-- Toggle de Comparação -->
+        <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" role="switch" id="compare-toggle" {% if dre_comp %}checked{% endif %}>
+            <label class="form-check-label small" for="compare-toggle">Comparar com outro período</label>
         </div>
     </form>
 </div>
 
-<div class="row g-3 mb-4 justify-content-center">
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Receita Bruta</div>
-            <div class="h5 mb-0 text-success" id="kpi-receita">R$ 0,00</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Custos Diretos</div>
-            <div class="h5 mb-0 text-danger" id="kpi-custos">R$ 0,00</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Lucro Bruto</div>
-            <div class="h5 mb-0" id="kpi-lucro">R$ 0,00</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Resultado</div>
-            <div class="h5 mb-0" id="kpi-resultado">R$ 0,00</div>
-        </div>
-    </div>
-</div>
 
-{% if dre_comp %}
-<div class="row g-3 mb-4 justify-content-center">
-    <div class="col-sm-6 col-md-4 col-lg-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Lucro Bruto (Comparativo)</div>
-            <div class="h5 mb-0 {% if dre_comp.lucro_bruto >= 0 %}text-success{% else %}text-danger{% endif %}">
-                R$ {{ dre_comp.lucro_bruto|floatformat:2|intcomma }}
-                {% with var=variacoes.lucro_bruto %}
-                <small class="text-muted ms-1">({{ var.perc|floatformat:1 }}%)</small>
-                {% endwith %}
+{% if not no_data %}
+    <div class="d-lg-none">
+        {% include 'finances/partials/_dre_mobile_view.html' %}
+    </div>
+
+    <div class="d-none d-lg-block">
+        {% include 'finances/partials/_dre_kpi_cards.html' %}
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <table class="table dre-table-desktop mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="col-description">Descrição</th>
+                                    <th>Período Principal</th>
+                                    {% if dre_comp %}
+                                    <th>Período Comp.</th>
+                                    <th>Variação (R$)</th>
+                                    <th>Variação (%)</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if dre_comp %}
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(+) Receita Operacional Bruta</td>
+                                        <td>{{ dre_principal.total_receitas|floatformat:2|intcomma }}</td>
+                                        <td>{{ dre_comp.total_receitas|floatformat:2|intcomma }}</td>
+                                        <td class="{% if variacoes.total_receitas.abs >= 0 %}var-positive{% else %}var-negative{% endif %}">{{ variacoes.total_receitas.abs|floatformat:2|intcomma }}</td>
+                                        <td class="{% if variacoes.total_receitas.perc >= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if variacoes.total_receitas.perc >= 0 %}bi-arrow-up-short var-positive{% else %}bi-arrow-down-short var-negative{% endif %}"></i>
+                                            {{ variacoes.total_receitas.perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% for item in merged_receitas %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=receita&categoria={{ item.name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">+ {{ item.name }}</a></td>
+                                        <td>{{ item.principal|floatformat:2|intcomma }}</td>
+                                        <td>{{ item.comparativo|floatformat:2|intcomma }}</td>
+                                        <td class="{% if item.var_abs >= 0 %}var-positive{% else %}var-negative{% endif %}">{{ item.var_abs|floatformat:2|intcomma }}</td>
+                                        <td class="{% if item.var_perc >= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if item.var_perc >= 0 %}bi-arrow-up-short var-positive{% else %}bi-arrow-down-short var-negative{% endif %}"></i>
+                                            {{ item.var_perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(-) Custos Diretos</td>
+                                        <td>({{ dre_principal.total_custos|floatformat:2|intcomma }})</td>
+                                        <td>({{ dre_comp.total_custos|floatformat:2|intcomma }})</td>
+                                        <td class="{% if variacoes.total_custos.abs <= 0 %}var-positive{% else %}var-negative{% endif %}">({{ variacoes.total_custos.abs|floatformat:2|intcomma }})</td>
+                                        <td class="{% if variacoes.total_custos.perc <= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if variacoes.total_custos.perc <= 0 %}bi-arrow-down-short var-positive{% else %}bi-arrow-up-short var-negative{% endif %}"></i>
+                                            {{ variacoes.total_custos.perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% for item in merged_custos %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=custo&categoria={{ item.name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">- {{ item.name }}</a></td>
+                                        <td>({{ item.principal|floatformat:2|intcomma }})</td>
+                                        <td>({{ item.comparativo|floatformat:2|intcomma }})</td>
+                                        <td class="{% if item.var_abs <= 0 %}var-positive{% else %}var-negative{% endif %}">({{ item.var_abs|floatformat:2|intcomma }})</td>
+                                        <td class="{% if item.var_perc <= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if item.var_perc <= 0 %}bi-arrow-down-short var-positive{% else %}bi-arrow-up-short var-negative{% endif %}"></i>
+                                            {{ item.var_perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="row-total">
+                                        <td class="col-description">(=) Lucro Bruto</td>
+                                        <td>{{ dre_principal.lucro_bruto|floatformat:2|intcomma }}</td>
+                                        <td>{{ dre_comp.lucro_bruto|floatformat:2|intcomma }}</td>
+                                        <td class="{% if variacoes.lucro_bruto.abs >= 0 %}var-positive{% else %}var-negative{% endif %}">{{ variacoes.lucro_bruto.abs|floatformat:2|intcomma }}</td>
+                                        <td class="{% if variacoes.lucro_bruto.perc >= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if variacoes.lucro_bruto.perc >= 0 %}bi-arrow-up-short var-positive{% else %}bi-arrow-down-short var-negative{% endif %}"></i>
+                                            {{ variacoes.lucro_bruto.perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(-) Despesas Operacionais</td>
+                                        <td>({{ dre_principal.total_despesas|floatformat:2|intcomma }})</td>
+                                        <td>({{ dre_comp.total_despesas|floatformat:2|intcomma }})</td>
+                                        <td class="{% if variacoes.total_despesas.abs <= 0 %}var-positive{% else %}var-negative{% endif %}">({{ variacoes.total_despesas.abs|floatformat:2|intcomma }})</td>
+                                        <td class="{% if variacoes.total_despesas.perc <= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if variacoes.total_despesas.perc <= 0 %}bi-arrow-down-short var-positive{% else %}bi-arrow-up-short var-negative{% endif %}"></i>
+                                            {{ variacoes.total_despesas.perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% for item in merged_despesas %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=despesa&categoria={{ item.name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">- {{ item.name }}</a></td>
+                                        <td>({{ item.principal|floatformat:2|intcomma }})</td>
+                                        <td>({{ item.comparativo|floatformat:2|intcomma }})</td>
+                                        <td class="{% if item.var_abs <= 0 %}var-positive{% else %}var-negative{% endif %}">({{ item.var_abs|floatformat:2|intcomma }})</td>
+                                        <td class="{% if item.var_perc <= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if item.var_perc <= 0 %}bi-arrow-down-short var-positive{% else %}bi-arrow-up-short var-negative{% endif %}"></i>
+                                            {{ item.var_perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <tr class="row-final">
+                                        <td class="col-description">(=) Resultado do Período</td>
+                                        <td>{{ dre_principal.resultado|floatformat:2|intcomma }}</td>
+                                        <td>{{ dre_comp.resultado|floatformat:2|intcomma }}</td>
+                                        <td>{{ variacoes.resultado.abs|floatformat:2|intcomma }}</td>
+                                        <td class="{% if variacoes.resultado.perc >= 0 %}var-positive{% else %}var-negative{% endif %}">
+                                            <i class="bi {% if variacoes.resultado.perc >= 0 %}bi-arrow-up-short var-positive{% else %}bi-arrow-down-short var-negative{% endif %}"></i>
+                                            {{ variacoes.resultado.perc|floatformat:1|intcomma }}%
+                                        </td>
+                                    </tr>
+
+                                {% else %}
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(+) Receita Operacional Bruta</td>
+                                        <td>{{ dre_principal.total_receitas|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% for item in dre_principal.receitas_por_categoria %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=receita&categoria={{ item.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">+ {{ item.categoria__name }}</a></td>
+                                        <td>{{ item.total_cat|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(-) Custos Diretos</td>
+                                        <td>({{ dre_principal.total_custos|floatformat:2|intcomma }})</td>
+                                    </tr>
+                                    {% for item in dre_principal.custos_por_categoria %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=custo&categoria={{ item.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">- {{ item.categoria__name }}</a></td>
+                                        <td>({{ item.total_cat|floatformat:2|intcomma }})</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="row-total">
+                                        <td class="col-description">(=) Lucro Bruto</td>
+                                        <td>{{ dre_principal.lucro_bruto|floatformat:2|intcomma }}</td>
+                                    </tr>
+
+                                    <tr class="row-subtotal">
+                                        <td class="col-description">(-) Despesas Operacionais</td>
+                                        <td>({{ dre_principal.total_despesas|floatformat:2|intcomma }})</td>
+                                    </tr>
+                                    {% for item in dre_principal.despesas_por_categoria %}
+                                    <tr class="row-item">
+                                        <td class="col-description"><a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=despesa&categoria={{ item.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">- {{ item.categoria__name }}</a></td>
+                                        <td>({{ item.total_cat|floatformat:2|intcomma }})</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <tr class="row-final">
+                                        <td class="col-description">(=) Resultado do Período</td>
+                                        <td>{{ dre_principal.resultado|floatformat:2|intcomma }}</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="content-block mb-4">
+                    <h5 class="mb-3 text-center">Fontes de Receita</h5>
+                    <canvas id="receitasChart"></canvas>
+                </div>
+                <div class="content-block mb-4">
+                    <h5 class="mb-3 text-center">Custos Diretos</h5>
+                    <canvas id="custosChart"></canvas>
+                </div>
+                <div class="content-block">
+                    <h5 class="mb-3 text-center">Despesas Operacionais</h5>
+                    <canvas id="despesasChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-sm-6 col-md-4 col-lg-3">
-        <div class="card shadow-sm text-center p-3 h-100">
-            <div class="fw-bold small text-muted">Resultado (Comparativo)</div>
-            <div class="h5 mb-0 {% if dre_comp.resultado >= 0 %}text-success{% else %}text-danger{% endif %}">
-                R$ {{ dre_comp.resultado|floatformat:2|intcomma }}
-                {% with var=variacoes.resultado %}
-                <small class="text-muted ms-1">({{ var.perc|floatformat:1 }}%)</small>
-                {% endwith %}
-            </div>
-        </div>
+{% else %}
+    <div class="text-center py-5 my-4 content-block">
+        <i class="bi bi-inbox" style="font-size: 4rem; color: var(--bs-secondary-color);"></i>
+        <h4 class="mt-3">Nenhum dado financeiro encontrado</h4>
+        <p class="text-muted mb-0">
+            Não há entradas ou saídas registradas no período selecionado.
+            <br>
+            Por favor, ajuste o filtro de datas ou adicione novos lançamentos.
+        </p>
     </div>
-</div>
+
 {% endif %}
-
-
-<div class="row g-4">
-    
-    <div class="col-12 col-lg-9">
-        <div class="dre-card card shadow-sm mb-3">
-            <div class="dre-card-header card-header d-flex flex-column align-items-center flex-sm-row justify-content-sm-between accordion-toggle gap-1 p-2" data-bs-toggle="collapse" data-bs-target="#receitas-details" aria-expanded="true">
-                <span class="fw-bold text-success">+ Receita Operacional Bruta</span>
-                
-                <div class="d-flex align-items-center">
-                    <span class="fw-bold text-success me-3">R$ {{ dre_principal.total_receitas|floatformat:2|intcomma }}</span>
-                    <i class="bi bi-chevron-down"></i>
-                </div>
-            </div>
-            <div id="receitas-details" class="collapse show dre-card-body">
-                <table class="table table-sm table-borderless mb-0">
-                    <thead>
-                        <tr>
-                            <th>Categoria</th>
-                            <th class="text-end">Valor</th>
-                            {% if dre_comp %}
-                                <th class="text-end text-muted">Comp. (Δ %)</th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for receita in dre_principal.receitas_por_categoria %}
-                        <tr class="sub-item">
-                            <td>
-                                 <a href="{% url 'finances:dre_details' %}?modelo=receita&categoria={{ receita.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
-                                    class="link-primary">
-                                        + {{ receita.categoria__name }}
-                                    </a>
-                            </td>
-                            <td class="text-end text-success">{{ receita.total_cat|floatformat:2|intcomma }}</td>
-                            {% if dre_comp %}
-                                {% with comp_item=dre_comp.receitas_por_categoria|get_item:forloop.counter0 %}
-                                <td class="text-end text-muted" style="white-space: nowrap;">
-                                    {{ comp_item.total_cat|default:0|floatformat:2|intcomma }}
-                                    <br>
-                                    <small>
-                                    {% with var=variacoes.total_receitas %}
-                                        ({{ var.perc|floatformat:1 }}%)
-                                    {% endwith %}
-                                    </small>
-                                </td>
-                                {% endwith %}
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="dre-card card shadow-sm mb-3">
-            <div class="dre-card-header card-header d-flex flex-column align-items-center flex-sm-row justify-content-sm-between accordion-toggle gap-1 p-2" data-bs-toggle="collapse" data-bs-target="#custos-details" aria-expanded="true">
-                <span class="fw-bold text-danger">- Custos Diretos</span>
-
-                <div class="d-flex align-items-center">
-                    <span class="fw-bold text-danger me-3">R$ {{ dre_principal.total_custos|floatformat:2|intcomma }}</span>
-                    <i class="bi bi-chevron-down"></i>
-                </div>
-            </div>
-            <div id="custos-details" class="collapse show dre-card-body">
-                <table class="table table-sm table-borderless mb-0">
-                    <thead>
-                        <tr>
-                            <th>Categoria</th>
-                            <th class="text-end">Valor</th>
-                            {% if dre_comp %}
-                                <th class="text-end text-muted">Comp. (Δ %)</th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for custo in dre_principal.custos_por_categoria %}
-                        <tr class="sub-item">
-                            <td>
-                                <a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=custo&categoria={{ custo.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
-                                    class="link-primary">
-                                        - {{ custo.categoria__name }}
-                                    </a>
-                            </td>
-                            <td class="text-end">{{ custo.total_cat|floatformat:2|intcomma }}</td>
-                            {% if dre_comp %}
-                                {% with comp_item=dre_comp.custos_por_categoria|get_item:forloop.counter0 %}
-                                <td class="text-end text-muted" style="white-space: nowrap;">
-                                    {{ comp_item.total_cat|default:0|floatformat:2|intcomma }}
-                                    <br>
-                                    <small>
-                                    {% with var=variacoes.total_custos %}
-                                        ({{ var.perc|floatformat:1 }}%)
-                                    {% endwith %}
-                                    </small>
-                                </td>
-                                {% endwith %}
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <div class="dre-card card shadow-sm mb-3">
-            <div class="dre-card-header card-header d-flex flex-column align-items-center flex-sm-row justify-content-sm-between accordion-toggle gap-1 p-2" data-bs-toggle="collapse" data-bs-target="#despesas-details" aria-expanded="true">
-                <span class="fw-bold text-danger">- Despesas Operacionais</span>
-
-                <div class="d-flex align-items-center">
-                    <span class="fw-bold text-danger me-3">R$ {{ dre_principal.total_despesas|floatformat:2|intcomma }}</span>
-                    <i class="bi bi-chevron-down"></i>
-                </div>
-            </div>
-            <div id="despesas-details" class="collapse show dre-card-body">
-                <table class="table table-sm table-borderless mb-0">
-                     <thead>
-                        <tr>
-                            <th>Categoria</th>
-                            <th class="text-end">Valor</th>
-                            {% if dre_comp %}
-                                <th class="text-end text-muted">Comp. (Δ %)</th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for despesa in dre_principal.despesas_por_categoria %}
-                        <tr class="sub-item">
-                            <td>
-                                <a href="{% url 'finances:dre_details' %}?modelo=despesa&classificacao=despesa&categoria={{ despesa.categoria__name }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
-                                class="link-primary">
-                                    - {{ despesa.categoria__name }}
-                                </a>
-                            </td>
-                            <td class="text-end">{{ despesa.total_cat|floatformat:2|intcomma }}</td>
-                            {% if dre_comp %}
-                                {% with comp_item=dre_comp.despesas_por_categoria|get_item:forloop.counter0 %}
-                                <td class="text-end text-muted" style="white-space: nowrap;">
-                                    {{ comp_item.total_cat|default:0|floatformat:2|intcomma }}
-                                    <br>
-                                    <small>
-                                    {% with var=variacoes.total_despesas %}
-                                        ({{ var.perc|floatformat:1 }}%)
-                                    {% endwith %}
-                                    </small>
-                                </td>
-                                {% endwith %}
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mb-3 p-3 text-end fw-bold bg-light">
-            <span class="text-dark fs-6 me-2">= Resultado do Período:</span>
-            <span class="h5 mb-0 {% if dre_principal.resultado >= 0 %}text-success{% else %}text-danger{% endif %}">
-                R$ {{ dre_principal.resultado|floatformat:2|intcomma }}
-            </span>
-            {% if dre_comp %}
-            &nbsp;
-            <span class="text-secondary fs-6 me-2">| Comparativo:</span>
-            <span class="h5 mb-0 {% if dre_comp.resultado >= 0 %}text-success{% else %}text-danger{% endif %}">
-                R$ {{ dre_comp.resultado|floatformat:2|intcomma }} ({{ variacoes.resultado.perc|floatformat:1 }}%)
-            </span>
-            {% endif %}
-        </div>
-
-
-    </div> <div class="col-12 col-lg-3">
-        <div class="content-block mb-4">
-            <h5 class="mb-3 text-center">Fontes de Receita</h5>
-            <canvas id="receitasChart"></canvas>
-        </div>
-        <div class="content-block mb-4">
-            <h5 class="mb-3 text-center">Custos Diretos</h5>
-            <canvas id="custosChart"></canvas>
-        </div> 
-        <div class="content-block">
-            <h5 class="mb-3 text-center">Despesas Operacionais</h5>
-            <canvas id="despesasChart"></canvas>
-        </div>
-    </div>
-
-</div>
 
 {% endblock %}
 
-
 {% block extra_js %}
 {{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/litepicker/dist/bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {{ dre_principal.receitas_por_categoria|json_script:"receitas-data" }}
 {{ dre_principal.custos_por_categoria|json_script:"custos-data" }}
 {{ dre_principal.despesas_por_categoria|json_script:"despesas-data" }}
-{{ dre_principal|json_script:"kpi-data" }}
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Função para formatar moeda
-    function formatCurrency(value) {
-        return new Intl.NumberFormat("pt-BR", {
-            style: "currency",
-            currency: "BRL"
-        }).format(value);
-    }
+    const form = document.getElementById('filter-form');
+    const hiddenStartDate = document.getElementById('hidden_start_date');
+    const hiddenEndDate = document.getElementById('hidden_end_date');
+    const hiddenStartDateComp = document.getElementById('hidden_start_date_comp');
+    const hiddenEndDateComp = document.getElementById('hidden_end_date_comp');
+
+    // Função para formatar data para o input visível (DD/MM/YYYY)
+    const formatDateForDisplay = (dateStr) => {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y}`;
+    };
+
+    // Função para formatar data para o input oculto (YYYY-MM-DD)
+    const formatDateForHidden = (dateObj) => {
+        return dateObj.toJSDate().toISOString().split('T')[0];
+    };
+
+    // Inicializa o Picker Principal
+    const pickerPrincipal = new Litepicker({
+        element: document.getElementById('date_range_principal'),
+        singleMode: false,
+        format: 'DD/MM/YYYY',
+        lang: 'pt-BR',
+        startDate: formatDateForDisplay(hiddenStartDate.value),
+        endDate: formatDateForDisplay(hiddenEndDate.value),
+        setup: (picker) => {
+            picker.on('selected', (date1, date2) => {
+                hiddenStartDate.value = formatDateForHidden(date1);
+                hiddenEndDate.value = formatDateForHidden(date2);
+            });
+        }
+    });
+
+    // Inicializa o Picker Comparativo
+    const pickerComp = new Litepicker({
+        element: document.getElementById('date_range_comp'),
+        singleMode: false,
+        format: 'DD/MM/YYYY',
+        lang: 'pt-BR',
+        startDate: formatDateForDisplay(hiddenStartDateComp.value),
+        endDate: formatDateForDisplay(hiddenEndDateComp.value),
+        setup: (picker) => {
+            picker.on('selected', (date1, date2) => {
+                hiddenStartDateComp.value = formatDateForHidden(date1);
+                hiddenEndDateComp.value = formatDateForHidden(date2);
+            });
+        }
+    });
+
+    // Controla a visibilidade do campo comparativo
+    const compareToggle = document.getElementById('compare-toggle');
+    const compContainer = document.getElementById('comp-period-container');
+    compareToggle.addEventListener('change', function() {
+        if (this.checked) {
+            compContainer.style.display = 'block';
+        } else {
+            compContainer.style.display = 'none';
+            // Limpa os valores comparativos se o checkbox for desmarcado
+            hiddenStartDateComp.value = '';
+            hiddenEndDateComp.value = '';
+            document.getElementById('date_range_comp').value = '';
+        }
+    });
     
-    // Função para criar gráficos
+    // Lógica para os botões de pré-seleção
+    document.querySelectorAll('[data-preset]').forEach(button => {
+        button.addEventListener('click', function() {
+            const preset = this.dataset.preset;
+            const today = new Date();
+            let start, end;
+
+            if (preset === 'this_month') {
+                start = new Date(today.getFullYear(), today.getMonth(), 1);
+                end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            } else if (preset === 'last_month') {
+                start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                end = new Date(today.getFullYear(), today.getMonth(), 0);
+            } else if (preset === 'this_year') {
+                start = new Date(today.getFullYear(), 0, 1);
+                end = new Date(today.getFullYear(), 11, 31);
+            }
+            
+            pickerPrincipal.setDateRange(start, end);
+            // O evento 'selected' do picker já atualiza os inputs ocultos.
+            // Submete o formulário automaticamente.
+            form.submit();
+        });
+    });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function formatCurrency(value) {
+        return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+    }
+
     function createPieChart(canvasId, jsonData) {
         const data = JSON.parse(jsonData);
-        if (!data || data.length === 0) return;
-
+        if (!data || data.length === 0) {
+            const canvas = document.getElementById(canvasId);
+            if(canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.textAlign = 'center';
+                ctx.fillText('Sem dados para exibir.', canvas.width / 2, canvas.height / 2);
+            }
+            return;
+        }
         const labels = data.map(item => item.categoria__name);
         const values = data.map(item => item.total_cat);
-
         new Chart(document.getElementById(canvasId), {
             type: 'doughnut',
             data: {
@@ -339,12 +563,8 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             options: {
                 plugins: {
-                    legend: { display: false }, // Legenda pode ser removida para economizar espaço
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
-                        }
-                    }
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12 } },
+                    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${formatCurrency(ctx.parsed)}` } }
                 }
             }
         });
@@ -352,20 +572,6 @@ document.addEventListener('DOMContentLoaded', function() {
     createPieChart('receitasChart', document.getElementById('receitas-data').textContent);
     createPieChart('custosChart', document.getElementById('custos-data').textContent);
     createPieChart('despesasChart', document.getElementById('despesas-data').textContent);
-
-    // Atualização dos KPIs
-    const kpiData = JSON.parse(document.getElementById("kpi-data").textContent);
-
-    document.getElementById("kpi-receita").textContent = formatCurrency(kpiData.total_receitas);
-    document.getElementById("kpi-custos").textContent = formatCurrency(kpiData.total_custos);
-    document.getElementById("kpi-lucro").textContent = formatCurrency(kpiData.lucro_bruto);
-    document.getElementById("kpi-resultado").textContent = formatCurrency(kpiData.resultado);
-
-    // aplica cor dinamicamente aos KPIs
-    document.getElementById("kpi-lucro").classList.toggle("text-danger", kpiData.lucro_bruto < 0);
-    document.getElementById("kpi-lucro").classList.toggle("text-success", kpiData.lucro_bruto >= 0);
-    document.getElementById("kpi-resultado").classList.toggle("text-danger", kpiData.resultado < 0);
-    document.getElementById("kpi-resultado").classList.toggle("text-success", kpiData.resultado >= 0);
 });
 </script>
 {% endblock %}

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.apps import apps
 from django.http import JsonResponse
 from collections import defaultdict
@@ -21,7 +23,7 @@ from .forms import (
     MensalidadeReceitaForm,
     VendaReceitaForm,
 )
-from decimal import Decimal
+
 from django.shortcuts import get_object_or_404
 from django.forms.models import model_to_dict
 from django.db.models import Sum, Count
@@ -99,7 +101,7 @@ def transaction_list_view(request):
     contas_vencidas = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_pagar', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
     receitas_atrasadas = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_receber', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
     transactions = Transaction.objects.filter(unidade_negocio_id=unidade_ativa_id, transaction_date__range=[start_date, end_date]).select_related("category")
-    
+    no_data = not transactions.exists()
     # ==============================================================================
     # --- FLUXO DE CAIXA REALISTA (COM MESES EM PORTUGUÊS) ---
     # ==============================================================================
@@ -144,8 +146,10 @@ def transaction_list_view(request):
     flow_chart_expense_avg = rolling_average(flow_chart_expense_data)
 
     total_income = sum(flow_chart_income_data)
-    total_expenses = sum(flow_chart_expense_data)
-    balance = total_income - total_expenses
+    # total_expenses terá um valor negativo (ex: -21941.84)
+    total_expenses = sum(flow_chart_expense_data) 
+    
+    balance = total_income + total_expenses
     
     expenses_by_category = transactions.filter(category__type="expense").values("category__name").annotate(total=Sum("amount")).order_by("-total")
     chart_labels = [item["category__name"] for item in expenses_by_category]
@@ -173,7 +177,7 @@ def transaction_list_view(request):
         "page_obj": page_obj,
         "form": form,
         "total_income": total_income,
-        "total_expenses": total_expenses,
+        "total_expenses": abs(total_expenses),
         "balance": balance,
         "start_date": start_date,
         "end_date": end_date,
@@ -194,7 +198,8 @@ def transaction_list_view(request):
         'flow_chart_income_avg': flow_chart_income_avg,
         'flow_chart_expense_avg': flow_chart_expense_avg,
         'top_produtos_vendidos': Produto.objects.filter(unidade_negocio_id=unidade_ativa_id, receitas__data_competencia__range=[start_date, end_date]).annotate(total_vendido=Sum('receitas__valor')).order_by('-total_vendido').filter(total_vendido__gt=0)[:5],
-        'top_despesas': transactions.filter(category__type='expense').order_by('-amount')[:5],
+        'top_despesas': transactions.filter(category__type='expense').order_by('amount')[:5],
+        'no_data': no_data,
     })
 
 
@@ -476,7 +481,7 @@ def baixar_despesa_view(request, pk):
                     transacao_principal = Transaction.objects.create(
                         unidade_negocio=despesa.unidade_negocio,
                         description=f"Pagamento: {despesa.descricao}",
-                        amount=despesa.valor,
+                        amount=-abs(despesa.valor),
                         category=despesa.categoria,
                         transaction_date=data_pagamento,
                         professor=despesa.professor,
@@ -505,7 +510,7 @@ def baixar_despesa_view(request, pk):
                         Transaction.objects.create(
                             unidade_negocio=despesa.unidade_negocio,
                             description=f"Juros/Multa Ref: {despesa.descricao}",
-                            amount=juros_multa,
+                            amount=-abs(juros_multa),
                             category=categoria_juros,
                             transaction_date=data_pagamento,
                             created_by=request.user,
@@ -988,13 +993,15 @@ def get_dre_data(unidade_negocio_id, start_date, end_date):
 
 def merge_and_compare_categories(principal_list, comp_list):
     """
-    Combina e compara duas listas de categorias, calculando a variação para cada item.
+    Combina e compara duas listas de categorias de um DRE, calculando a variação.
+    Cada item da lista deve ser um dicionário com 'categoria__name' e 'total_cat'.
     """
     comp_dict = {item["categoria__name"]: item["total_cat"] for item in comp_list}
     principal_dict = {
         item["categoria__name"]: item["total_cat"] for item in principal_list
     }
 
+    # Garante que todas as categorias de ambos os períodos sejam consideradas
     all_category_names = sorted(
         list(set(principal_dict.keys()) | set(comp_dict.keys()))
     )
@@ -1006,7 +1013,8 @@ def merge_and_compare_categories(principal_list, comp_list):
 
         var_abs = principal_val - comp_val
         if comp_val != 0:
-            var_perc = var_abs / comp_val * 100
+            var_perc = (var_abs / comp_val) * 100
+        # Se o valor comparativo for zero, qualquer valor principal é um aumento de "100%" conceitual
         elif principal_val != 0:
             var_perc = Decimal("100.0")
         else:
@@ -1068,31 +1076,43 @@ def dre_view(request):
         "end_date_comp": end_date_comp,
         "dre_principal": dre_principal,
         "dre_comp": dre_comp,
-        "kpis": [
-            {"kpi": "receita", "label": "Receita Bruta", "color": "success"},
-            {"kpi": "custos", "label": "Custos Diretos", "color": "danger"},
-            {"kpi": "lucro", "label": "Lucro Bruto", "color": "dark"},
-            {"kpi": "resultado", "label": "Resultado", "color": "info"},
-        ],
     }
 
-    # Se houver comparação, calcula as variações
+    # Se houver comparação, processa os dados para o template
     if dre_comp:
         variacoes = {}
         for key in [
-            "total_receitas",
-            "total_custos",
-            "lucro_bruto",
-            "total_despesas",
-            "resultado",
+            "total_receitas", "total_custos", "lucro_bruto",
+            "total_despesas", "resultado"
         ]:
             val_principal = dre_principal.get(key, Decimal("0.00"))
             val_comp = dre_comp.get(key, Decimal("0.00"))
 
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else Decimal("0.00")
+            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
             variacoes[key] = {"abs": var_abs, "perc": var_perc}
         context["variacoes"] = variacoes
+
+        # Gera as listas mescladas para as categorias
+        context["merged_receitas"] = merge_and_compare_categories(
+            dre_principal.get('receitas_por_categoria', []),
+            dre_comp.get('receitas_por_categoria', [])
+        )
+        context["merged_custos"] = merge_and_compare_categories(
+            dre_principal.get('custos_por_categoria', []),
+            dre_comp.get('custos_por_categoria', [])
+        )
+        context["merged_despesas"] = merge_and_compare_categories(
+            dre_principal.get('despesas_por_categoria', []),
+            dre_comp.get('despesas_por_categoria', [])
+        )
+    no_data = (
+            dre_principal and
+            dre_principal.get('total_receitas', 0) == 0 and
+            dre_principal.get('total_custos', 0) == 0 and
+            dre_principal.get('total_despesas', 0) == 0
+        )
+    context['no_data'] = no_data
 
     return render(request, "finances/dre_report.html", context)
 
@@ -1100,7 +1120,6 @@ def dre_view(request):
 @admin_required
 def dre_details_view(request):
     unidade_ativa_id = request.session.get("unidade_ativa_id")
-
     category_name = request.GET.get("categoria")
     start_date_str = request.GET.get("start_date")
     end_date_str = request.GET.get("end_date")
@@ -1117,36 +1136,50 @@ def dre_details_view(request):
         messages.error(request, "Formato de data inválido.")
         return redirect("finances:dre_report")
 
-    lancamentos = []
-    total_categoria = Decimal("0.00")
-
-    if modelo == "receita":
-        qs = Receita.objects.filter(
-            unidade_negocio_id=unidade_ativa_id,
-            categoria__name=category_name,
-            data_competencia__range=[start_date_obj, end_date_obj],
-        )
-        total_categoria = qs.aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
-        lancamentos = qs.order_by("-data_competencia")
-
-    elif modelo == "despesa":
+    ModelClass = Receita if modelo == "receita" else Despesa
+    base_qs = ModelClass.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        categoria__name=category_name,
+    )
+    
+    if modelo == "despesa":
         classificacao = request.GET.get("classificacao")
-        qs = Despesa.objects.filter(
-            unidade_negocio_id=unidade_ativa_id,
-            categoria__name=category_name,
-            data_competencia__range=[start_date_obj, end_date_obj],
-            categoria__tipo_dre=classificacao,
-        )
-        total_categoria = qs.aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
-        lancamentos = qs.order_by("-data_competencia")
+        if classificacao:
+            base_qs = base_qs.filter(categoria__tipo_dre=classificacao)
+
+    # ===================== INÍCIO DA CORREÇÃO =====================
+    # Define os campos para otimização de acordo com o modelo
+    if modelo == 'receita':
+        related_fields = ['aluno', 'categoria']
+    else:  # 'despesa'
+        related_fields = ['professor', 'categoria']
+    
+    lancamentos = base_qs.filter(
+        data_competencia__month__gte=start_date_obj.month,
+        data_competencia__day__gte=start_date_obj.day,
+        data_competencia__month__lte=end_date_obj.month,
+        data_competencia__day__lte=end_date_obj.day,
+    ).select_related(*related_fields).order_by('-data_competencia')
+    # ===================== FIM DA CORREÇÃO =====================
+
+    lancamentos_por_ano = defaultdict(lambda: {'itens': [], 'total_ano': Decimal('0.00')})
+    total_geral = Decimal('0.00')
+
+    for lancamento in lancamentos:
+        ano = lancamento.data_competencia.year
+        lancamentos_por_ano[ano]['itens'].append(lancamento)
+        lancamentos_por_ano[ano]['total_ano'] += lancamento.valor
+        total_geral += lancamento.valor
+
+    dados_agrupados = sorted(lancamentos_por_ano.items(), key=lambda x: x[0], reverse=True)
 
     context = {
-        "lancamentos": lancamentos,
+        "dados_agrupados": dados_agrupados,
+        "total_geral": total_geral,
         "category_name": category_name,
         "start_date": start_date_obj,
         "end_date": end_date_obj,
         "modelo": modelo,
-        "total_categoria": total_categoria,
     }
     return render(request, "finances/dre_details.html", context)
 
@@ -1162,6 +1195,7 @@ def export_dre_xlsx(request):
     start_date = date.fromisoformat(start_date_str)
     end_date = date.fromisoformat(end_date_str)
     dre_data = get_dre_data(unidade_ativa_id, start_date, end_date)
+    
     dre_comp = None
     if start_date_comp_str and end_date_comp_str:
         start_date_comp = date.fromisoformat(start_date_comp_str)
@@ -1172,141 +1206,137 @@ def export_dre_xlsx(request):
     ws = wb.active
     ws.title = "DRE"
 
+    # --- Estilos (sem alterações) ---
     bold_font = Font(bold=True)
-    green_font = Font(color="008000")
-    red_font = Font(color="FF0000")
-    total_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-    final_total_fill = PatternFill(start_color="AFAFAF", end_color="343A40", fill_type="solid")
-    final_total_font = Font(bold=True, color="FFFFFF")
+    white_font_bold = Font(color="FFFFFF", bold=True)
+    header_fill = PatternFill(start_color="EAEAEA", end_color="EAEAEA", fill_type="solid")
+    total_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+    final_fill = PatternFill(start_color="424242", end_color="424242", fill_type="solid")
     right_align = Alignment(horizontal="right")
     center_align = Alignment(horizontal="center")
-    thin_side = Side(style='thin')
 
     headers = ['Descrição', 'Período Principal']
     if dre_comp:
         headers.extend(['Período Comparativo', 'Variação (R$)', 'Variação (%)'])
     num_cols = len(headers)
-    
+
+    # --- Cabeçalho do Arquivo (sem alterações) ---
     ws['A1'] = 'Demonstrativo de Resultados (DRE)'
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
     ws['A1'].font = Font(bold=True, size=16)
     ws['A1'].alignment = center_align
-
-    # ==============================================================================
-    # --- LÓGICA DA LINHA DE PERÍODO (SIMPLIFICADA E CORRIGIDA) ---
-    # ==============================================================================
     periodo_str = f'Principal: {start_date.strftime("%d/%m/%Y")} a {end_date.strftime("%d/%m/%Y")}'
     if dre_comp:
         periodo_str += f' | Comparativo: {start_date_comp.strftime("%d/%m/%Y")} a {end_date_comp.strftime("%d/%m/%Y")}'
-    
-    ws['A2'] = periodo_str # Atribuição de texto simples
+    ws['A2'] = periodo_str
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
     ws['A2'].alignment = center_align
-    # ws['A2'].font = bold_font # Opcional: descomente esta linha se quiser a linha toda em negrito
-    # ==============================================================================
 
+    # --- Cabeçalho da Tabela (sem alterações) ---
     for col_idx, header_title in enumerate(headers, 1):
         cell = ws.cell(row=4, column=col_idx)
-        cell.value = header_title.upper()
+        cell.value = header_title
         cell.font = bold_font
-        cell.fill = total_fill
-        cell.alignment = center_align if col_idx > 1 else None
+        cell.fill = header_fill
+        cell.alignment = right_align if col_idx > 1 else Alignment(horizontal="left")
 
+    row_cursor = 5
+
+    def apply_row_styles(row_idx, is_total=False, is_final=False):
+        fill = total_fill if is_total else (final_fill if is_final else None)
+        font = bold_font if is_total else (white_font_bold if is_final else None)
+        for col_idx in range(1, num_cols + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            if fill: cell.fill = fill
+            if font: cell.font = font
+            if col_idx > 1: cell.alignment = right_align
+
+    # ===================== INÍCIO DA CORREÇÃO =====================
+    def add_data_row(data, indent=0):
+        nonlocal row_cursor
+        ws.cell(row=row_cursor, column=1).value = f'{"  " * indent}{data[0]}'
+        for i, value in enumerate(data[1:], 2):
+            cell = ws.cell(row=row_cursor, column=i)
+            cell.value = value
+            if isinstance(value, (Decimal, float)):
+                # Lógica corrigida: só formata como % se for a última coluna E houver comparação
+                if dre_comp and i == num_cols:
+                    cell.number_format = '0.0"%"'
+                else:
+                    cell.number_format = 'R$ #,##0.00'
+        row_cursor += 1
+    # ===================== FIM DA CORREÇÃO =====================
+    
+    # --- Lógica para preencher os dados (sem alterações) ---
     if dre_comp:
-        # Lógica de comparação (sem alterações)
         variacoes = {}
         for key in ['total_receitas', 'total_custos', 'lucro_bruto', 'total_despesas', 'resultado']:
             val_principal = dre_data.get(key, Decimal('0.00'))
             val_comp = dre_comp.get(key, Decimal('0.00'))
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else Decimal('0.00')
+            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
             variacoes[key] = {'abs': var_abs, 'perc': var_perc}
         
-        receitas_detalhadas = merge_and_compare_categories(dre_data.get('receitas_por_categoria', []), dre_comp.get('receitas_por_categoria', []))
-        custos_detalhados = merge_and_compare_categories(dre_data.get('custos_por_categoria', []), dre_comp.get('custos_por_categoria', []))
-        despesas_detalhadas = merge_and_compare_categories(dre_data.get('despesas_por_categoria', []), dre_comp.get('despesas_por_categoria', []))
+        merged_receitas = merge_and_compare_categories(dre_data.get('receitas_por_categoria', []), dre_comp.get('receitas_por_categoria', []))
+        merged_custos = merge_and_compare_categories(dre_data.get('custos_por_categoria', []), dre_comp.get('custos_por_categoria', []))
+        merged_despesas = merge_and_compare_categories(dre_data.get('despesas_por_categoria', []), dre_comp.get('despesas_por_categoria', []))
+        
+        add_data_row(['(+) Receita Operacional Bruta', dre_data['total_receitas'], dre_comp['total_receitas'], variacoes['total_receitas']['abs'], variacoes['total_receitas']['perc']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for r in merged_receitas: add_data_row([f"+ {r['name']}", r['principal'], r['comparativo'], r['var_abs'], r['var_perc']], indent=1)
+        
+        add_data_row(['(-) Custos Diretos', -dre_data['total_custos'], -dre_comp['total_custos'], -variacoes['total_custos']['abs'], -variacoes['total_custos']['perc']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for c in merged_custos: add_data_row([f"- {c['name']}", -c['principal'], -c['comparativo'], -c['var_abs'], -c['var_perc']], indent=1)
+        
+        add_data_row(['(=) Lucro Bruto', dre_data['lucro_bruto'], dre_comp['lucro_bruto'], variacoes['lucro_bruto']['abs'], variacoes['lucro_bruto']['perc']])
+        apply_row_styles(row_cursor - 1, is_total=True)
 
-        ws.append(['(+) Receita Operacional Bruta', dre_data['total_receitas'], dre_comp['total_receitas'], variacoes['total_receitas']['abs'], variacoes['total_receitas']['perc']])
-        for r in receitas_detalhadas: ws.append([f"  + {r['name']}", r['principal'], r['comparativo'], r['var_abs'], r['var_perc']])
-        ws.append(['(-) Custos Diretos', -dre_data['total_custos'], -dre_comp['total_custos'], -variacoes['total_custos']['abs'], -variacoes['total_custos']['perc']])
-        for c in custos_detalhados: ws.append([f"  - {c['name']}", -c['principal'], -c['comparativo'], -c['var_abs'], -c['var_perc']])
-        ws.append(['(=) Lucro Bruto', dre_data['lucro_bruto'], dre_comp['lucro_bruto'], variacoes['lucro_bruto']['abs'], variacoes['lucro_bruto']['perc']])
-        ws.append(['(-) Despesas Operacionais', -dre_data['total_despesas'], -dre_comp['total_despesas'], -variacoes['total_despesas']['abs'], -variacoes['total_despesas']['perc']])
-        for d in despesas_detalhadas: ws.append([f"  - {d['name']}", -d['principal'], -d['comparativo'], -d['var_abs'], -d['var_perc']])
-        ws.append(['(=) RESULTADO DO PERÍODO', dre_data['resultado'], dre_comp['resultado'], variacoes['resultado']['abs'], variacoes['resultado']['perc']])
-    else:
-        # Lógica de período único (sem alterações)
-        ws.append(['(+) Receita Operacional Bruta', dre_data['total_receitas']])
-        for r in dre_data['receitas_por_categoria']: ws.append([f"  + {r['categoria__name']}", r['total_cat']])
-        ws.append(['(-) Custos Diretos', -dre_data['total_custos']])
-        for c in dre_data['custos_por_categoria']: ws.append([f"  - {c['categoria__name']}", -c['total_cat']])
-        ws.append(['(=) Lucro Bruto', dre_data['lucro_bruto']])
-        ws.append(['(-) Despesas Operacionais', -dre_data['total_despesas']])
-        for d in dre_data['despesas_por_categoria']: ws.append([f"  - {d['categoria__name']}", -d['total_cat']])
-        ws.append(['(=) RESULTADO DO PERÍODO', dre_data['resultado']])
+        add_data_row(['(-) Despesas Operacionais', -dre_data['total_despesas'], -dre_comp['total_despesas'], -variacoes['total_despesas']['abs'], -variacoes['total_despesas']['perc']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for d in merged_despesas: add_data_row([f"- {d['name']}", -d['principal'], -d['comparativo'], -d['var_abs'], -d['var_perc']], indent=1)
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=5), start=5):
-        desc_cell = row[0]
-        desc_val = desc_cell.value.strip() if desc_cell.value else ""
-        is_total_row = desc_val.startswith(('(+)', '(-)', '(=)'))
-        is_final_row = 'RESULTADO' in desc_val
-        if is_final_row:
-            for cell in row: cell.fill = final_total_fill; cell.font = final_total_font
-        elif is_total_row:
-            for cell in row: cell.fill = total_fill; cell.font = bold_font
-        for col_idx, cell in enumerate(row[1:], start=2):
-            cell.alignment = right_align
-            if not isinstance(cell.value, (int, float, Decimal)): continue
-            is_bold = cell.font.bold
-            color_rgb = None
-            if col_idx <= 3:
-                if desc_val.startswith(('(+) Receita', '(=) Lucro', '(=) RESULTADO')):
-                    color_rgb = green_font.color.rgb if cell.value >= 0 else red_font.color.rgb
-                elif desc_val.startswith(('(-) Custos', '(-) Despesas')):
-                    color_rgb = red_font.color.rgb
-            elif col_idx >= 4 and dre_comp:
-                is_good_variation = False
-                if desc_val.startswith(('(+) Receita', '(=) Lucro', '(=) RESULTADO')):
-                    is_good_variation = cell.value >= 0
-                elif desc_val.startswith(('(-) Custos', '(-) Despesas')):
-                    is_good_variation = cell.value <= 0
-                color_rgb = green_font.color.rgb if is_good_variation else red_font.color.rgb
-            if color_rgb:
-                cell.font = Font(bold=is_bold, color=color_rgb)
+        add_data_row(['(=) Resultado do Período', dre_data['resultado'], dre_comp['resultado'], variacoes['resultado']['abs'], variacoes['resultado']['perc']])
+        apply_row_styles(row_cursor - 1, is_final=True)
 
-    min_row = 4
-    max_row = ws.max_row
-    min_col = 1
-    max_col = len(headers)
+    else: # Lógica para período único
+        add_data_row(['(+) Receita Operacional Bruta', dre_data['total_receitas']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for r in dre_data['receitas_por_categoria']: add_data_row([f"+ {r['categoria__name']}", r['total_cat']], indent=1)
+        
+        add_data_row(['(-) Custos Diretos', -dre_data['total_custos']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for c in dre_data['custos_por_categoria']: add_data_row([f"- {c['categoria__name']}", -c['total_cat']], indent=1)
 
-    for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
-        for cell in row:
-            border = Border()
-            if cell.column == min_col:
-                border.left = thin_side
-            if cell.column == max_col:
-                border.right = thin_side
-            if cell.row == min_row:
-                border.top = thin_side
-            if cell.row == max_row:
-                border.bottom = thin_side
-            cell.border = border
+        add_data_row(['(=) Lucro Bruto', dre_data['lucro_bruto']])
+        apply_row_styles(row_cursor - 1, is_total=True)
 
+        add_data_row(['(-) Despesas Operacionais', -dre_data['total_despesas']])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for d in dre_data['despesas_por_categoria']: add_data_row([f"- {d['categoria__name']}", -d['total_cat']], indent=1)
+
+        add_data_row(['(=) Resultado do Período', dre_data['resultado']])
+        apply_row_styles(row_cursor - 1, is_final=True)
+
+    # --- Ajuste final de colunas e cores (sem alterações) ---
     ws.column_dimensions['A'].width = 50
-    for col in ws.iter_cols(min_col=2, max_col=ws.max_column):
-        col_letter = get_column_letter(col[0].column)
-        ws.column_dimensions[col_letter].width = 22
-        for cell in col:
-            if isinstance(cell.value, (int, float, Decimal)):
-                if col_letter == 'E':
-                    cell.number_format = '0.0"%"'
-                else:
-                    cell.number_format = 'R$ #,##0.00;[Red]-R$ #,##0.00'
-
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    file_name = f'DRE_{start_date_str}_a_{end_date_str}.xlsx'
+    for i in range(2, num_cols + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 20
+    
     if dre_comp:
-        file_name = f'DRE_Comparativo_{start_date_str}_vs_{start_date_comp_str}.xlsx'
+        file_name = (
+            f"DRE Comparativo "
+            f"{start_date.strftime('%d-%m-%Y')} a {end_date.strftime('%d-%m-%Y')}"
+            f" vs {start_date_comp.strftime('%d-%m-%Y')} a {end_date_comp.strftime('%d-%m-%Y')}.xlsx"
+        )
+    else:
+        file_name = (
+            f"DRE "
+            f"{start_date.strftime('%d-%m-%Y')} a {end_date.strftime('%d-%m-%Y')}.xlsx"
+        )
+    
+    # Resposta HTTP com o nome de arquivo correto e sem linhas duplicadas
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{file_name}"'
     wb.save(response)
     return response
@@ -1317,67 +1347,73 @@ def export_dre_pdf(request):
     unidade_ativa_id = request.session.get("unidade_ativa_id")
     start_date_str = request.GET.get("start_date")
     end_date_str = request.GET.get("end_date")
-
-    # --- LÓGICA DE COMPARAÇÃO ADICIONADA ---
     start_date_comp_str = request.GET.get("start_date_comp")
     end_date_comp_str = request.GET.get("end_date_comp")
 
     start_date = date.fromisoformat(start_date_str)
     end_date = date.fromisoformat(end_date_str)
-    start_date_comp = (
-        date.fromisoformat(start_date_comp_str) if start_date_comp_str else None
-    )
-    end_date_comp = date.fromisoformat(end_date_comp_str) if end_date_comp_str else None
+    # Renomeando 'dre_data' para 'dre_principal' para alinhar com o template
+    dre_principal = get_dre_data(unidade_ativa_id, start_date, end_date)
+    
+    dre_comp = None
+    start_date_comp = None
+    end_date_comp = None
+    if start_date_comp_str and end_date_comp_str:
+        start_date_comp = date.fromisoformat(start_date_comp_str)
+        end_date_comp = date.fromisoformat(end_date_comp_str)
+        dre_comp = get_dre_data(unidade_ativa_id, start_date_comp, end_date_comp)
 
-    dre_data = get_dre_data(unidade_ativa_id, start_date, end_date)
-    dre_comp = (
-        get_dre_data(unidade_ativa_id, start_date_comp, end_date_comp)
-        if start_date_comp and end_date_comp
-        else None
-    )
-
+    # Contexto agora usa 'dre_principal', que é o nome esperado pelo template
     context = {
-        "dre_data": dre_data,
         "start_date": start_date,
         "end_date": end_date,
+        "dre_principal": dre_principal,
         "dre_comp": dre_comp,
         "start_date_comp": start_date_comp,
         "end_date_comp": end_date_comp,
     }
 
-    # Calcula as variações se houver um período comparativo
     if dre_comp:
         variacoes = {}
-        for key in [
-            "total_receitas",
-            "total_custos",
-            "lucro_bruto",
-            "total_despesas",
-            "resultado",
-        ]:
-            val_principal = dre_data.get(key, Decimal("0.00"))
+        for key in ["total_receitas", "total_custos", "lucro_bruto", "total_despesas", "resultado"]:
+            val_principal = dre_principal.get(key, Decimal("0.00"))
             val_comp = dre_comp.get(key, Decimal("0.00"))
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else Decimal("0.00")
+            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
             variacoes[key] = {"abs": var_abs, "perc": var_perc}
-        context["variacoes"] = variacoes  # Passa as variações
+        context["variacoes"] = variacoes
 
-    # --- FIM DA LÓGICA ADICIONADA ---
+        # Adicionando as listas detalhadas ao contexto (a parte que estava faltando)
+        context["merged_receitas"] = merge_and_compare_categories(
+            dre_principal.get('receitas_por_categoria', []), dre_comp.get('receitas_por_categoria', [])
+        )
+        context["merged_custos"] = merge_and_compare_categories(
+            dre_principal.get('custos_por_categoria', []), dre_comp.get('custos_por_categoria', [])
+        )
+        context["merged_despesas"] = merge_and_compare_categories(
+            dre_principal.get('despesas_por_categoria', []), dre_comp.get('despesas_por_categoria', [])
+        )
 
     html_string = render_to_string("finances/dre_pdf_template.html", context)
     response = HttpResponse(content_type="application/pdf")
     
+    def format_date_for_filename(d):
+        # Converte date para dd-mm-yyyy
+        return d.strftime("%d-%m-%Y")
+
     if dre_comp:
-        file_name = f"DRE_Comparativo_{start_date_str}_a_{end_date_str}_vs_{start_date_comp_str}_a_{end_date_comp_str}.pdf"
+        file_name = (
+            f"DRE Comparativo {format_date_for_filename(start_date)} a {format_date_for_filename(end_date)} "
+            f"vs {format_date_for_filename(start_date_comp)} a {format_date_for_filename(end_date_comp)}.pdf"
+        )
     else:
-        file_name = f"DRE_{start_date_str}_a_{end_date_str}.pdf"
+        file_name = f"DRE {format_date_for_filename(start_date)} a {format_date_for_filename(end_date)}.pdf"
 
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
     
-    # Usando xhtml2pdf que parece ser a biblioteca que você tem
     pisa_status = pisa.CreatePDF(html_string, dest=response)
     if pisa_status.err:
-        return HttpResponse("Tivemos alguns erros <pre>" + html_string + "</pre>")
+        return HttpResponse("Ocorreu um erro ao gerar o PDF.")
     return response
 
 

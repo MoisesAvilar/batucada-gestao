@@ -1,0 +1,79 @@
+{% load humanize %}
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-3">
+        <div class="card shadow-sm stat-card h-100">
+            <div class="card-body">
+                <div class="stat-icon text-success">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div class="stat-info">
+                    <h6 class="stat-title">Receita Bruta</h6>
+                    <div class="stat-value">R$ {{ dre_principal.total_receitas|floatformat:2|intcomma }}</div>
+                    {% if dre_comp %}
+                    <div class="stat-comparison {% if variacoes.total_receitas.perc >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ variacoes.total_receitas.perc|floatformat:1 }}% vs. Per. Ant.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-3">
+        <div class="card shadow-sm stat-card h-100">
+            <div class="card-body">
+                <div class="stat-icon text-danger">
+                    <i class="bi bi-receipt"></i>
+                </div>
+                <div class="stat-info">
+                    <h6 class="stat-title">Custos Diretos</h6>
+                    <div class="stat-value">R$ {{ dre_principal.total_custos|floatformat:2|intcomma }}</div>
+                     {% if dre_comp %}
+                    <div class="stat-comparison {% if variacoes.total_custos.perc <= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ variacoes.total_custos.perc|floatformat:1 }}% vs. Per. Ant.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-3">
+        <div class="card shadow-sm stat-card h-100">
+            <div class="card-body">
+                <div class="stat-icon {% if dre_principal.lucro_bruto < 0 %}text-danger{% else %}text-primary{% endif %}">
+                    <i class="bi bi-piggy-bank"></i>
+                </div>
+                <div class="stat-info">
+                    <h6 class="stat-title">Lucro Bruto</h6>
+                    <div class="stat-value">R$ {{ dre_principal.lucro_bruto|floatformat:2|intcomma }}</div>
+                     {% if dre_comp %}
+                    <div class="stat-comparison {% if variacoes.lucro_bruto.perc >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ variacoes.lucro_bruto.perc|floatformat:1 }}% vs. Per. Ant.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-3">
+        <div class="card shadow-sm stat-card h-100">
+            <div class="card-body">
+                <div class="stat-icon {% if dre_principal.resultado < 0 %}text-danger{% else %}text-success{% endif %}">
+                    <i class="bi bi-clipboard-data"></i>
+                </div>
+                <div class="stat-info">
+                    <h6 class="stat-title">Resultado</h6>
+                    <div class="stat-value">R$ {{ dre_principal.resultado|floatformat:2|intcomma }}</div>
+                     {% if dre_comp %}
+                    <div class="stat-comparison {% if variacoes.resultado.perc >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ variacoes.resultado.perc|floatformat:1 }}% vs. Per. Ant.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
