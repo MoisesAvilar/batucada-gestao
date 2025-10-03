@@ -415,11 +415,18 @@ def despesa_list_view(request):
     if status:
         despesas_list = despesas_list.filter(status=status)
 
-    despesas_list = despesas_list.order_by("-data_competencia")
+    orderby = request.GET.get('orderby', '-data_competencia')
+    allowed_orderby_fields = ['descricao', '-descricao', 'valor', '-valor', 'data_competencia', '-data_competencia']
+    if orderby not in allowed_orderby_fields:
+        orderby = '-data_competencia'
+
+    despesas_list = despesas_list.order_by(orderby)
     titulo = "Saídas"
 
     filtro_ativo = request.GET.get("filtro")
     if filtro_ativo == "a_vencer":
+        today = now().date()
+        data_limite_vencimento = today + timedelta(days=5)
         despesas_list = despesas_list.filter(
             status="a_pagar",
             data_competencia__gte=today,
@@ -441,6 +448,7 @@ def despesa_list_view(request):
         "form": form,
         "page_obj": page_obj,
         "titulo": titulo,
+        "orderby": orderby,
         "filtro_ativo": filtro_ativo,
         "professores": CustomUser.objects.filter(tipo__in=['admin', 'professor']),
         "categorias": Category.objects.filter(type='expense'),
@@ -608,7 +616,14 @@ def receita_list_view(request):
     if status:
         receitas_list = receitas_list.filter(status=status)
 
-    receitas_list = receitas_list.order_by("-data_competencia")
+    orderby = request.GET.get('orderby', '-data_competencia') # Padrão: mais recentes
+    
+    # Lista de campos permitidos para evitar ordenação maliciosa
+    allowed_orderby_fields = ['descricao', '-descricao', 'valor', '-valor', 'data_competencia', '-data_competencia']
+    if orderby not in allowed_orderby_fields:
+        orderby = '-data_competencia' # Garante um padrão seguro
+        
+    receitas_list = receitas_list.order_by(orderby)
     titulo = "Entradas"
 
     filtro_ativo = request.GET.get("filtro")
@@ -653,6 +668,7 @@ def receita_list_view(request):
         "mensalidade_form": mensalidade_form,
         "venda_form": venda_form,
         "titulo": titulo,
+        "orderby": orderby,
         "filtro_ativo": filtro_ativo,
         "alunos": Aluno.objects.all(),
         "categorias": Category.objects.filter(type='income'),

@@ -1,5 +1,5 @@
 {% extends "scheduler/base.html" %}
-
+{% load query_param_tags %}
 {% block content %}
 <style>
     /* Estilos específicos para a nova página de Contas a Receber */
@@ -27,6 +27,9 @@
         font-weight: 600;
         color: var(--bs-secondary-color);
         text-transform: uppercase;
+    }
+    thead a {
+        color: inherit;
     }
 
     /* Cards de Receita (Visão Mobile) */
@@ -153,6 +156,18 @@
     </div>
 </div>
 
+<div class="d-flex justify-content-end mb-3">
+    <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-sort-down me-1"></i> Ordenar por
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="?{{ request.GET|dict_minus:'orderby' }}&orderby=-data_competencia">Mais Recentes</a></li>
+            <li><a class="dropdown-item" href="?{{ request.GET|dict_minus:'orderby' }}&orderby=-valor">Maior Valor</a></li>
+            <li><a class="dropdown-item" href="?{{ request.GET|dict_minus:'orderby' }}&orderby=valor">Menor Valor</a></li>
+        </ul>
+    </div>
+</div>
 <div class="content-block">
     {% if not page_obj %}
         <div class="text-center text-muted p-4">Nenhuma receita encontrada para os filtros aplicados.</div>
@@ -161,16 +176,42 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead>
-                        <tr>
-                            <th scope="col">ID</th>
-                            <th scope="col">Descrição</th>
-                            <th scope="col">Aluno</th>
-                            <th scope="col">Competência</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Valor</th>
-                            <th scope="col">Ações</th>
-                        </tr>
-                    </thead>
+                        <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                
+                                <th scope="col">
+                                    <a href="?{{ request.GET|dict_minus:'orderby' }}&orderby={% if orderby == 'descricao' %}-descricao{% else %}descricao{% endif %}" class="text-decoration-none">
+                                        Descrição
+                                        {% if 'descricao' in orderby %}
+                                            <i class="bi {% if orderby|slice:":1" == '-' %}bi-sort-alpha-down-alt{% else %}bi-sort-alpha-down{% endif %}"></i>
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                
+                                <th scope="col">Aluno</th> <th scope="col">
+                                    <a href="?{{ request.GET|dict_minus:'orderby' }}&orderby={% if orderby == 'data_competencia' %}-data_competencia{% else %}data_competencia{% endif %}" class="text-decoration-none">
+                                        Competência
+                                        {% if 'data_competencia' in orderby %}
+                                            <i class="bi {% if orderby|slice:":1" == '-' %}bi-sort-down-alt{% else %}bi-sort-down{% endif %}"></i>
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                
+                                <th scope="col">Status</th>
+                                
+                                <th scope="col">
+                                    <a href="?{{ request.GET|dict_minus:'orderby' }}&orderby={% if orderby == 'valor' %}-valor{% else %}valor{% endif %}" class="text-decoration-none">
+                                        Valor
+                                        {% if 'valor' in orderby %}
+                                            <i class="bi {% if orderby|slice:":1" == '-' %}bi-sort-numeric-down-alt{% else %}bi-sort-numeric-down{% endif %}"></i>
+                                        {% endif %}
+                                    </a>
+                                </th>
+                                
+                                <th scope="col">Ações</th>
+                            </tr>
+                        </thead>
                     <tbody>
                         {% for r in page_obj %}
                         <tr>
