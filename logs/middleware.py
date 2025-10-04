@@ -1,10 +1,7 @@
-# logs/middleware.py
-
+from .request_util import set_current_request
 from django.utils.deprecation import MiddlewareMixin
 from .models import AuditLog
 
-# Importe a função para obter o request globalmente
-from .request_util import get_current_request
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -14,8 +11,6 @@ def get_client_ip(request):
 
 
 class AuditMiddleware(MiddlewareMixin):
-    # ATENÇÃO: A lógica mudou. Agora o middleware foca em GETs e erros.
-    # Os signals cuidarão de POST, PUT, PATCH, DELETE.
     IGNORED_PATHS = ("/static/", "/media/", "/favicon.ico", "/health", "/admin/")
 
     def process_response(self, request, response):
@@ -74,8 +69,6 @@ class AuditMiddleware(MiddlewareMixin):
         return response
 
 
-from .request_util import set_current_request
-
 class RequestMiddleware(MiddlewareMixin):
     def __init__(self, get_response):
         self.get_response = get_response
@@ -84,3 +77,4 @@ class RequestMiddleware(MiddlewareMixin):
         set_current_request(request)
         response = self.get_response(request)
         return response
+    

@@ -34,6 +34,9 @@
       NOVOS ESTILOS PARA OS CARDS (MOBILE)
       ============================================
     */
+    .log-card {
+        transform: translateZ(0);
+    }
     .log-card .log-card-header {
         cursor: pointer;
         transition: background-color 0.15s ease-in-out;
@@ -171,7 +174,9 @@
                                     <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal">ID: {{ log.id }}</span>
                                 </span>
                                 <small class="text-muted">{{ log.username }} &bull; {{ log.timestamp }}</small>
+                            </div>    
                         </div>
+
                         <div class="text-end">
                              {% with action_class=log.action|default:"custom" %}<span class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}
                              <i class="bi bi-chevron-down chevron-icon d-block mt-2"></i>
