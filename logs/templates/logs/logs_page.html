@@ -1,310 +1,279 @@
 {% extends "scheduler/base.html" %}
+{% load tz %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    /*
+      ============================================
+      ESTILOS DA TABELA (DESKTOP)
+      ============================================
+    */
+    .table-container {
+        max-height: 65vh;
+        overflow-y: auto;
+    }
+
+    .table-container thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    
+    .table-logs > :not(caption) > * > * { border-bottom-width: 0; }
+    .table-logs .log-row { border-top: 1px solid var(--bs-table-border-color); }
+    .table-logs .log-row { cursor: pointer; transition: background-color 0.15s ease-in-out; }
+    .table-logs .log-detail-row { background-color: var(--bs-tertiary-bg); }
+    .table-logs .log-detail-row > td { padding: 0; }
+    .table-logs .log-detail-content { padding: 1rem 1.5rem; }
+    .table-logs .log-row .chevron-icon { transition: transform 0.2s ease-in-out; }
+    .table-logs .log-row[aria-expanded="true"] .chevron-icon { transform: rotate(180deg); }
+
+    /*
+      ============================================
+      NOVOS ESTILOS PARA OS CARDS (MOBILE)
+      ============================================
+    */
+    .log-card .log-card-header {
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .log-card .log-card-header:hover {
+        background-color: var(--bs-secondary-bg);
+    }
+    .log-card .chevron-icon {
+        transition: transform 0.2s ease-in-out;
+    }
+    .log-card .log-card-header[aria-expanded="true"] .chevron-icon {
+        transform: rotate(180deg);
+    }
+    .log-card .log-detail-mobile {
+        border-top: 1px solid var(--bs-border-color-translucent);
+    }
+
+
+    /* ESTILOS GERAIS (compartilhados) */
+    .action-badge { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+    .action-badge::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+    .action-badge.criou::before { background-color: var(--bs-success); }
+    .action-badge.atualizou::before { background-color: var(--bs-warning); }
+    .action-badge.deletou::before { background-color: var(--bs-danger); }
+    .action-badge.visualizou::before { background-color: var(--bs-primary); }
+    .action-badge.custom::before { background-color: var(--bs-secondary); }
+    .action-badge.post::before { background-color: var(--bs-info); }
+
+    .log-detail-content pre code {
+        background-color: var(--bs-tertiary-bg);
+        color: var(--bs-emphasis-color);
+        border: 1px solid var(--bs-border-color-translucent);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
 
-    <!-- Título -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start mb-3">
-        <h3 class="mb-3 mb-md-0">Dashboard de Logs</h3>
-        <div class="btn-group mb-3" role="group" aria-label="Filtro de dias">
-            <button class="btn btn-outline-primary" onclick="fetchLogs(7)">Últimos 7 dias</button>
-            <button class="btn btn-outline-primary" onclick="fetchLogs(30)">Últimos 30 dias</button>
-            <button class="btn btn-outline-primary" onclick="fetchLogs(90)">Últimos 90 dias</button>
-        </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h3 class="mb-0"><i class="bi bi-layout-text-sidebar-reverse me-2"></i>Logs do Sistema</h3>
+        <a href="{{ request.path }}" class="btn btn-sm btn-primary"><i class="bi bi-arrow-clockwise me-1"></i> Atualizar</a>
     </div>
 
-    <!-- Filtros -->
-    <div class="row mb-3 g-2">
-        <div class="col-12 col-md-4">
-            <input type="text" id="userFilter" class="form-control" placeholder="Filtrar por usuário" oninput="applyFilters()">
-        </div>
-        <div class="col-12 col-md-4">
-            <input type="text" id="resourceFilter" class="form-control" placeholder="Filtrar por recurso/página" oninput="applyFilters()">
-        </div>
-        <div class="col-12 col-md-4">
-            <input type="text" id="tagsFilter" class="form-control" placeholder="Filtrar por tags" oninput="applyFilters()">
-        </div>
-    </div>
-
-    <!-- KPIs -->
-    <div class="row mb-4">
-        <div class="col-6 col-md-3 mb-3">
-            <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Total de Logs</h5>
-                    <p class="card-text" id="totalLogs">0</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
-            <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Criações</h5>
-                    <p class="card-text text-success" id="totalCriou">0</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
-            <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Atualizações</h5>
-                    <p class="card-text text-warning" id="totalAtualizou">0</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3 mb-3">
-            <div class="card text-center shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Deleções</h5>
-                    <p class="card-text text-danger" id="totalDeletou">0</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Gráfico de ações -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <canvas id="actionsChart" height="200"></canvas>
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-lg-5 col-12"><label for="usernameFilter" class="form-label small">Usuário</label><input type="text" id="usernameFilter" name="username" class="form-control form-control-sm" placeholder="Filtrar por nome de usuário..." value="{{ filters.username }}"></div>
+                <div class="col-lg-3 col-12"><label for="resourceFilter" class="form-label small">Recurso</label><input type="text" id="resourceFilter" name="resource" class="form-control form-control-sm" placeholder="Ex: Aluno, Aula..." value="{{ filters.resource }}"></div>
+                <div class="col-lg-2 col-md-6 col-12"><label for="tagsFilter" class="form-label small">Tags</label><input type="text" id="tagsFilter" name="tags" class="form-control form-control-sm" placeholder="Ex: criou, finanças..." value="{{ filters.tags }}"></div>
+                <div class="col-lg-2 col-md-6 col-12"><button class="btn btn-sm btn-secondary w-100"><i class="bi bi-search me-2"></i>Filtrar</button></div>
+            </form>
+            <hr class="my-2">
+            <div class="d-flex justify-content-center"><div class="btn-group" role="group"><a href="?days=7" class="btn btn-sm btn-outline-secondary {% if filters.days == 7 %}active{% endif %}">7 Dias</a><a href="?days=30" class="btn btn-sm btn-outline-secondary {% if filters.days == 30 %}active{% endif %}">30 Dias</a><a href="?days=90" class="btn btn-sm btn-outline-secondary {% if filters.days == 90 %}active{% endif %}">90 Dias</a></div></div>
+        </div>
+    </div>
+    
+<div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-7"><canvas id="actionsChart" style="min-height: 200px;"></canvas></div>
+                        <div class="col-lg-5 d-flex align-items-center">
+                            <div class="row w-100 text-center">
+                                <div class="col-6 col-md-3 mb-2 mb-md-0 border-end"><h6 class="text-muted small">Total</h6><p class="h4 mb-0" id="totalLogs">0</p></div>
+                                <div class="col-6 col-md-3 mb-2 mb-md-0 border-end"><h6 class="text-muted small">Criações</h6><p class="h4 text-success mb-0" id="totalCriou">0</p></div>
+                                <div class="col-6 col-md-3 border-end"><h6 class="text-muted small">Updates</h6><p class="h4 text-warning mb-0" id="totalAtualizou">0</p></div>
+                                <div class="col-6 col-md-3"><h6 class="text-muted small">Deleções</h6><p class="h4 text-danger mb-0" id="totalDeletou">0</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Tabela para desktop/tablet -->
-    <div class="table-responsive d-none d-md-block">
-        <table class="table table-striped table-hover align-middle" id="logsTable">
-            <thead class="table-dark">
-                <tr>
-                    <th>Data/Hora</th>
-                    <th>Usuário</th>
-                    <th>Ação</th>
-                    <th>Recurso</th>
-                    <th>Detalhes</th>
-                    <th>Método</th>
-                    <th>IP</th>
-                    <th>Tags</th>
-                </tr>
-            </thead>
-            <tbody id="logsTableBody">
-                <!-- preenchido via JS -->
-            </tbody>
-        </table>
+    <div class="d-none d-md-block">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Resultados</span>
+                <small class="text-muted">Total de registros: {{ page_obj.paginator.count }}</small>
+            </div>
+            <div class="table-responsive table-container">
+                <table class="table table-hover table-logs mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%;">ID</th>
+                            <th style="width: 15%;">Data/Hora</th>
+                            <th style="width: 15%;">Usuário</th>
+                            <th style="width: 15%;">Ação</th>
+                            <th>Recurso</th>
+                            <th style="width: 5%;" class="text-end"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr class="log-row" data-bs-toggle="collapse" data-bs-target="#detail-{{ log.id }}" aria-expanded="false" aria-controls="detail-{{ log.id }}">
+                            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td>{{ log.timestamp }}</td>
+                            <td>{{ log.username }}</td>
+                            <td>{% with action_class=log.action|default:"custom" %}<span class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}</td>
+                            <td>
+                                <span class="fw-bold">{{ log.resource_name }}</span>{% if log.resource_id %} <small class="text-muted">#{{ log.resource_id }}</small>{% endif %}
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal ms-2">ID: {{ log.id }}</span>
+                            </td>
+                            <td class="text-end"><i class="bi bi-chevron-down chevron-icon"></i></td>
+                        </tr>
+                        <tr class="log-detail-row">
+                            <td colspan="6">
+                                <div class="collapse" id="detail-{{ log.id }}">
+                                    {% include "logs/partials/log_detail_content.html" with log=log %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- Versão mobile em cards -->
-    <div class="d-block d-md-none" id="logsCardsContainer">
-        <!-- preenchido via JS -->
+    <div class="d-block d-md-none">
+        {% for log in logs %}
+        <div class="card shadow-sm log-card mb-2">
+            <div class="card-body p-0">
+                <div class="log-card-header p-3" data-bs-toggle="collapse" data-bs-target="#detail-mobile-{{ log.id }}" aria-expanded="false" aria-controls="detail-mobile-{{ log.id }}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="h5 mb-0 text-muted fw-light">{{ start_index|add:forloop.counter0 }}</span>
+                            
+                            <div>
+                                <span class="fw-bold d-block">
+                                    {{ log.resource_name }}
+                                    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal">ID: {{ log.id }}</span>
+                                </span>
+                                <small class="text-muted">{{ log.username }} &bull; {{ log.timestamp }}</small>
+                        </div>
+                        <div class="text-end">
+                             {% with action_class=log.action|default:"custom" %}<span class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}
+                             <i class="bi bi-chevron-down chevron-icon d-block mt-2"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="collapse" id="detail-mobile-{{ log.id }}">
+                    <div class="log-detail-mobile p-3">
+                         {% include "logs/partials/log_detail_content.html" with log=log %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
+
+    {% if not logs %}
+        <div class="card shadow-sm">
+             <div class="card-body text-center py-5">
+                <i class="bi bi-journal-x fs-1 text-muted"></i>
+                <h5 class="mt-3">Nenhum log encontrado</h5>
+                <p class="text-muted">Tente ajustar os filtros ou selecionar um período diferente.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="card shadow-sm mt-4">
+        <div class="card-footer">
+            {% include "scheduler/partials/pagination.html" with page_obj=page_obj %}
+        </div>
+    </div>
+    {% endif %}
 
 </div>
+{% endblock %}
 
-<!-- Chart.js -->
+
+{% block extra_js %}
+{{ block.super }}
+<script id="logs-data" type="application/json">
+  {{ logs_json|safe }}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-let allLogs = [];
-let displayedLogs = [];
-let batchSize = 50;
-let currentIndex = 0;
-let actionsChart;
+document.addEventListener("DOMContentLoaded", () => {
+    const logsDataElement = document.getElementById("logs-data");
+    let logs = [];
 
-// Fetch de logs
-async function fetchLogs(days=30) {
-    const res = await fetch(`/logs/api/?days=${days}`);
-    const data = await res.json();
-    allLogs = data.logs;
-    currentIndex = 0;
-    displayedLogs = [];
-    document.getElementById("logsTableBody").innerHTML = "";
-    renderNextBatch();
+    try {
+        logs = JSON.parse(logsDataElement.textContent || '[]');
+    } catch (e) {
+        console.error("Erro ao parsear os dados JSON dos logs:", e);
+    }
+
+    // Funções de KPI e Gráfico (sem alterações)
+    function updateKPIs() {
+        document.getElementById("totalLogs").textContent = logs.length;
+        document.getElementById("totalCriou").textContent = logs.filter(l => l.action === "criou").length;
+        document.getElementById("totalAtualizou").textContent = logs.filter(l => l.action === "atualizou").length;
+        document.getElementById("totalDeletou").textContent = logs.filter(l => l.action === "deletou").length;
+    }
+
+    function renderChart() {
+        const ctx = document.getElementById("actionsChart");
+        if (!ctx) return;
+        if (window.actionsChart instanceof Chart) {
+            window.actionsChart.destroy();
+        }
+        
+        const grouped = logs.reduce((acc, log) => {
+            const date = log.timestamp.split(' ')[0];
+            if (!acc[date]) acc[date] = { criou: 0, atualizou: 0, deletou: 0, visualizou: 0 };
+            if (acc[date][log.action] !== undefined) acc[date][log.action]++;
+            return acc;
+        }, {});
+
+        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+        
+        window.actionsChart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: sortedDates,
+                datasets: [
+                    { label: "Criações", data: sortedDates.map(d => grouped[d].criou), backgroundColor: "rgba(25, 135, 84, 0.7)"},
+                    { label: "Atualizações", data: sortedDates.map(d => grouped[d].atualizou), backgroundColor: "rgba(255, 193, 7, 0.7)" },
+                    { label: "Deleções", data: sortedDates.map(d => grouped[d].deletou), backgroundColor: "rgba(220, 53, 69, 0.7)" },
+                    { label: "Visualizações", data: sortedDates.map(d => grouped[d].visualizou), backgroundColor: "rgba(13, 110, 253, 0.7)" },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, title: { display: true, text: "Atividade de Logs por Dia" } },
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+            },
+        });
+    }
+
+    // REMOVEMOS TODA A LÓGICA DO MODAL. Bootstrap cuida das linhas expansíveis.
     updateKPIs();
     renderChart();
-}
-
-// Renderiza próximo lote de logs
-function renderNextBatch() {
-    const tbody = document.getElementById("logsTableBody");
-    const nextBatch = allLogs.slice(currentIndex, currentIndex + batchSize);
-
-    nextBatch.forEach(log => {
-        const tr = document.createElement("tr");
-
-        const username = (log.username && log.username !== "anon") ? log.username : "";
-        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
-            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
-            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
-
-        tr.innerHTML = `
-            <td>${log.timestamp}</td>
-            <td>${username}</td>
-            <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
-            <td>${resourceDisplay}</td>
-            <td>
-                <span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">
-                    ${log.detail}
-                </span>
-            </td>
-            <td>${log.method || "-"}</td>
-            <td>${log.ip_address || "-"}</td>
-            <td>${log.tags || ""}</td>
-        `;
-        tbody.appendChild(tr);
-        displayedLogs.push(log);
-    });
-
-    // Atualiza cards mobile após renderizar o batch
-    renderMobileCards(displayedLogs);
-
-    currentIndex += batchSize;
-}
-
-// Renderiza cards para mobile
-function renderMobileCards(logs) {
-    const container = document.getElementById("logsCardsContainer");
-    container.innerHTML = "";
-
-    logs.forEach(log => {
-        const username = (log.username && log.username !== "anon") ? log.username : "";
-        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
-            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
-            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
-
-        const card = document.createElement("div");
-        card.className = "card mb-2 shadow-sm";
-        card.innerHTML = `
-            <div class="card-body p-2">
-                <div class="d-flex justify-content-between">
-                    <small class="text-muted">${log.timestamp}</small>
-                    <span class="badge bg-${getActionColor(log.action)}">${log.action}</span>
-                </div>
-                <p class="mb-1"><strong>Usuário:</strong> ${username}</p>
-                <p class="mb-1"><strong>Recurso:</strong> ${resourceDisplay}</p>
-                <p class="mb-1"><strong>Detalhes:</strong> ${log.detail}</p>
-                <p class="mb-1"><strong>Método:</strong> ${log.method || "-"}</p>
-                <p class="mb-1"><strong>IP:</strong> ${log.ip_address || "-"}</p>
-                <p class="mb-0"><strong>Tags:</strong> ${log.tags || ""}</p>
-            </div>
-        `;
-        container.appendChild(card);
-    });
-}
-
-// Cores das ações
-function getActionColor(action) {
-    switch(action) {
-        case "criou": return "success";
-        case "atualizou": return "warning";
-        case "deletou": return "danger";
-        case "visualizou": return "secondary";
-        default: return "primary";
-    }
-}
-
-// Scroll infinito
-window.addEventListener("scroll", () => {
-    const scrollTop = window.scrollY;
-    const windowHeight = window.innerHeight;
-    const fullHeight = document.body.scrollHeight;
-
-    if(scrollTop + windowHeight > fullHeight - 100 && currentIndex < allLogs.length) {
-        renderNextBatch();
-    }
 });
-
-// Filtros dinâmicos
-function applyFilters() {
-    const userTerm = document.getElementById("userFilter").value.toLowerCase();
-    const resourceTerm = document.getElementById("resourceFilter").value.toLowerCase();
-    const tagsTerm = document.getElementById("tagsFilter").value.toLowerCase();
-
-    const filteredLogs = displayedLogs.filter(log => {
-        const username = log.username.toLowerCase();
-        const tags = (log.tags || "").toLowerCase();
-        let resource = log.resource_name.toLowerCase();
-        if(resource.startsWith("página ")) resource = resource.replace("página ", "").trim();
-
-        return username.includes(userTerm) &&
-               resource.includes(resourceTerm) &&
-               tags.includes(tagsTerm);
-    });
-
-    // Atualiza tabela e cards mobile
-    const tbody = document.getElementById("logsTableBody");
-    tbody.innerHTML = "";
-    filteredLogs.forEach(log => {
-        const tr = document.createElement("tr");
-        const username = (log.username && log.username !== "anon") ? log.username : "";
-        const resourceDisplay = log.resource_name && log.resource_name.startsWith("Página")
-            ? `<span class="text-muted fst-italic">${log.resource_name}</span>`
-            : `${log.resource_name}${log.resource_id ? " #" + log.resource_id : ""}`;
-        tr.innerHTML = `
-            <td>${log.timestamp}</td>
-            <td>${username}</td>
-            <td><span class="badge bg-${getActionColor(log.action)}">${log.action}</span></td>
-            <td>${resourceDisplay}</td>
-            <td><span title="${log.detail.replace(/"/g, '&quot;')}" class="text-truncate d-block" style="max-width: 200px;">${log.detail}</span></td>
-            <td>${log.method || "-"}</td>
-            <td>${log.ip_address || "-"}</td>
-            <td>${log.tags || ""}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    renderMobileCards(filteredLogs);
-}
-
-// KPIs
-function updateKPIs() {
-    const total = allLogs.length;
-    const criou = allLogs.filter(l => l.action === "criou").length;
-    const atualizou = allLogs.filter(l => l.action === "atualizou").length;
-    const deletou = allLogs.filter(l => l.action === "deletou").length;
-
-    document.getElementById("totalLogs").textContent = total;
-    document.getElementById("totalCriou").textContent = criou;
-    document.getElementById("totalAtualizou").textContent = atualizou;
-    document.getElementById("totalDeletou").textContent = deletou;
-}
-
-// Gráfico de ações
-function renderChart() {
-    const ctx = document.getElementById('actionsChart').getContext('2d');
-    const grouped = {};
-
-    allLogs.forEach(log => {
-        const day = log.timestamp.split(' ')[0];
-        if(!grouped[day]) grouped[day] = {criou:0, atualizou:0, deletou:0, acessou:0};
-
-        if(log.action === "criou") grouped[day].criou++;
-        else if(log.action === "atualizou") grouped[day].atualizou++;
-        else if(log.action === "deletou") grouped[day].deletou++;
-        else if(log.action === "visualizou") grouped[day].acessou++;
-    });
-
-    const labels = Object.keys(grouped).sort();
-    const dataCriou = labels.map(day => grouped[day].criou);
-    const dataAtualizou = labels.map(day => grouped[day].atualizou);
-    const dataDeletou = labels.map(day => grouped[day].deletou);
-    const dataAcessou = labels.map(day => grouped[day].acessou);
-
-    if(actionsChart) actionsChart.destroy();
-
-    actionsChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {label: 'Criações', data: dataCriou, borderColor: 'green', backgroundColor: 'rgba(0,255,0,0.2)'},
-                {label: 'Atualizações', data: dataAtualizou, borderColor: 'orange', backgroundColor: 'rgba(255,165,0,0.2)'},
-                {label: 'Deleções', data: dataDeletou, borderColor: 'red', backgroundColor: 'rgba(255,0,0,0.2)'},
-                {label: 'Acessos (GET)', data: dataAcessou, borderColor: 'blue', backgroundColor: 'rgba(0,0,255,0.2)'}
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{position:'top'}} }
-    });
-}
-
-// Inicializa
-fetchLogs();
 </script>
-
 {% endblock %}

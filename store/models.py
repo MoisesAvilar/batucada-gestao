@@ -1,6 +1,6 @@
 from django.db import models
 from core.models import UnidadeNegocio
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 class CategoriaProduto(models.Model):
@@ -65,11 +65,22 @@ class Produto(models.Model):
 
     @property
     def preco_de_venda_calculado(self):
+        # Se o preço manual estiver definido, ele é sempre prioridade
         if self.preco_de_venda_manual:
             return self.preco_de_venda_manual
-        if self.custo_de_aquisicao and self.percentual_markup:
-            markup_decimal = self.percentual_markup / Decimal(100)
-            return self.custo_de_aquisicao * (1 + markup_decimal)
+
+        # Verifica se há custo e markup definidos
+        if self.custo_de_aquisicao and self.percentual_markup is not None:
+            try:
+                markup_decimal = self.percentual_markup / Decimal("100")
+                # Evita divisão por zero ou markup de 100% (100% de margem = lucro infinito)
+                if markup_decimal >= Decimal("1.00"):
+                    return Decimal("0.00")
+                preco = self.custo_de_aquisicao / (Decimal("1.00") - markup_decimal)
+                return preco.quantize(Decimal("0.01"))  # Arredonda para 2 casas decimais
+            except (InvalidOperation, ZeroDivisionError):
+                return Decimal("0.00")
+
         return Decimal("0.00")
 
     @property

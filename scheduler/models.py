@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.utils import timezone
 from decimal import Decimal
@@ -192,6 +193,17 @@ class Aula(models.Model):
 
         # Retorna True se o professor que validou NÃO EXISTE na lista de professores atribuídos.
         return not self.professores.filter(pk=professor_validou.pk).exists()
+    
+    def clean(self):
+        super().clean()
+        # Esta validação é feita após o objeto ter um ID (self.pk),
+        # pois campos ManyToMany só podem ser alterados depois do primeiro save.
+        if self.pk:
+            # Regra 1: Não permitir aula sem professor
+            if self.professores.count() == 0:
+                raise ValidationError(
+                    'Não é possível salvar uma aula sem ao menos um professor associado.'
+                )
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

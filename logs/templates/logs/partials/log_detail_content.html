@@ -1,0 +1,23 @@
+<div class="log-detail-content">
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <h6>Informações da Requisição</h6>
+            <ul class="list-unstyled small mb-0">
+                <li><strong>IP:</strong> {{ log.ip_address }}</li>
+                <li><strong>Método:</strong> {{ log.method }}</li>
+                <li><strong>Path:</strong> {{ log.path }}</li>
+                <li><strong>User Agent:</strong> <span class="text-muted">{{ log.user_agent }}</span></li>
+            </ul>
+        </div>
+        <div class="col-lg-6">
+            <h6>Detalhes</h6>
+            <pre class="mb-0">
+                {% if log.detail_json and log.detail_json != '{}' and log.detail_json != 'null' %}
+                    <code class="p-2 rounded d-block" style="white-space: pre-wrap; word-break: break-all;">{{ log.detail_json }}</code>
+                {% else %}
+                    <code class="p-2 rounded d-block text-muted fst-italic" style="background-color: transparent !important;">Nenhum detalhe adicional.</code>
+                {% endif %}
+            </pre>
+        </div>
+    </div>
+</div>

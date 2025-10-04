@@ -1,6 +1,10 @@
+# logs/middleware.py
+
 from django.utils.deprecation import MiddlewareMixin
 from .models import AuditLog
 
+# Importe a função para obter o request globalmente
+from .request_util import get_current_request
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -10,83 +14,73 @@ def get_client_ip(request):
 
 
 class AuditMiddleware(MiddlewareMixin):
+    # ATENÇÃO: A lógica mudou. Agora o middleware foca em GETs e erros.
+    # Os signals cuidarão de POST, PUT, PATCH, DELETE.
     IGNORED_PATHS = ("/static/", "/media/", "/favicon.ico", "/health", "/admin/")
-    _recent_gets = {}  # memória para ignorar GETs repetidos
 
     def process_response(self, request, response):
         try:
+            # Ignora paths que não queremos logar
             if any(request.path.startswith(p) for p in self.IGNORED_PATHS):
                 return response
 
-            # Registrar apenas POST, PUT, PATCH, DELETE, GET "/" ou erros
-            if (
-                request.method in ("POST", "PUT", "PATCH", "DELETE")
-                or (request.method == "GET" and request.path.endswith("/"))
-                or response.status_code >= 400
-            ):
-                # --- Usuário ---
-                user = getattr(request, "user", None)
-                username = getattr(request, "audit_username", None)
-                if not username:
-                    if user and getattr(user, "is_authenticated", False):
-                        username = user.get_full_name() or user.username
-                    else:
-                        username = "anon"
+            # Só registra GETs bem-sucedidos ou qualquer requisição com erro
+            should_log = (request.method == "GET" and response.status_code < 400) or \
+                         (response.status_code >= 400)
 
-                ip = get_client_ip(request)
-                ua = request.META.get("HTTP_USER_AGENT", "")[:1000]
+            if not should_log:
+                return response
 
-                # --- Ignorar GET repetidos ---
-                if request.method == "GET":
-                    key = f"{ip}_{username}_{request.path}"
-                    if self._recent_gets.get(key):
-                        return response
-                    self._recent_gets[key] = True
+            user = getattr(request, "user", None)
+            username = ""
+            if user and getattr(user, "is_authenticated", False):
+                username = user.get_full_name() or user.username
+            else:
+                username = "anon"
+            
+            ip = get_client_ip(request)
 
-                # --- Dados do recurso ---
-                resource_type = getattr(request, "audit_resource_type", "http")
-                resource_id = str(getattr(request, "audit_resource_id", "")) or ""
-                resource_name = getattr(request, "audit_resource_name", None) or ""
-                detail = getattr(request, "audit_detail", {}) or {}
-                tags = getattr(
-                    request, "audit_tags", f"{resource_type},{request.method.lower()}"
-                )
-
-                # --- Definir ação amigável ---
-                if request.method == "GET":
-                    action = "visualizou"
-                    if not resource_name:
-                        resource_name = f"Página {request.path}"
-                else:
-                    action = getattr(request, "audit_action", request.method.lower())
-
-                metadata = {
-                    "GET": dict(request.GET),
-                    "POST_keys": list(request.POST.keys()),
-                    "status_code": response.status_code,
+            # Para GET, definimos a ação como "visualizou"
+            if request.method == "GET":
+                action = "visualizou"
+                resource_name = f"Página {request.path}"
+                detail = {}
+                if request.GET:
+                    detail["query_params"] = dict(request.GET)
+            else: # Para erros (status >= 400)
+                action = f"erro_{response.status_code}"
+                resource_name = f"Falha em {request.path}"
+                detail = {
+                    "reason_phrase": response.reason_phrase,
+                    "method": request.method
                 }
 
-                AuditLog.objects.create(
-                    user=(
-                        user
-                        if (user and getattr(user, "is_authenticated", False))
-                        else None
-                    ),
-                    username=username,
-                    ip_address=ip,
-                    user_agent=ua,
-                    path=request.path,
-                    method=request.method,
-                    action=action,
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    resource_name=resource_name,
-                    detail=detail,
-                    metadata=metadata,
-                    tags=tags,
-                )
+            AuditLog.objects.create(
+                user=user if user and user.is_authenticated else None,
+                username=username,
+                ip_address=ip,
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:1000],
+                path=request.path,
+                method=request.method,
+                action=action,
+                resource_type="http",
+                resource_name=resource_name,
+                detail=detail,
+                tags=f"http,{action}",
+            )
         except Exception as e:
-            # opcional: logar em console para debug
             print("AuditMiddleware erro:", e)
 
+        return response
+
+
+from .request_util import set_current_request
+
+class RequestMiddleware(MiddlewareMixin):
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        set_current_request(request)
+        response = self.get_response(request)
         return response
