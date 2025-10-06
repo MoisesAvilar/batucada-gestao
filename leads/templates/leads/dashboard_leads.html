@@ -4,6 +4,7 @@
 {% block content %}
 <div class="container mt-4">
     {% include 'leads/_leads_nav.html' %}
+    {% if total_leads > 0 %}
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3 mb-4">
         <div class="col">
             <div class="card text-center h-100 text-primary">
@@ -129,6 +130,29 @@
             </div>
         </div>
     </div>
+    {% else %}
+    <!-- Bloco com SVG de "sem dados" -->
+        <div class="card my-5">
+            <div class="card-body text-center py-5">
+                <!-- SVG inline -->
+                <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="150" height="150" rx="16" fill="#f8f9fa"/>
+                    <g fill="#ced4da">
+                        <rect x="30" y="40" width="90" height="12" rx="6"/>
+                        <rect x="30" y="60" width="60" height="12" rx="6"/>
+                        <rect x="30" y="80" width="75" height="12" rx="6"/>
+                        <circle cx="40" cy="115" r="8" fill="#dee2e6"/>
+                        <circle cx="70" cy="115" r="8" fill="#dee2e6"/>
+                        <circle cx="100" cy="115" r="8" fill="#dee2e6"/>
+                    </g>
+                    <text x="75" y="135" font-size="10" fill="#adb5bd" text-anchor="middle">Nenhum dado disponível</text>
+                </svg>
+
+                <h5 class="text-muted mt-4">Sem dados para exibir</h5>
+                <p class="text-muted small">Adicione ou converta leads para ver os relatórios.</p>
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 <style>
@@ -162,6 +186,7 @@
 {{ block.super }}
 {% include 'leads/partials/_filter_panel_js.html' %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
@@ -260,44 +285,15 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Leads por Status',
                 data: statusData,
-                // Os arrays de cores serão preenchidos pela nossa função
                 backgroundColor: [],
                 borderColor: [],
-                borderWidth: 3, // Aumentei um pouco a borda para destacar o efeito
+                borderWidth: 3,
                 offset: new Array(statusData.length).fill(0),
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            onClick: (event, elements) => {
-                if (elements.length === 0) {
-                    // Clicou fora de uma fatia, não faz nada
-                    return;
-                }
-
-                const clickedIndex = elements[0].index;
-                const offsetArray = pieChart.data.datasets[0].offset;
-
-                // Lógica de toggle:
-                // Se clicou na mesma fatia que já estava ativa, a recolhe.
-                if (clickedIndex === activeSliceIndex) {
-                    offsetArray[clickedIndex] = 0;
-                    activeSliceIndex = null;
-                } else {
-                    // Se clicou em uma nova fatia:
-                    // 1. Recolhe a fatia que estava ativa anteriormente (se houver)
-                    if (activeSliceIndex !== null) {
-                        offsetArray[activeSliceIndex] = 0;
-                    }
-                    // 2. Destaca a nova fatia
-                    offsetArray[clickedIndex] = 20; // O valor do deslocamento em pixels
-                    activeSliceIndex = clickedIndex;
-                }
-
-                // Atualiza o gráfico para mostrar a mudança
-                pieChart.update();
-            },
             plugins: {
                 legend: {
                     position: window.innerWidth < 768 ? 'bottom' : 'right',
@@ -306,10 +302,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         color: getCssVar('--chart-text-color')
                     }
                 },
-                tooltip: { enabled: true }
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+
+                            const data = context.chart.data.datasets[0].data;
+                            const total = data.reduce((acc, curr) => acc + curr, 0);
+
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
             }
         }
     });
+
 
     // ★ CHAMA A FUNÇÃO PELA PRIMEIRA VEZ para definir as cores iniciais
     updatePieChartColors(pieChart);

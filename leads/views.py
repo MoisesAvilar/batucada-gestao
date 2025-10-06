@@ -36,13 +36,13 @@ def dashboard_leads(request):
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, '%Y-%m-%d').date()
-            leads_filtrados = leads_filtrados.filter(data_criacao__date__gte=data_inicial)
+            leads_filtrados = leads_filtrados.filter(data_criacao__gte=data_inicial)
         except ValueError:
             pass
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, '%Y-%m-%d').date()
-            leads_filtrados = leads_filtrados.filter(data_criacao__date__lte=data_final)
+            leads_filtrados = leads_filtrados.filter(data_criacao__lte=data_final)
         except ValueError:
             pass
 
@@ -120,14 +120,14 @@ def lead_listar(request):
     if data_inicial_str:
         try:
             data_inicial = datetime.strptime(data_inicial_str, '%Y-%m-%d').date()
-            leads = leads.filter(data_criacao__date__gte=data_inicial)
+            leads = leads.filter(data_criacao__gte=data_inicial)
         except ValueError:
             pass
     
     if data_final_str:
         try:
             data_final = datetime.strptime(data_final_str, '%Y-%m-%d').date()
-            leads = leads.filter(data_criacao__date__lte=data_final)
+            leads = leads.filter(data_criacao__lte=data_final)
         except ValueError:
             pass
 
