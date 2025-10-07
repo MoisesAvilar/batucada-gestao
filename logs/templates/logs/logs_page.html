@@ -19,15 +19,54 @@
         top: 0;
         z-index: 1;
     }
-    
-    .table-logs > :not(caption) > * > * { border-bottom-width: 0; }
-    .table-logs .log-row { border-top: 1px solid var(--bs-table-border-color); }
-    .table-logs .log-row { cursor: pointer; transition: background-color 0.15s ease-in-out; }
-    .table-logs .log-detail-row { background-color: var(--bs-tertiary-bg); }
-    .table-logs .log-detail-row > td { padding: 0; }
-    .table-logs .log-detail-content { padding: 1rem 1.5rem; }
-    .table-logs .log-row .chevron-icon { transition: transform 0.2s ease-in-out; }
-    .table-logs .log-row[aria-expanded="true"] .chevron-icon { transform: rotate(180deg); }
+
+    .table-logs> :not(caption)>*>* {
+        border-bottom-width: 0;
+    }
+
+    .table-logs .log-row {
+        border-top: 1px solid var(--bs-table-border-color);
+    }
+
+    .table-logs .log-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+    }
+
+    .table-logs .log-detail-row {
+        background-color: var(--bs-tertiary-bg);
+    }
+
+    .table-logs .log-detail-row>td {
+        padding: 0;
+    }
+
+    .table-logs .log-detail-content {
+        padding: 1rem 1.5rem;
+    }
+
+    .table-logs .log-row .chevron-icon {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .table-logs .log-row[aria-expanded="true"] .chevron-icon {
+        transform: rotate(180deg);
+    }
+
+    .hover-card {
+        transition: background-color 0.2s ease;
+        border-radius: 5px;
+        padding: 1rem 0.5rem;
+    }
+
+    .hover-card:hover {
+        background-color: var(--bs-light);
+        text-decoration: none;
+    }
+
+    .chart-container {
+        display: none; /* Esconde o gráfico inicialmente */
+    }
 
     /*
       ============================================
@@ -37,33 +76,68 @@
     .log-card {
         transform: translateZ(0);
     }
+
     .log-card .log-card-header {
         cursor: pointer;
         transition: background-color 0.15s ease-in-out;
     }
+
     .log-card .log-card-header:hover {
         background-color: var(--bs-secondary-bg);
     }
+
     .log-card .chevron-icon {
         transition: transform 0.2s ease-in-out;
     }
+
     .log-card .log-card-header[aria-expanded="true"] .chevron-icon {
         transform: rotate(180deg);
     }
+
     .log-card .log-detail-mobile {
         border-top: 1px solid var(--bs-border-color-translucent);
     }
 
 
     /* ESTILOS GERAIS (compartilhados) */
-    .action-badge { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; }
-    .action-badge::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-    .action-badge.criou::before { background-color: var(--bs-success); }
-    .action-badge.atualizou::before { background-color: var(--bs-warning); }
-    .action-badge.deletou::before { background-color: var(--bs-danger); }
-    .action-badge.visualizou::before { background-color: var(--bs-primary); }
-    .action-badge.custom::before { background-color: var(--bs-secondary); }
-    .action-badge.post::before { background-color: var(--bs-info); }
+    .action-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+    }
+
+    .action-badge::before {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .action-badge.criou::before {
+        background-color: var(--bs-success);
+    }
+
+    .action-badge.atualizou::before {
+        background-color: var(--bs-warning);
+    }
+
+    .action-badge.deletou::before {
+        background-color: var(--bs-danger);
+    }
+
+    .action-badge.visualizou::before {
+        background-color: var(--bs-primary);
+    }
+
+    .action-badge.custom::before {
+        background-color: var(--bs-secondary);
+    }
+
+    .action-badge.post::before {
+        background-color: var(--bs-info);
+    }
 
     .log-detail-content pre code {
         background-color: var(--bs-tertiary-bg);
@@ -78,34 +152,81 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <h3 class="mb-0"><i class="bi bi-layout-text-sidebar-reverse me-2"></i>Logs do Sistema</h3>
-        <a href="{{ request.path }}" class="btn btn-sm btn-primary"><i class="bi bi-arrow-clockwise me-1"></i> Atualizar</a>
+        <a href="{{ request.path }}" class="btn btn-sm btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>
+            Atualizar</a>
     </div>
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
-                <div class="col-lg-5 col-12"><label for="usernameFilter" class="form-label small">Usuário</label><input type="text" id="usernameFilter" name="username" class="form-control form-control-sm" placeholder="Filtrar por nome de usuário..." value="{{ filters.username }}"></div>
-                <div class="col-lg-3 col-12"><label for="resourceFilter" class="form-label small">Recurso</label><input type="text" id="resourceFilter" name="resource" class="form-control form-control-sm" placeholder="Ex: Aluno, Aula..." value="{{ filters.resource }}"></div>
-                <div class="col-lg-2 col-md-6 col-12"><label for="tagsFilter" class="form-label small">Tags</label><input type="text" id="tagsFilter" name="tags" class="form-control form-control-sm" placeholder="Ex: criou, finanças..." value="{{ filters.tags }}"></div>
-                <div class="col-lg-2 col-md-6 col-12"><button class="btn btn-sm btn-secondary w-100"><i class="bi bi-search me-2"></i>Filtrar</button></div>
+                <div class="col-lg-5 col-12"><label for="usernameFilter" class="form-label small">Usuário</label><input
+                        type="text" id="usernameFilter" name="username" class="form-control form-control-sm"
+                        placeholder="Filtrar por nome de usuário..." value="{{ filters.username }}"></div>
+                <div class="col-lg-3 col-12"><label for="resourceFilter" class="form-label small">Recurso</label><input
+                        type="text" id="resourceFilter" name="resource" class="form-control form-control-sm"
+                        placeholder="Ex: Aluno, Aula..." value="{{ filters.resource }}"></div>
+                <div class="col-lg-2 col-md-6 col-12"><label for="tagsFilter"
+                        class="form-label small">Tags</label><input type="text" id="tagsFilter" name="tags"
+                        class="form-control form-control-sm" placeholder="Ex: criou, finanças..."
+                        value="{{ filters.tags }}"></div>
+                <div class="col-lg-2 col-md-6 col-12"><button class="btn btn-sm btn-secondary w-100"><i
+                            class="bi bi-search me-2"></i>Filtrar</button></div>
             </form>
             <hr class="my-2">
-            <div class="d-flex justify-content-center"><div class="btn-group" role="group"><a href="?days=7" class="btn btn-sm btn-outline-secondary {% if filters.days == 7 %}active{% endif %}">7 Dias</a><a href="?days=30" class="btn btn-sm btn-outline-secondary {% if filters.days == 30 %}active{% endif %}">30 Dias</a><a href="?days=90" class="btn btn-sm btn-outline-secondary {% if filters.days == 90 %}active{% endif %}">90 Dias</a></div></div>
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group"><a href="?days=7"
+                        class="btn btn-sm btn-outline-secondary {% if filters.days == 7 %}active{% endif %}">7
+                        Dias</a><a href="?days=30"
+                        class="btn btn-sm btn-outline-secondary {% if filters.days == 30 %}active{% endif %}">30
+                        Dias</a><a href="?days=90"
+                        class="btn btn-sm btn-outline-secondary {% if filters.days == 90 %}active{% endif %}">90
+                        Dias</a></div>
+            </div>
         </div>
     </div>
-    
-<div class="row mb-4">
+
+    <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-lg-7"><canvas id="actionsChart" style="min-height: 200px;"></canvas></div>
-                        <div class="col-lg-5 d-flex align-items-center">
+                        <!-- Loader ocupa 100% antes do gráfico aparecer -->
+                        <div class="col-12" id="chartLoader">
+                            <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-2 text-muted small">Carregando gráfico...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico -->
+                        <div class="col-lg-7 chart-container" style="display: none;">
+                            <canvas id="actionsChart" style="min-height: 200px;"></canvas>
+                        </div>
+
+                        <!-- KPIs -->
+                        <div class="col-lg-5 d-flex align-items-center" style="display: none;">
                             <div class="row w-100 text-center">
-                                <div class="col-6 col-md-3 mb-2 mb-md-0 border-end"><h6 class="text-muted small">Total</h6><p class="h4 mb-0" id="totalLogs">0</p></div>
-                                <div class="col-6 col-md-3 mb-2 mb-md-0 border-end"><h6 class="text-muted small">Criações</h6><p class="h4 text-success mb-0" id="totalCriou">0</p></div>
-                                <div class="col-6 col-md-3 border-end"><h6 class="text-muted small">Updates</h6><p class="h4 text-warning mb-0" id="totalAtualizou">0</p></div>
-                                <div class="col-6 col-md-3"><h6 class="text-muted small">Deleções</h6><p class="h4 text-danger mb-0" id="totalDeletou">0</p></div>
+                                <a href="?" class="col-6 col-md-3 mb-2 mb-md-0 border-end text-decoration-none text-secondary-emphasis hover-card">
+                                    <h6 class="text-muted small">Total</h6>
+                                    <p class="h4 mb-0" id="totalLogs">0</p>
+                                </a>
+                                <a href="?tags=criou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
+                                class="col-6 col-md-3 mb-2 mb-md-0 border-end text-decoration-none text-dark hover-card">
+                                    <h6 class="text-muted small">Criações</h6>
+                                    <p class="h4 text-success mb-0" id="totalCriou">0</p>
+                                </a>
+                                <a href="?tags=atualizou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
+                                class="col-6 col-md-3 border-end text-decoration-none text-dark hover-card">
+                                    <h6 class="text-muted small">Updates</h6>
+                                    <p class="h4 text-warning mb-0" id="totalAtualizou">0</p>
+                                </a>
+                                <a href="?tags=deletou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
+                                class="col-6 col-md-3 text-decoration-none text-dark hover-card">
+                                    <h6 class="text-muted small">Deleções</h6>
+                                    <p class="h4 text-danger mb-0" id="totalDeletou">0</p>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -134,14 +255,24 @@
                     </thead>
                     <tbody>
                         {% for log in logs %}
-                        <tr class="log-row" data-bs-toggle="collapse" data-bs-target="#detail-{{ log.id }}" aria-expanded="false" aria-controls="detail-{{ log.id }}">
+                        <tr class="log-row" data-bs-toggle="collapse" data-bs-target="#detail-{{ log.id }}"
+                            aria-expanded="false" aria-controls="detail-{{ log.id }}">
                             <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                            <td>{{ log.timestamp }}</td>
+                            <td>{{ log.timestamp|date:"d/m/Y H:i" }}</td>
                             <td>{{ log.username }}</td>
-                            <td>{% with action_class=log.action|default:"custom" %}<span class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}</td>
                             <td>
-                                <span class="fw-bold">{{ log.resource_name }}</span>{% if log.resource_id %} <small class="text-muted">#{{ log.resource_id }}</small>{% endif %}
-                                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal ms-2">ID: {{ log.id }}</span>
+                                {% with action_class=log.action|default:"custom" %}
+                                <span class="action-badge {{ action_class }}">
+                                    {{ log.action|capfirst }}
+                                </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <span class="fw-bold">{{ log.resource_name }}</span>{% if log.resource_id %} <small
+                                    class="text-muted">#{{ log.resource_id }}</small>{% endif %}
+                                <span
+                                    class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal ms-2">ID:
+                                    {{ log.id }}</span>
                             </td>
                             <td class="text-end"><i class="bi bi-chevron-down chevron-icon"></i></td>
                         </tr>
@@ -163,29 +294,34 @@
         {% for log in logs %}
         <div class="card shadow-sm log-card mb-2">
             <div class="card-body p-0">
-                <div class="log-card-header p-3" data-bs-toggle="collapse" data-bs-target="#detail-mobile-{{ log.id }}" aria-expanded="false" aria-controls="detail-mobile-{{ log.id }}">
+                <div class="log-card-header p-3" data-bs-toggle="collapse" data-bs-target="#detail-mobile-{{ log.id }}"
+                    aria-expanded="false" aria-controls="detail-mobile-{{ log.id }}">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="d-flex align-items-start gap-3">
                             <span class="h5 mb-0 text-muted fw-light">{{ start_index|add:forloop.counter0 }}</span>
-                            
+
                             <div>
                                 <span class="fw-bold d-block">
                                     {{ log.resource_name }}
-                                    <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal">ID: {{ log.id }}</span>
+                                    <span
+                                        class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal">ID:
+                                        {{ log.id }}</span>
                                 </span>
-                                <small class="text-muted">{{ log.username }} &bull; {{ log.timestamp }}</small>
-                            </div>    
+                                <small class="text-muted">{{ log.username }} &bull; {{ log.timestamp|date:"d/m/Y H:i"
+                                    }}</small>
+                            </div>
                         </div>
 
                         <div class="text-end">
-                             {% with action_class=log.action|default:"custom" %}<span class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}
-                             <i class="bi bi-chevron-down chevron-icon d-block mt-2"></i>
+                            {% with action_class=log.action|default:"custom" %}<span
+                                class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}
+                            <i class="bi bi-chevron-down chevron-icon d-block mt-2"></i>
                         </div>
                     </div>
                 </div>
                 <div class="collapse" id="detail-mobile-{{ log.id }}">
                     <div class="log-detail-mobile p-3">
-                         {% include "logs/partials/log_detail_content.html" with log=log %}
+                        {% include "logs/partials/log_detail_content.html" with log=log %}
                     </div>
                 </div>
             </div>
@@ -194,13 +330,13 @@
     </div>
 
     {% if not logs %}
-        <div class="card shadow-sm">
-             <div class="card-body text-center py-5">
-                <i class="bi bi-journal-x fs-1 text-muted"></i>
-                <h5 class="mt-3">Nenhum log encontrado</h5>
-                <p class="text-muted">Tente ajustar os filtros ou selecionar um período diferente.</p>
-            </div>
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-journal-x fs-1 text-muted"></i>
+            <h5 class="mt-3">Nenhum log encontrado</h5>
+            <p class="text-muted">Tente ajustar os filtros ou selecionar um período diferente.</p>
         </div>
+    </div>
     {% endif %}
 
     {% if page_obj.has_other_pages %}
@@ -223,8 +359,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
     const logsDataElement = document.getElementById("logs-data");
+    const chartLoader = document.getElementById("chartLoader");
+    const chartContainer = document.querySelector(".chart-container");
+
     let logs = [];
 
     try {
@@ -233,7 +372,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Erro ao parsear os dados JSON dos logs:", e);
     }
 
-    // Funções de KPI e Gráfico (sem alterações)
     function updateKPIs() {
         document.getElementById("totalLogs").textContent = logs.length;
         document.getElementById("totalCriou").textContent = logs.filter(l => l.action === "criou").length;
@@ -247,38 +385,64 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.actionsChart instanceof Chart) {
             window.actionsChart.destroy();
         }
-        
+
+        const formatDateBR = (isoString) => {
+            const date = new Date(isoString);
+            return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        };
+
         const grouped = logs.reduce((acc, log) => {
-            const date = log.timestamp.split(' ')[0];
+            const date = formatDateBR(log.timestamp);
             if (!acc[date]) acc[date] = { criou: 0, atualizou: 0, deletou: 0, visualizou: 0 };
             if (acc[date][log.action] !== undefined) acc[date][log.action]++;
             return acc;
         }, {});
 
         const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-        
-        window.actionsChart = new Chart(ctx, {
-            type: "bar",
-            data: {
-                labels: sortedDates,
-                datasets: [
-                    { label: "Criações", data: sortedDates.map(d => grouped[d].criou), backgroundColor: "rgba(25, 135, 84, 0.7)"},
-                    { label: "Atualizações", data: sortedDates.map(d => grouped[d].atualizou), backgroundColor: "rgba(255, 193, 7, 0.7)" },
-                    { label: "Deleções", data: sortedDates.map(d => grouped[d].deletou), backgroundColor: "rgba(220, 53, 69, 0.7)" },
-                    { label: "Visualizações", data: sortedDates.map(d => grouped[d].visualizou), backgroundColor: "rgba(13, 110, 253, 0.7)" },
-                ],
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, title: { display: true, text: "Atividade de Logs por Dia" } },
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
-            },
-        });
+
+        // Simula carregamento (300ms para UX melhor)
+        setTimeout(() => {
+            chartLoader.style.display = "none";
+            chartContainer.style.display = "block";
+            document.querySelector('.col-lg-5.d-flex').style.display = "block";
+
+            window.actionsChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: sortedDates,
+                    datasets: [
+                        { label: "Criações", data: sortedDates.map(d => grouped[d].criou), backgroundColor: "rgba(25, 135, 84, 0.7)" },
+                        { label: "Atualizações", data: sortedDates.map(d => grouped[d].atualizou), backgroundColor: "rgba(255, 193, 7, 0.7)" },
+                        { label: "Deleções", data: sortedDates.map(d => grouped[d].deletou), backgroundColor: "rgba(220, 53, 69, 0.7)" },
+                        { label: "Visualizações", data: sortedDates.map(d => grouped[d].visualizou), backgroundColor: "rgba(13, 110, 253, 0.7)" },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: "Atividade de Logs por Dia" },
+                        tooltip: {
+                            callbacks: {
+                                title: function (tooltipItems) {
+                                    return tooltipItems[0].label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true }
+                    }
+                },
+            });
+        }, 300);
     }
 
-    // REMOVEMOS TODA A LÓGICA DO MODAL. Bootstrap cuida das linhas expansíveis.
     updateKPIs();
     renderChart();
 });
+
 </script>
 {% endblock %}

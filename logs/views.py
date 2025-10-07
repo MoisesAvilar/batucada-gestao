@@ -1,12 +1,14 @@
 import json
+from datetime import timedelta
+
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.core.serializers.json import DjangoJSONEncoder
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
-from django.http import JsonResponse
-from datetime import timedelta
+
 from .models import AuditLog
-from django.core.paginator import Paginator
-from django.contrib.auth.decorators import login_required
 
 
 @login_required
@@ -16,7 +18,7 @@ def logs_page(request):
         {"action": "criou", "label": "Criou", "color": "success"},
         {"action": "atualizou", "label": "Atualizou", "color": "warning"},
         {"action": "deletou", "label": "Deletou", "color": "danger"},
-        {"action": "get", "label": "Acessou", "color": "primary"},
+        {"action": "visualizou", "label": "Visualizou", "color": "primary"},
     ]
 
     days = int(request.GET.get("days", 30))
@@ -36,55 +38,35 @@ def logs_page(request):
     if tags_filter:
         logs_qs = logs_qs.filter(tags__icontains=tags_filter)
 
+    # --- CORREÇÃO 1: Preparar dados para o gráfico ANTES da paginação ---
+    # Usamos o queryset filtrado completo (logs_qs) para gerar o JSON do gráfico.
+    # Isso garante que os KPIs e o gráfico reflitam todos os dados, não apenas a página atual.
+    logs_for_chart = list(logs_qs.values("action", "timestamp"))
+    for log_chart in logs_for_chart:
+        log_chart["action"] = log_chart["action"].lower()
+        # O timestamp já está no formato correto para o JS, não precisa de formatação extra aqui.
+
+    logs_json_for_chart = json.dumps(logs_for_chart, cls=DjangoJSONEncoder)
+
+    # --- CORREÇÃO 2: Aplicar paginação APENAS para a exibição da tabela ---
     paginator = Paginator(logs_qs, 100)
     page_obj = paginator.get_page(page)
 
-    logs = []
-    for log in page_obj:
-        print("LOG DETAIL RAW:", log.detail)
-        # Converter timestamp para timezone local antes de formatar
-        local_timestamp = timezone.localtime(log.timestamp) if log.timestamp else None
-
-        detail_str = str(log.detail)
-        detail_json = ""
-        if isinstance(log.detail, dict):
-            # JSON formatado para mostrar bonitinho
-            detail_json = json.dumps(log.detail, indent=2, ensure_ascii=False)
-            detail_str = "\n".join(f"{k}: {v}" for k, v in log.detail.items())
-        else:
-            # Se for string ou outro tipo, tenta exibir direto
-            detail_json = json.dumps(log.detail, indent=2, ensure_ascii=False)
-
-        logs.append({
-            "id": log.pk,
-            # Use local_timestamp aqui, formate com strftime para o padrão BR
-            "timestamp": local_timestamp.strftime("%d/%m/%Y %H:%M") if local_timestamp else "",
-            "username": log.username or (log.user.get_full_name() if log.user else "anon"),
-            "action": log.action.lower(),
-            "resource_type": log.resource_type,
-            "resource_id": log.resource_id,
-            "resource_name": log.resource_name,
-            "detail": log.detail,
-            "detail_str": detail_str,
-            "detail_json": detail_json,
-            "method": log.method or "-",
-            "ip_address": log.ip_address or "-",
-            "tags": log.tags or "",
-        })
-
-    logs_json = json.dumps(logs, cls=DjangoJSONEncoder)
+    # Adiciona o start_index para a contagem na versão mobile
+    start_index = page_obj.start_index()
 
     context = {
         "actions_info": actions_info,
-        "logs": logs,
+        "logs": page_obj,  # Passa o objeto da página diretamente para o template
         "page_obj": page_obj,
+        "start_index": start_index,
         "filters": {
             "days": days,
             "username": username_filter,
             "resource": resource_filter,
             "tags": tags_filter,
         },
-        "logs_json": logs_json,
+        "logs_json": logs_json_for_chart,  # Usa o JSON com todos os dados
     }
     return render(request, "logs/logs_page.html", context)
 
@@ -122,26 +104,33 @@ def logs_api(request):
         else:
             detail_str = "Sem detalhes disponíveis."
 
-        logs.append({
-            "id": log.pk,
-            "timestamp": local_timestamp.strftime("%d/%m/%Y %H:%M") if local_timestamp else "",
-            "username": log.username or (log.user.get_full_name() if log.user else "anon"),
-            "action": log.action.lower(),
-            "resource_type": log.resource_type,
-            "resource_id": log.resource_id,
-            "resource_name": log.resource_name,
-            "detail": log.detail,
-            "detail_str": detail_str,
-            "method": log.method or "-",
-            "ip_address": log.ip_address or "-",
-            "tags": log.tags or "",
-        })
+        logs.append(
+            {
+                "id": log.pk,
+                "timestamp": local_timestamp.strftime("%d/%m/%Y %H:%M")
+                if local_timestamp
+                else "",
+                "username": log.username
+                or (log.user.get_full_name() if log.user else "anon"),
+                "action": log.action.lower(),
+                "resource_type": log.resource_type,
+                "resource_id": log.resource_id,
+                "resource_name": log.resource_name,
+                "detail": log.detail,
+                "detail_str": detail_str,
+                "method": log.method or "-",
+                "ip_address": log.ip_address or "-",
+                "tags": log.tags or "",
+            }
+        )
 
-    return JsonResponse({
-        "logs": logs,
-        "has_next": page_obj.has_next(),
-        "has_previous": page_obj.has_previous(),
-        "page": page_obj.number,
-        "num_pages": paginator.num_pages,
-        "total": paginator.count,
-    })
+    return JsonResponse(
+        {
+            "logs": logs,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "page": page_obj.number,
+            "num_pages": paginator.num_pages,
+            "total": paginator.count,
+        }
+    )
