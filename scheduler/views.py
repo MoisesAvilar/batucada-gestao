@@ -615,7 +615,7 @@ def editar_aula(request, pk):
     return render(request, "scheduler/aula_form.html", contexto)
 
 
-@user_passes_test(is_admin)
+@login_required
 @require_POST
 def excluir_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
@@ -631,10 +631,9 @@ def aulas_para_substituir(request):
     Mostra uma lista de aulas futuras agendadas para outros professores,
     disponíveis para substituição, COM FILTROS AVANÇADOS.
     """
-    now = timezone.now()
 
     # --- 1. QUERYSET BASE (LÓGICA ORIGINAL MANTIDA) ---
-    aulas_queryset = Aula.objects.filter(data_hora__gte=now, status="Agendada").exclude(
+    aulas_queryset = Aula.objects.filter( status="Agendada").exclude(
         professores=request.user
     )
 

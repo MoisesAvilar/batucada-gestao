@@ -4,10 +4,8 @@
 {% for aula in aulas_do_dia %}
     <div class="swipe-wrapper" data-swipeable="true">
         <div class="swipe-actions">
-            {% if user.tipo == 'admin' %}
                 <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm btn-primary h-100">Editar</a>
                 <button type="button" class="btn btn-sm btn-danger h-100" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:excluir_aula' aula.pk %}">Excluir</button>
-            {% endif %}
         </div>
         <div class="swipe-foreground status-{{ aula.status|slugify }}">
             <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="text-decoration-none text-body">
