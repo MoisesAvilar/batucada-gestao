@@ -1336,6 +1336,40 @@ def validar_aula(request, pk):
             request.POST, instance=relatorio, prefix="viradas"
         )
 
+        form_valid = form.is_valid()
+        presenca_valid = presenca_formset.is_valid()
+        rudimentos_valid = rudimentos_formset.is_valid()
+        ritmo_valid = ritmo_formset.is_valid()
+        viradas_valid = viradas_formset.is_valid()
+
+        if not form_valid:
+            print("Form principal inválido:", form.errors)
+            messages.error(request, f"Formulário principal inválido: {form.errors}")
+
+        if not presenca_valid:
+            print("Formset de presença inválido:", presenca_formset.errors)
+            messages.error(
+                request, f"Formulário de presença inválido: {presenca_formset.errors}"
+            )
+        
+        if not rudimentos_valid:
+            print("Formset de rudimentos inválido:", rudimentos_formset.errors)
+            messages.error(
+                request, f"Formulário de rudimentos inválido: {rudimentos_formset.errors}"
+            )
+        
+        if not ritmo_valid:
+            print("Formset de ritmo inválido:", ritmo_formset.errors)
+            messages.error(
+                request, f"Formulário de ritmo inválido: {ritmo_formset.errors}"
+            )
+        
+        if not viradas_valid:
+            print("Formset de viradas inválido:", viradas_formset.errors)
+            messages.error(
+                request, f"Formulário de viradas inválido: {viradas_formset.errors}"
+            )
+
         if (
             form.is_valid()
             and presenca_formset.is_valid()
@@ -1402,6 +1436,8 @@ def validar_aula(request, pk):
 
                 logger = logging.getLogger(__name__)
                 logger.error(f"Erro ao salvar relatório da aula {aula.pk}: {e}")
+                logger.error(f"Erro ao salvar dados: {e}", exc_info=True)
+                messages.error(request, f"Ocorreu um erro inesperado: {str(e)}")
                 messages.error(
                     request,
                     f"Ocorreu um erro inesperado ao salvar. Nenhuma alteração foi feita. Erro: {e}",
