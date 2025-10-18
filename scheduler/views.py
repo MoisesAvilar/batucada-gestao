@@ -3097,10 +3097,6 @@ def get_horario_fixo_data(request):
     if is_ajax:
         return JsonResponse(grade_horarios)
     else:
-        print("--- DADOS COMPLETOS DA GRADE ANTES DE CALCULAR KPIs ---")
-        print(json.dumps(grade_horarios, indent=2))
-        print("-------------------------------------------------------")
-        # Se for uma requisição normal, calcula os KPIs e o gráfico A PARTIR da grade_horarios
         total_fixo = 0
         total_variavel = 0
         aulas_por_dia = [0] * 6  # Seg a Sab
