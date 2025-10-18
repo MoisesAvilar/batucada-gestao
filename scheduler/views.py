@@ -1344,30 +1344,37 @@ def validar_aula(request, pk):
 
         if not form_valid:
             print("Form principal inválido:", form.errors)
-            messages.error(request, f"Formulário principal inválido: {form.errors}")
+            messages.warning(
+                request,
+                "Ops! Ocorreu um erro ao salvar o relatório. Por favor, revise os campos."
+            )
 
         if not presenca_valid:
             print("Formset de presença inválido:", presenca_formset.errors)
-            messages.error(
-                request, f"Formulário de presença inválido: {presenca_formset.errors}"
+            messages.warning(
+                request,
+                "Atenção: Não foi possível salvar a lista de presença. Por favor, verifique se o status (Presente/Ausente) de cada participante foi selecionado corretamente."
             )
-        
+
         if not rudimentos_valid:
             print("Formset de rudimentos inválido:", rudimentos_formset.errors)
-            messages.error(
-                request, f"Formulário de rudimentos inválido: {rudimentos_formset.errors}"
+            messages.warning(
+                request,
+                "Ops! Parece que na seção de Rudimentos, uma linha de exercício foi deixada em branco.\nPara salvar, preencha a descrição do exercício ou clique na lixeira para remover a linha vazia."
             )
-        
+
         if not ritmo_valid:
             print("Formset de ritmo inválido:", ritmo_formset.errors)
-            messages.error(
-                request, f"Formulário de ritmo inválido: {ritmo_formset.errors}"
+            messages.warning(
+                request,
+                "Ops! Parece que na seção de Ritmos, uma linha de exercício foi deixada em branco. Para salvar, preencha a descrição do exercício ou clique na lixeira para remover a linha vazia."
             )
-        
+
         if not viradas_valid:
             print("Formset de viradas inválido:", viradas_formset.errors)
-            messages.error(
-                request, f"Formulário de viradas inválido: {viradas_formset.errors}"
+            messages.warning(
+                request,
+                "Atenção na seção de Viradas: você deixou uma linha de exercício sem descrição. É preciso preenchê-la ou remover a linha clicando no ícone da lixeira antes de salvar."
             )
 
         if (

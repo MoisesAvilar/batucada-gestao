@@ -18,18 +18,13 @@ class TitlecaseModelChoiceField(forms.ModelChoiceField):
     """
     Um ModelChoiceField customizado que exibe as opções em letras maiúsculas.
     """
-
     def label_from_instance(self, obj):
-        # Sobrescrevemos este método para formatar o texto de cada opção.
-        # Ele pega a representação em string padrão do objeto (ex: aluno.nome_completo)
-        # e a converte para maiúsculas.
         return str(obj).title()
 
 
 class AulaForm(forms.ModelForm):
     """
     Formulário principal, contendo apenas os campos que não se repetem.
-    AGORA COM LÓGICA DE STATUS INTELIGENTE.
     """
     recorrente_mensal = forms.BooleanField(
         required=False,
@@ -68,12 +63,7 @@ class AulaForm(forms.ModelForm):
                 ]
 
 
-# --- Formulários Base para os Formsets ---
 class AlunoChoiceForm(forms.Form):
-    """
-    Um formulário simples que contém apenas um campo <select> para um Aluno.
-    Este será o "molde" para cada linha no nosso formset de alunos.
-    """
     aluno = TitlecaseModelChoiceField(
         queryset=Aluno.objects.filter(status='ativo').order_by("nome_completo"),
         label="Aluno",
@@ -83,11 +73,6 @@ class AlunoChoiceForm(forms.Form):
 
 
 class ProfessorChoiceForm(forms.Form):
-    """
-    Um formulário simples que contém apenas um campo <select> para um Professor.
-    Este será o "molde" para cada linha no nosso formset de professores.
-    """
-
     professor = TitlecaseModelChoiceField(
         queryset=CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by(
             "username"
@@ -101,13 +86,12 @@ class ProfessorChoiceForm(forms.Form):
 class AlunoForm(forms.ModelForm):
     criar_recorrencia = forms.BooleanField(
         required=False,
-        initial=True, # Já vem marcado por padrão
+        initial=True,
         label="Criar recorrência de mensalidade automaticamente",
         help_text="Se marcado, uma regra de receita recorrente será criada para este aluno."
     )
     class Meta:
         model = Aluno
-        # Adicionamos os novos campos
         fields = [
             "status",
             "nome_completo",
@@ -129,10 +113,10 @@ class AlunoForm(forms.ModelForm):
             ),
             "cpf": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "000.000.000-00"}
-            ),  # Widget para CPF
+            ),
             "responsavel_nome": forms.TextInput(
                 attrs={"class": "form-control"}
-            ),  # Widget para Responsável
+            ),
             "data_criacao": forms.DateInput(
                 attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"
             ),
@@ -143,7 +127,6 @@ class AlunoForm(forms.ModelForm):
                 attrs={"class": "form-control", "placeholder": "Ex: 10"}
             ),
         }
-        # 3. (Opcional) Adicionamos textos de ajuda para guiar o usuário
         help_texts = {
             "dia_vencimento": "Insira apenas o dia (um número de 1 a 31).",
         }
@@ -234,7 +217,6 @@ class ProfessorForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        # ... (sua lógica para salvar a senha)
         user = super().save(commit=False)
         password = self.cleaned_data.get("password")
         if password:
@@ -244,15 +226,7 @@ class ProfessorForm(forms.ModelForm):
         return user
 
 
-# --- NOVOS FORMULÁRIOS PARA O RELATÓRIO DE AULA ---
-
-
 class RelatorioAulaForm(forms.ModelForm):
-    """
-    Formulário principal para o Relatório, agora contendo apenas
-    os campos que não são repetíveis.
-    """
-
     class Meta:
         model = RelatorioAula
         fields = [
@@ -288,14 +262,52 @@ class RelatorioAulaForm(forms.ModelForm):
             ),
         }
 
+# ★★★ INÍCIO DA SOLUÇÃO ★★★
 
-# --- FORMSETS PARA OS ITENS DINÂMICOS ---
+# 1. CRIAMOS UM FORMULÁRIO BASE "INTELIGENTE"
+class BaseExercicioForm(forms.ModelForm):
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Se o formulário foi marcado para exclusão, não fazemos mais nada.
+        if cleaned_data.get('DELETE', False):
+            return cleaned_data
+
+        # Verificamos se algum campo foi preenchido.
+        # 'has_changed()' é o método correto do Django para isso.
+        if not self.has_changed():
+            # Se o formulário está vazio e mesmo assim deu erro de campo obrigatório
+            # na descrição, nós simplesmente removemos esse erro.
+            if 'descricao' in self._errors:
+                del self._errors['descricao']
+        
+        return cleaned_data
+
+# 2. CRIAMOS FORMULÁRIOS ESPECÍFICOS QUE USAM A LÓGICA DO FORMULÁRIO BASE
+class ItemRudimentoForm(BaseExercicioForm):
+    class Meta:
+        model = ItemRudimento
+        fields = ("descricao", "bpm", "duracao_min", "observacoes")
+
+class ItemRitmoForm(BaseExercicioForm):
+    class Meta:
+        model = ItemRitmo
+        fields = ("descricao", "livro_metodo", "bpm", "duracao_min", "observacoes")
+
+class ItemViradaForm(BaseExercicioForm):
+    class Meta:
+        model = ItemVirada
+        fields = ("descricao", "bpm", "duracao_min", "observacoes")
+
+# ★★★ FIM DA SOLUÇÃO ★★★
+
+
+# --- FORMSETS ATUALIZADOS PARA USAR OS NOVOS FORMS ---
 
 ItemRudimentoFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemRudimento,
-    # ADICIONE O NOVO CAMPO AQUI
-    fields=("descricao", "bpm", "duracao_min", "observacoes"),
+    form=ItemRudimentoForm,  # <-- Usamos o form customizado
     extra=1,
     can_delete=True,
     widgets={
@@ -306,7 +318,6 @@ ItemRudimentoFormSet = inlineformset_factory(
         "duracao_min": forms.NumberInput(
             attrs={"class": "form-control", "placeholder": "Minutos"}
         ),
-        # ADICIONE O WIDGET PARA O NOVO CAMPO
         "observacoes": forms.Textarea(
             attrs={
                 "class": "form-control mt-2",
@@ -320,8 +331,7 @@ ItemRudimentoFormSet = inlineformset_factory(
 ItemRitmoFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemRitmo,
-    # ADICIONE O NOVO CAMPO AQUI
-    fields=("descricao", "livro_metodo", "bpm", "duracao_min", "observacoes"),
+    form=ItemRitmoForm,  # <-- Usamos o form customizado
     extra=1,
     can_delete=True,
     widgets={
@@ -335,7 +345,6 @@ ItemRitmoFormSet = inlineformset_factory(
         "duracao_min": forms.NumberInput(
             attrs={"class": "form-control", "placeholder": "Minutos"}
         ),
-        # ADICIONE O WIDGET PARA O NOVO CAMPO
         "observacoes": forms.Textarea(
             attrs={
                 "class": "form-control mt-2",
@@ -349,8 +358,7 @@ ItemRitmoFormSet = inlineformset_factory(
 ItemViradaFormSet = inlineformset_factory(
     parent_model=RelatorioAula,
     model=ItemVirada,
-    # ADICIONE O NOVO CAMPO AQUI
-    fields=("descricao", "bpm", "duracao_min", "observacoes"),
+    form=ItemViradaForm,  # <-- Usamos o form customizado
     extra=1,
     can_delete=True,
     widgets={
@@ -364,7 +372,6 @@ ItemViradaFormSet = inlineformset_factory(
         "duracao_min": forms.NumberInput(
             attrs={"class": "form-control", "placeholder": "Minutos"}
         ),
-        # ADICIONE O WIDGET PARA O NOVO CAMPO
         "observacoes": forms.Textarea(
             attrs={
                 "class": "form-control mt-2",
@@ -384,7 +391,7 @@ class UserProfileForm(forms.ModelForm):
             "last_name",
             "email",
             "username",
-        ]  # Campos que o usuário pode editar
+        ]
         widgets = {
             "first_name": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "Seu primeiro nome"}
@@ -400,7 +407,6 @@ class UserProfileForm(forms.ModelForm):
             ),
         }
 
-    # Validações adicionais, se necessário (ex: username único, email único)
     def clean_username(self):
         username = self.cleaned_data["username"]
         if (
@@ -419,7 +425,6 @@ class UserProfileForm(forms.ModelForm):
 
 
 class PresencaAlunoForm(forms.ModelForm):
-    """Formulário para um único registro de presença de aluno."""
     status = forms.ChoiceField(
         choices=PresencaAluno.STATUS_CHOICES,
         widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
@@ -436,7 +441,6 @@ class PresencaAlunoForm(forms.ModelForm):
         fields = ["status", "tipo_falta"]
 
 
-# Usamos modelformset_factory para criar/editar múltiplos registros de presença de uma vez.
 PresencaAlunoFormSet = modelformset_factory(
     PresencaAluno,
     form=PresencaAlunoForm,
@@ -446,8 +450,6 @@ PresencaAlunoFormSet = modelformset_factory(
 
 
 class PresencaProfessorForm(forms.ModelForm):
-    """Formulário para um único registro de presença de professor."""
-
     class Meta:
         model = PresencaProfessor
         fields = ["status"]
