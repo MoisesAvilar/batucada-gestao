@@ -121,7 +121,9 @@ class Modalidade(models.Model):
         verbose_name="Método de Cálculo do Pagamento",
         help_text="Define se o pagamento é um valor fixo por aula ou multiplicado pelo número de alunos presentes."
     )
-    # =======================================================
+
+    class Meta:
+        ordering = ['nome']
 
     def __str__(self):
         return self.nome
