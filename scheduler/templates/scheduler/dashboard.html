@@ -71,7 +71,7 @@
 </style>
 
 {# O botão de filtro para admin permanece como está #}
-{% if user.tipo == 'admin' %}
+{% if user.tipo in 'admin, comercial' %}
     <div class="btn-group">
         </div>
 {% endif %}
@@ -79,11 +79,11 @@
 
 <div class="mb-4">
     <h1 class="h3 mb-1">{{ titulo }}</h1>
-    <p class="text-muted mb-0">{% if user.tipo == 'admin' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}</p>
+    <p class="text-muted mb-0">{% if user.tipo in 'admin, comercial' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}</p>
 </div>
 
 <div class="vstack gap-4">
-    {% if user.tipo == 'admin' %}
+    {% if user.tipo in 'admin,comercial' %}
        <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-end gap-2">
             <a id="btnVerHorariosFixos" href="{% url 'scheduler:get_horario_fixo_data' %}" class="btn btn-outline-info w-100 w-md-auto">
                 <i class="bi bi-eye-fill me-1"></i> Grade de Horários
@@ -205,11 +205,11 @@
     <div class="d-none d-md-flex position-relative align-items-center p-3 border-bottom">
         <!-- Título centralizado -->
         <h5 class="position-absolute top-50 start-50 translate-middle text-center mb-0">
-            {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
+            {% if user.tipo in 'admin, comercial' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
         </h5>
 
         <!-- Filtro de professores à direita -->
-        {% if user.tipo == 'admin' %}
+        {% if user.tipo in 'admin, comercial' %}
         <div class="ms-auto">
             <select id="professor_calendario_filtro_desktop" class="form-select form-select-sm" style="max-width: 200px;">
                 <option value="">Todos os Professores</option>
@@ -225,11 +225,11 @@
     <div class="d-flex d-md-none flex-column align-items-center p-3 border-bottom">
         <!-- Título -->
         <h5 class="text-center mb-2">
-            {% if user.tipo == 'admin' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
+            {% if user.tipo in 'admin, comercial' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
         </h5>
 
         <!-- Filtro de professores abaixo -->
-        {% if user.tipo == 'admin' %}
+        {% if user.tipo in 'admin, comercial' %}
         <select id="professor_calendario_filtro_mobile" class="form-select form-select-sm w-75 mx-auto" style="max-width: 200px;">
             <option value="">Todos os Professores</option>
             {% for prof in professores_list %}
@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function carregarCalendario(ano, mes) {
         dataAtual = new Date(ano, mes - 1, 1);
         calendarioWrapper.style.opacity = '0.5';
-        const professorId = (userType === 'admin' && professorFiltroDesktop) ? professorFiltroDesktop.value : '';
+        const professorId = (userType === 'admin' || userType === 'comercial') ? professorFiltroDesktop.value : '';
         const url = `{% url 'scheduler:get_calendario_html' %}?year=${ano}&month=${mes}&professor_filtro_id=${professorId}`;
         fetch(url)
             .then(response => response.text())
@@ -762,9 +762,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- 4. INICIALIZAÇÃO GERAL (inalterada) ---
     associarEventosNavegacao();
     setupCalendarInteractions();
-    if (userType === 'admin' || userType === 'professor') {
+    if (userType === 'admin' || userType === 'comercial' || userType === 'professor') {
         setupModalInteractions();
-        if (userType === 'admin') {
+        if (userType === 'admin' || userType === 'comercial') {
             const handleFilterChange = (source, target) => {
                 if (target) target.value = source.value;
                 carregarCalendario(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
@@ -791,7 +791,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const mostrarTourHorarios = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
     const userTipo = JSON.parse(document.getElementById('user-tipo-data').textContent);
 
-    if (mostrarTourHorarios && userTipo === 'admin') {
+    if (mostrarTourHorarios && (userTipo === 'admin' || userTipo === 'comercial')) {
         const tour = new Shepherd.Tour({ useModalOverlay: true, defaultStepOptions: { classes: 'shadow-md bg-body-secondary', scrollTo: true, cancelIcon: { enabled: true } } });
         tour.addStep({ id: 'step-1-welcome', title: 'Nova Funcionalidade!', text: 'Agora você pode visualizar rapidamente todos os horários dos alunos em um único lugar. Vamos explorar juntos!', buttons: [{ text: 'Pular', action: tour.cancel, secondary: true }, { text: 'Começar', action: tour.next }] });
         tour.addStep({ id: 'step-2-continue', title: 'Acesse a Grade de Horários', text: 'Clique em "Continuar" para ser levado à nova página da Grade de Horários, onde o tour continuará.', attachTo: { element: '#btnVerHorariosFixos', on: 'bottom' }, buttons: [{ text: 'Voltar', action: tour.back, secondary: true }, { text: 'Continuar', action: function() { localStorage.setItem('tourInProgress', 'horarios_fixos_v1'); localStorage.setItem('tourCurrentStep', 'step-3-grid-welcome'); document.getElementById('btnVerHorariosFixos').click(); } }] });

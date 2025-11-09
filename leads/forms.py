@@ -27,11 +27,11 @@ class LeadForm(forms.ModelForm):
             "nivel_experiencia",
             "melhor_horario_contato",
             "fonte",
-            "observacoes",
-            "proposito_estudo",
-            "objetivo_tocar",
-            "motivo_interesse_especifico",
-            "sobre_voce",
+            # "observacoes",
+            # "proposito_estudo",
+            # "objetivo_tocar",
+            # "motivo_interesse_especifico",
+            # "sobre_voce",
         ]
         widgets = {
             "nome_interessado": forms.TextInput(attrs={"class": "form-control"}),
@@ -44,21 +44,21 @@ class LeadForm(forms.ModelForm):
             ),
             "idade": forms.NumberInput(attrs={"class": "form-control"}),
             "fonte": forms.TextInput(attrs={"class": "form-control"}),
-            "observacoes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            # "observacoes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "status": forms.Select(attrs={"class": "form-select"}),
             "curso_interesse": forms.Select(attrs={"class": "form-select"}),
             "nivel_experiencia": forms.Select(attrs={"class": "form-select"}),
             "melhor_horario_contato": forms.Select(attrs={"class": "form-select"}),
-            "proposito_estudo": forms.Textarea(
-                attrs={"class": "form-control", "rows": 3}
-            ),
-            "objetivo_tocar": forms.Textarea(
-                attrs={"class": "form-control", "rows": 3}
-            ),
-            "motivo_interesse_especifico": forms.Textarea(
-                attrs={"class": "form-control", "rows": 3}
-            ),
-            "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+            # "proposito_estudo": forms.Textarea(
+            #     attrs={"class": "form-control", "rows": 3}
+            # ),
+            # "objetivo_tocar": forms.Textarea(
+            #     attrs={"class": "form-control", "rows": 3}
+            # ),
+            # "motivo_interesse_especifico": forms.Textarea(
+            #     attrs={"class": "form-control", "rows": 3}
+            # ),
+            # "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
     
     def __init__(self, *args, **kwargs):

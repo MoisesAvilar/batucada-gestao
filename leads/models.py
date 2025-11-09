@@ -83,7 +83,7 @@ class Lead(models.Model):
         choices=HORARIO_CHOICES,
         blank=True,
         null=True,
-        verbose_name="Melhor Horário para Contato",
+        verbose_name="Horário da Aula",
     )
     observacoes = models.TextField(
         blank=True, null=True, verbose_name="Observações e Histórico"
@@ -109,6 +109,14 @@ class Lead(models.Model):
         default=date.today,
         verbose_name="Data de Criação"
     )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads_criados",
+        verbose_name="Criado por",
+    )
     unidade_negocio = models.ForeignKey(
         UnidadeNegocio, on_delete=models.PROTECT, default=get_escola_unidade_negocio
     )
@@ -119,6 +127,14 @@ class Lead(models.Model):
         null=True,
         blank=True,
         related_name="lead_origem",
+    )
+    convertido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads_convertidos",
+        verbose_name="Convertido por",
     )
 
     def __str__(self):

@@ -5,7 +5,7 @@ from django.urls import reverse
 from datetime import datetime
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .models import Lead
+from .models import Lead, InteracaoLead
 from django.core.paginator import Paginator
 from .forms import LeadForm, InteracaoLeadForm, PublicLeadForm
 from urllib.parse import urlencode
@@ -159,7 +159,9 @@ def lead_criar(request):
     if request.method == "POST":
         form = LeadForm(request.POST)
         if form.is_valid():
-            form.save()
+            lead = form.save(commit=False)
+            lead.criado_por = request.user
+            lead.save()
             # Se a requisição for AJAX (do modal), retorna sucesso em JSON
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'success'})
@@ -293,8 +295,19 @@ def update_lead_status(request):
         new_status = data.get('new_status')
 
         lead = Lead.objects.get(pk=lead_id)
+
+        status_antigo_display = lead.get_status_display()
+
         lead.status = new_status
         lead.save()
+
+        status_novo_display = lead.get_status_display()
+        InteracaoLead.objects.create(
+            lead=lead,
+            responsavel=request.user,
+            tipo='outro',
+            notas=f"Status alterado de '{status_antigo_display}' para '{status_novo_display}' via Kanban."
+        )
 
         return JsonResponse({'status': 'success', 'message': f'Status do lead {lead_id} atualizado para {new_status}.'})
     except (Lead.DoesNotExist, json.JSONDecodeError, TypeError, ValueError) as e:

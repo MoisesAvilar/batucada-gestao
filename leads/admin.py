@@ -1,28 +1,32 @@
 from django.contrib import admin
 from .models import Lead, InteracaoLead
+from django.contrib.auth import get_user_model
 
 
-# Define a exibição inline das interações dentro da página do Lead
 class InteracaoLeadInline(admin.TabularInline):
     model = InteracaoLead
-    extra = 1  # Quantos formulários em branco mostrar
-    readonly_fields = ("data_interacao", "responsavel")
-    fields = ("tipo", "notas", "data_interacao", "responsavel")
+    extra = 1
+
+    readonly_fields = ("data_interacao",)
+    fields = ("tipo", "notas", "responsavel", "data_interacao")
+    autocomplete_fields = ["responsavel"]
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        User = get_user_model()
+        if db_field.name == "responsavel":
+            kwargs["queryset"] = User.objects.filter(tipo__in=["admin", "comercial"])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Lead)
 class LeadAdmin(admin.ModelAdmin):
-    """
-    Configuração da interface de administração para o modelo Lead.
-    """
-
     list_display = (
         "nome_interessado",
         "status",
+        "criado_por",
+        "convertido_por",
         "curso_interesse",
-        "contato",
         "data_criacao",
-        "unidade_negocio",
     )
     list_filter = (
         "status",
@@ -30,16 +34,27 @@ class LeadAdmin(admin.ModelAdmin):
         "curso_interesse",
         "data_criacao",
         "unidade_negocio",
+        "criado_por",
+        "convertido_por",
     )
     search_fields = (
         "nome_interessado",
         "nome_responsavel",
         "contato",
+        "criado_por__username",
+        "convertido_por__username",
     )
     list_per_page = 25
     ordering = ("-data_criacao",)
 
-    # Adiciona as interações diretamente na página de detalhes do Lead
+    readonly_fields = ("data_criacao",)
+
+    autocomplete_fields = (
+        "aluno_convertido",
+        "criado_por",
+        "convertido_por",
+    )
+
     inlines = [InteracaoLeadInline]
 
     fieldsets = (
@@ -70,7 +85,7 @@ class LeadAdmin(admin.ModelAdmin):
         (
             "Detalhes Adicionais (Formulário)",
             {
-                "classes": ("collapse",),  # Começa recolhido
+                "classes": ("collapse",),
                 "fields": (
                     "proposito_estudo",
                     "objetivo_tocar",
@@ -79,28 +94,35 @@ class LeadAdmin(admin.ModelAdmin):
                 ),
             },
         ),
-        ("Outros", {"fields": ("observacoes", "unidade_negocio", "aluno_convertido")}),
+        (
+            "Rastreamento e Conversão",
+            {
+                "fields": (
+                    "observacoes",
+                    "unidade_negocio",
+                    "aluno_convertido",
+                    "criado_por",
+                    "convertido_por",
+                )
+            },
+        ),
     )
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        User = get_user_model()
+        if db_field.name in ["criado_por", "convertido_por"]:
+            kwargs["queryset"] = User.objects.filter(tipo__in=["admin", "comercial"])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def save_model(self, request, obj, form, change):
-        # Associa o responsável ao salvar uma interação inline
         super().save_model(request, obj, form, change)
-        for inline_formset in form.inline_formsets:
-            for inline_form in inline_formset:
-                if inline_form.instance.pk is None and not hasattr(
-                    inline_form.instance, "responsavel"
-                ):
-                    if inline_form.has_changed():
-                        inline_form.instance.responsavel = request.user
-                        inline_form.instance.save()
+
+    def save_formset(self, request, form, formset, change):
+        super().save_formset(request, form, formset, change)
 
 
 @admin.register(InteracaoLead)
 class InteracaoLeadAdmin(admin.ModelAdmin):
-    """
-    Configuração da interface de administração para o modelo InteracaoLead.
-    """
-
     list_display = (
         "lead",
         "tipo",
@@ -109,4 +131,13 @@ class InteracaoLeadAdmin(admin.ModelAdmin):
     )
     list_filter = ("tipo", "data_interacao", "responsavel")
     search_fields = ("lead__nome_interessado", "notas")
-    autocomplete_fields = ["lead"]  # Facilita a busca por um lead
+    autocomplete_fields = ["lead", "responsavel"]
+
+    readonly_fields = ("data_interacao",)
+    fields = ("lead", "tipo", "notas", "responsavel", "data_interacao")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        User = get_user_model()
+        if db_field.name == "responsavel":
+            kwargs["queryset"] = User.objects.filter(tipo__in=["admin", "comercial"])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

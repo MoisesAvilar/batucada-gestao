@@ -1,5 +1,5 @@
 {% extends "scheduler/base.html" %}
-
+{% load crispy_forms_tags %} 
 {% block content %}
 <div class="container mt-4">
     {% include 'leads/_leads_nav.html' %}
@@ -10,7 +10,9 @@
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
-                {{ form.as_p }}
+                
+                {% crispy form %}
+                asd
                 <button type="submit" class="btn btn-success">Salvar</button>
                 <a href="{% url 'leads:lead_listar' %}" class="btn btn-secondary">Cancelar</a>
             </form>

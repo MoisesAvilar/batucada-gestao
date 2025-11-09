@@ -66,13 +66,13 @@ urlpatterns = [
         name="modalidade_excluir",
     ),
     # --- URLs para Gestão de Professores ---
-    path("professores/", views.listar_professores, name="professor_listar"),
-    path("professores/<int:pk>/", views.detalhe_professor, name="professor_detalhe"),
+    path("colaboradores/", views.listar_professores, name="professor_listar"),
+    path("colaborador/<int:pk>/", views.detalhe_professor, name="professor_detalhe"),
     path(
-        "professores/<int:pk>/editar/", views.editar_professor, name="professor_editar"
+        "colaborador/<int:pk>/editar/", views.editar_professor, name="professor_editar"
     ),
     path(
-        "professores/<int:pk>/excluir/",
+        "colaborador/<int:pk>/excluir/",
         views.excluir_professor,
         name="professor_excluir",
     ),

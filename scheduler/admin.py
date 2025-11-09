@@ -44,7 +44,6 @@ class AlunoAdmin(admin.ModelAdmin):
 
     actions = ['marcar_como_inativo', 'marcar_como_trancado']
 
-
     list_display = (
         "status",
         "nome_completo",

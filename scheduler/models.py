@@ -10,6 +10,7 @@ class CustomUser(AbstractUser):
     TIPO_USUARIO_CHOICES = (
         ("admin", "Administrador"),
         ("professor", "Professor"),
+        ("comercial", "Comercial"),
     )
     tipo = models.CharField(
         max_length=15,
@@ -20,6 +21,12 @@ class CustomUser(AbstractUser):
     profile_picture_url = models.URLField(
         max_length=500, blank=True, null=True, verbose_name="URL da Foto de Perfil"
     )
+
+    def __str__(self):
+        return f"{self.username}"
+
+    class Meta:
+        ordering = ['username']
 
 
 class Aluno(models.Model):

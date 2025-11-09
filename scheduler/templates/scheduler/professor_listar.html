@@ -22,7 +22,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h1 class="h3 mb-0">{{ titulo }}</h1>
-        <p class="text-muted mb-0">Visualize, busque e gerencie os professores do sistema.</p>
+        <p class="text-muted mb-0">Visualize, busque e gerencie os colaboradores.</p>
     </div>
 </div>
 
@@ -35,7 +35,7 @@
 </form>
 
 <div class="content-block">
-    <h5 class="px-3 pt-3 pb-2 mb-0">Lista de Professores</h5>
+    <h5 class="px-3 pt-3 pb-2 mb-0">Lista de Colaboradores</h5>
     {% if not professores %}
         <div class="text-center text-muted p-5">
             <i class="bi bi-people display-4"></i>
@@ -63,10 +63,16 @@
                                 <small class="text-muted">{{ professor.first_name|title }} {{ professor.last_name|title }}</small>
                             </a>
                         </td>
-                        <td class="text-center"><span class="badge fs-6 text-bg-success">{{ professor.total_aulas_realizadas }}</span></td>
-                        <td>{% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
-                        <td class="text-center"><span class="badge fs-6 text-bg-secondary">{{ professor.total_alunos_atendidos }}</span></td>
-                        <td class="text-end pe-3">
+                        {% if professor.tipo == 'professor' or professor.tipo == 'admin' %}
+                            <td class="text-center"><span class="badge fs-6 text-bg-success">{{ professor.total_aulas_realizadas }}</span></td>
+                            <td>{% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
+                            <td class="text-center"><span class="badge fs-6 text-bg-secondary">{{ professor.total_alunos_atendidos }}</span></td>
+                        {% elif professor.tipo == 'comercial' %}
+                            <td class="text-center text-muted" colspan="3">
+                                <span class="badge bg-info-subtle text-info-emphasis">Usuário Comercial</span>
+                            </td>
+                        {% endif %}
+                            <td class="text-end pe-3">
                             <div class="d-flex justify-content-end gap-2">
                                 <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil-square"></i></a>
                                 <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}"><i class="bi bi-trash"></i></button>
@@ -87,6 +93,7 @@
                     <h6 class="mb-1">{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary-subtle text-primary-emphasis ms-2 small">Admin</span>{% endif %}</h6>
                     <p class="text-muted small mb-2">{{ professor.first_name|title }} {{ professor.last_name|title }}</p>
                 </a>
+                {% if professor.tipo == 'professor' or professor.tipo == 'admin' %}
                 <div class="row text-center small g-2 border-top border-bottom py-2 my-2">
                     <div class="col">
                         <div class="text-muted">Realizadas</div>
@@ -101,6 +108,7 @@
                         <strong>{{ professor.total_alunos_atendidos }}</strong>
                     </div>
                 </div>
+                {% endif %}
                 <div class="d-flex justify-content-end gap-2 mt-2">
                     <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
                     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">Excluir</button>

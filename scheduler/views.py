@@ -5,6 +5,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.timezone import localtime
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.cache import never_cache
+from leads.models import Lead, InteracaoLead
 from .models import (
     Aula,
     Aluno,
@@ -39,9 +40,8 @@ from .forms import (
 from django.contrib import messages
 import calendar
 from datetime import datetime, date, timedelta
-from django.db import transaction
-from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F
-from django.db.models.functions import TruncMonth
+from django.db.models import Count, Min, Case, When, Q, OuterRef, Subquery, F, Value as V
+from django.db.models.functions import TruncMonth, Coalesce
 from django.core.paginator import Paginator
 from collections import defaultdict
 from django.urls import reverse
@@ -53,8 +53,6 @@ from django.template.loader import render_to_string
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
-
-from leads.models import Lead
 
 
 # --- Funções de Teste para Permissões ---
@@ -85,13 +83,11 @@ def dashboard(request):
     now = timezone.now()
     today = now.date()
 
-    # A consulta de aulas pendentes funciona para ambos, admin e professor
     aulas_pendentes_validacao = Aula.objects.filter(
         professores=request.user, status="Agendada", data_hora__lt=now
     ).order_by("data_hora")
     aulas_pendentes_count = aulas_pendentes_validacao.count()
 
-    # Formatação de datas
     today_iso = today.strftime("%Y-%m-%d")
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
@@ -104,8 +100,7 @@ def dashboard(request):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
-    # Filtro de aulas para o calendário
-    if request.user.tipo == "admin":
+    if request.user.tipo in ["admin", "comercial"]:
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
         if professor_filtro_id:
@@ -113,14 +108,12 @@ def dashboard(request):
     else:  # Professor
         aulas_qs = Aula.objects.filter(professores=request.user)
 
-    # Lógica de construção do calendário
     aulas_do_mes = (
         aulas_qs.filter(data_hora__year=year, data_hora__month=month)
         .select_related("modalidade")
         .prefetch_related("alunos", "professores")
         .order_by("data_hora")
     )
-
     aulas_por_dia = defaultdict(list)
     for aula in aulas_do_mes:
         aulas_por_dia[localtime(aula.data_hora).day].append(aula)
@@ -134,15 +127,19 @@ def dashboard(request):
             semana_com_aulas.append({"dia": dia, "aulas": aulas_por_dia.get(dia, [])})
         calendario_final.append(semana_com_aulas)
 
-    # Os formulários do modal são definidos aqui FORA do if/else
     AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
     ProfessorFormSetModal = formset_factory(
         ProfessorChoiceForm, extra=1, can_delete=False
     )
 
-    # --- PREPARAÇÃO DO CONTEXTO ESPECÍFICO DE CADA USUÁRIO ---
-    if request.user.tipo == "admin":
-        # KPIs e contexto do Admin
+    mostrar_tour_horarios_flag = False
+    if request.user.tipo in ["admin", "comercial"]:
+        ja_viu_tour = request.user.tours_vistos.filter(
+            tour_id="horarios_fixos_v1"
+        ).exists()
+        mostrar_tour_horarios_flag = not ja_viu_tour
+
+    if request.user.tipo == "admin" or request.user.tipo == "comercial":
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
         aulas_semana_count = Aula.objects.filter(
             data_hora__date__range=[start_of_week, end_of_week]
@@ -154,15 +151,8 @@ def dashboard(request):
             data_criacao__year=today.year, data_criacao__month=today.month
         ).count()
 
-        # ★★★ INÍCIO DA LÓGICA DO TOUR ATUALIZADA ★★★
-        # Verifica se existe um registro em TourVisto para este usuário e o ID do tour específico.
-        ja_viu_tour = request.user.tours_vistos.filter(
-            tour_id="horarios_fixos_v1"
-        ).exists()
-        # ★★★ FIM DA LÓGICA DO TOUR ATUALIZADA ★★★
-
         contexto = {
-            "titulo": "Painel de Controle - Admin",
+            "titulo": f"Painel de Controle - {request.user.get_tipo_display()}",
             "aulas_hoje_count": aulas_hoje_count,
             "aulas_semana_count": aulas_semana_count,
             "aulas_agendadas_total": aulas_agendadas_total,
@@ -175,11 +165,10 @@ def dashboard(request):
                 day=calendar.monthrange(today.year, today.month)[1]
             ).strftime("%Y-%m-%d"),
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
-            # Passa a flag para o template, que decidirá se o script do tour deve ser executado.
-            "mostrar_tour_horarios": not ja_viu_tour,
+            "mostrar_tour_horarios": mostrar_tour_horarios_flag,
         }
-    else:  # Professor
-        # KPIs e contexto do Professor
+    
+    else:
         aulas_do_professor = Aula.objects.filter(professores=request.user).distinct()
         aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
         aulas_semana_count = aulas_do_professor.filter(
@@ -191,9 +180,9 @@ def dashboard(request):
             "aulas_semana_count": aulas_semana_count,
             "aulas_pendentes_count": aulas_pendentes_count,
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
+            "mostrar_tour_horarios": False,
         }
 
-    # Adiciona o contexto comum a AMBOS os usuários
     contexto.update(
         {
             "today": today,
@@ -222,7 +211,7 @@ def get_calendario_html(request):
         return HttpResponse("Parâmetros de ano/mês inválidos.", status=400)
 
     # ★★★ LÓGICA DE FILTRO ATUALIZADA ★★★
-    if request.user.tipo == "admin":
+    if request.user.tipo in ["admin", "comercial"]:
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
         if professor_filtro_id:
@@ -473,7 +462,7 @@ def editar_aula(request, pk):
 
     # Lógica de permissão para edição (sem alterações)
     pode_editar = False
-    if request.user.tipo == "admin":
+    if request.user.tipo in ["admin", "comercial"]:
         pode_editar = True
     elif request.user.tipo == "professor" and request.user in aula.professores.all():
         pode_editar = True
@@ -491,7 +480,7 @@ def editar_aula(request, pk):
 
         # Validação condicional do formset de professores (sem alterações)
         professor_formset_is_valid = False
-        if request.user.tipo == "admin":
+        if request.user.tipo in ["admin", "comercial"]:
             professor_formset = ProfessorFormSet(request.POST, prefix="professores")
             if professor_formset.is_valid():
                 professor_formset_is_valid = True
@@ -511,7 +500,7 @@ def editar_aula(request, pk):
                 if f and not f.get("DELETE")
             }
 
-            if request.user.tipo == "admin":
+            if request.user.tipo in ["admin", "comercial"]:
                 professores_ids = {
                     f["professor"].id
                     for f in professor_formset.cleaned_data
@@ -806,24 +795,17 @@ def listar_alunos(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.tipo in ["admin", "professor"])
+@user_passes_test(lambda u: u.tipo in ["admin", "professor", "comercial"])
 def criar_aluno(request):
     if request.method == "POST":
         form = AlunoForm(request.POST)
         if form.is_valid():
-            # Salva o aluno normalmente, sem unidade de negócio.
             novo_aluno = form.save()
 
-            # --- LÓGICA DE CRIAÇÃO DE RECORRÊNCIA ---
             if form.cleaned_data.get("criar_recorrencia"):
-                # Verifica se o aluno tem um valor de mensalidade válido
                 if novo_aluno.valor_mensalidade and novo_aluno.valor_mensalidade > 0:
-
-                    # CORREÇÃO: Buscamos a unidade da sessão para criar a recorrência
                     unidade_ativa_id = request.session.get("unidade_ativa_id")
-
                     if unidade_ativa_id:
-                        # Garante que a categoria "Mensalidade" exista para a unidade de negócio
                         categoria_mensalidade, _ = Category.objects.get_or_create(
                             name="Mensalidade",
                             type="income",
@@ -831,7 +813,6 @@ def criar_aluno(request):
                             defaults={"tipo_dre": "receita"},
                         )
 
-                        # Cria a regra de receita recorrente para o novo aluno
                         ReceitaRecorrente.objects.create(
                             unidade_negocio_id=unidade_ativa_id,
                             aluno=novo_aluno,
@@ -851,13 +832,13 @@ def criar_aluno(request):
                             "A recorrência não foi criada pois nenhuma unidade de negócio está ativa na sessão.",
                         )
 
-            # --- LÓGICA DE CONVERSÃO (permanece igual) ---
             lead_id = request.POST.get("lead_id")
             if lead_id:
                 try:
                     lead = Lead.objects.get(id=lead_id)
                     lead.status = "convertido"
                     lead.aluno_convertido = novo_aluno
+                    lead.convertido_por = request.user
                     lead.save()
                     messages.info(
                         request,
@@ -868,8 +849,8 @@ def criar_aluno(request):
 
             messages.success(request, "Aluno criado com sucesso!")
             return redirect("scheduler:aluno_listar")
+        
     else:
-        # --- LÓGICA PARA PRÉ-POPULAR O FORMULÁRIO (permanece igual) ---
         initial_data = {}
         if "lead_id" in request.GET:
             initial_data["nome_completo"] = request.GET.get("nome_completo")
@@ -1119,7 +1100,7 @@ def listar_aulas(request):
     modalidade_filtro_id = request.GET.get("modalidade_filtro", "")
     status_filtro = request.GET.get("status_filtro", "")
     aluno_filtro_ids = request.GET.getlist("aluno_filtro")
-    if request.user.tipo == "admin":
+    if request.user.tipo in ["admin", "comercial"]:
         aulas_queryset = Aula.objects.all()
         contexto_titulo = "Histórico Geral de Aulas"
     else:
@@ -1663,7 +1644,10 @@ def listar_professores(request):
     search_query = request.GET.get("q", "")
     now = timezone.now()
 
-    professores_queryset = CustomUser.objects.filter(tipo__in=["professor", "admin"])
+    professores_queryset = (
+        CustomUser.objects.filter(tipo__in=["professor", "admin", "comercial"])
+        .order_by("first_name", "last_name")
+    )
 
     if search_query:
         professores_queryset = professores_queryset.filter(
@@ -1709,13 +1693,9 @@ def listar_professores(request):
         p.total_aulas_realizadas = p.realizadas_normal + p.realizadas_ac
         professores_list.append(p)
 
-    # Ordena a lista final em Python
-    professores_list.sort(key=lambda x: x.total_aulas_realizadas, reverse=True)
-    # --- FIM DA LÓGICA DE ANOTAÇÃO CORRIGIDA ---
-
     contexto = {
         "professores": professores_list,
-        "titulo": "Gerenciamento de Professores",
+        "titulo": "Gerenciamento de Colaboradores",
         "search_query": search_query,
     }
     return render(request, "scheduler/professor_listar.html", contexto)
@@ -1723,7 +1703,7 @@ def listar_professores(request):
 
 @user_passes_test(is_admin)
 def editar_professor(request, pk):
-    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=["admin", "professor"])
+    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=["admin", "professor", "comercial"])
     if request.method == "POST":
         form = ProfessorForm(request.POST, instance=professor)
         form.fields.pop("password", None)
@@ -1741,7 +1721,7 @@ def editar_professor(request, pk):
         form.fields.pop("password_confirm", None)
         # form.fields['tipo'].widget.attrs['disabled'] = True
 
-    contexto = {"form": form, "titulo": f"Editar Professor: {professor.username}"}
+    contexto = {"form": form, "titulo": f"Editar Colaborador: {professor.username}"}
     return render(request, "scheduler/professor_form.html", contexto)
 
 
@@ -1768,174 +1748,244 @@ def excluir_professor(request, pk):
 
 @login_required
 def detalhe_professor(request, pk):
-    # Lógica de permissão (sem alterações)
     if not (
         request.user.tipo == "admin"
         or (request.user.pk == pk and request.user.tipo == "professor")
+        or (request.user.pk == pk and request.user.tipo == "comercial")
     ):
         messages.error(request, "Você não tem permissão para acessar este perfil.")
         return redirect("scheduler:dashboard")
 
-    professor = get_object_or_404(CustomUser, pk=pk, tipo__in=["professor", "admin"])
+    user_obj = get_object_or_404(CustomUser, pk=pk, tipo__in=["professor", "admin", "comercial"])
 
-    # --- Lógica de filtro de data (sem alterações) ---
-    data_inicial_str = request.GET.get("data_inicial", "")
-    data_final_str = request.GET.get("data_final", "")
-    status_filtro = request.GET.get("status_filtro", "")
-    status_filtro_display = status_filtro.replace("_", " ") if status_filtro else ""
+    if user_obj.tipo == 'comercial':
+        leads_criados_qs = Lead.objects.filter(criado_por=user_obj)
+        leads_convertidos_qs = Lead.objects.filter(convertido_por=user_obj)
+        interacoes_do_usuario_qs = InteracaoLead.objects.filter(responsavel=user_obj)
 
-    data_inicial, data_final = None, None
-    if data_inicial_str:
-        try:
-            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-        except ValueError:
-            pass
-    if data_final_str:
-        try:
-            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-        except ValueError:
-            pass
+        leads_criados_count = leads_criados_qs.count()
+        leads_convertidos_count = leads_convertidos_qs.count()
+        leads_perdidos_count = leads_criados_qs.filter(status='perdido').count()
+        total_interacoes = interacoes_do_usuario_qs.count()
 
-    aulas_relacionadas_base = Aula.objects.filter(
-        Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
-    ).distinct()
+        leads_contatados_distintos_count = interacoes_do_usuario_qs.values('lead').distinct().count()
 
-    aulas_kpi = aulas_relacionadas_base
-    if data_inicial:
-        aulas_kpi = aulas_kpi.filter(data_hora__date__gte=data_inicial)
-    if data_final:
-        aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
+        if leads_criados_count > 0:
+            taxa_conversao = (leads_convertidos_count / leads_criados_count) * 100
+        else:
+            taxa_conversao = 100.0 if leads_convertidos_count > 0 else 0
 
-    # --- Lógica de "fonte da verdade" e KPIs (sem alterações) ---
-    q_realizadas_normal = Q(
-        status="Realizada", relatorioaula__professor_que_validou=professor
-    ) & ~Q(modalidade__nome__icontains="atividade complementar")
-    q_realizadas_ac = Q(
-        status="Realizada",
-        modalidade__nome__icontains="atividade complementar",
-        presencas_professores__professor=professor,
-        presencas_professores__status="presente",
-    )
-    aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(
-        q_realizadas_normal | q_realizadas_ac
-    ).distinct()
-    total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
-    alunos_atendidos = PresencaAluno.objects.filter(
-        aula__in=aulas_realizadas_pelo_professor_no_periodo, status="presente"
-    ).count()
+        ultimas_interacoes = interacoes_do_usuario_qs.order_by('-data_interacao')[:10]
 
-    total_ausencias_professor = aulas_kpi.filter(
-        modalidade__nome__icontains="atividade complementar",
-        presencas_professores__professor=professor,
-        presencas_professores__status="ausente",
-    ).count()
-    total_agendadas = aulas_kpi.filter(status="Agendada", professores=professor).count()
-    total_canceladas = aulas_kpi.filter(
-        status="Cancelada", professores=professor
-    ).count()
-    total_aluno_ausente = aulas_kpi.filter(
-        status="Aluno Ausente", relatorioaula__professor_que_validou=professor
-    ).count()
-    total_substituido = (
-        aulas_kpi.filter(status="Realizada", professores=professor)
-        .exclude(relatorioaula__professor_que_validou=professor)
-        .exclude(modalidade__nome__icontains="atividade complementar")
-        .count()
-    )
+        leads_ativos_qs = leads_criados_qs.filter(status__in=['novo', 'em_contato', 'negociando'])
 
-    # ★★★ INÍCIO DA CORREÇÃO DA CONTAGEM ★★★
-    # A contagem por categoria agora usa Count('id', distinct=True)
-    aulas_por_categoria = (
-        aulas_realizadas_pelo_professor_no_periodo.values("modalidade__nome")
-        .annotate(contagem=Count("id", distinct=True))  # <-- AQUI ESTÁ A CORREÇÃO
-        .order_by("-contagem")
-    )
-    # ★★★ FIM DA CORREÇÃO DA CONTAGEM ★★★
+        pipeline_novo = leads_ativos_qs.filter(status='novo').count()
+        pipeline_em_contato = leads_ativos_qs.filter(status='em_contato').count()
+        pipeline_negociando = leads_ativos_qs.filter(status='negociando').count()
 
-    # --- Lógica da tabela e paginação (sem alterações) ---
-    aulas_para_tabela = aulas_kpi
-    if status_filtro:
-        if status_filtro == "Realizada":
-            aulas_para_tabela = aulas_para_tabela.filter(
-                q_realizadas_normal | q_realizadas_ac
-            )
-        elif status_filtro == "Substituído":
-            aulas_para_tabela = (
-                aulas_para_tabela.filter(status="Realizada", professores=professor)
-                .exclude(relatorioaula__professor_que_validou=professor)
-                .exclude(modalidade__nome__icontains="atividade complementar")
-            )
-        elif status_filtro == "Aluno Ausente":
-            aulas_para_tabela = aulas_para_tabela.filter(
-                status="Aluno Ausente", relatorioaula__professor_que_validou=professor
-            )
-        elif status_filtro in ["Agendada", "Cancelada"]:
-            aulas_para_tabela = aulas_para_tabela.filter(
-                status=status_filtro, professores=professor
-            )
+        leads_ativos_lista = leads_ativos_qs.order_by('-data_criacao')[:10]
 
-    aulas_para_tabela = aulas_para_tabela.prefetch_related("presencas", "alunos")
-    aulas_do_professor_paginated = Paginator(
-        aulas_para_tabela.order_by("-data_hora"), 10
-    ).get_page(request.GET.get("page"))
+        leads_por_fonte_qs = leads_criados_qs.annotate(
+            fonte_limpa=Coalesce('fonte', V('Não Informada'))
+        ).values('fonte_limpa') \
+         .annotate(contagem=Count('id')) \
+         .order_by('-contagem')[:5]
 
-    for aula in aulas_do_professor_paginated.object_list:
-        if aula.status in ["Realizada", "Aluno Ausente"]:
-            presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
-            aula.alunos_com_status = []
-            for aluno in aula.alunos.all():
-                status = presencas_map.get(aluno.id, "nao_lancado")
-                aula.alunos_com_status.append({"aluno": aluno, "status": status})
+        fonte_labels = [item['fonte_limpa'].title() for item in leads_por_fonte_qs]
+        fonte_data = [item['contagem'] for item in leads_por_fonte_qs]
 
-    # Dados do gráfico (sem alterações)
-    chart_labels = [
-        "Realizadas",
-        "Agendadas",
-        "Ausências de Alunos",
-        "Canceladas",
-        "Fui Substituído",
-    ]
-    chart_data = [
-        total_realizadas,
-        total_agendadas,
-        total_aluno_ausente,
-        total_canceladas,
-        total_substituido,
-    ]
+        conversoes_por_curso_qs = leads_convertidos_qs.filter(curso_interesse__isnull=False) \
+            .values('curso_interesse') \
+            .annotate(contagem=Count('id')) \
+            .order_by('-contagem')
 
-    contexto = {
-        "professor": professor,
-        "titulo": f"Dashboard de: {professor.username}",
-        "aulas_do_professor": aulas_do_professor_paginated,
-        "data_inicial": data_inicial_str,
-        "data_final": data_final_str,
-        "status_filtro": status_filtro,
-        "status_filtro_display": status_filtro_display,
-        "total_realizadas": total_realizadas,
-        "alunos_atendidos": alunos_atendidos,
-        "total_agendadas": total_agendadas,
-        "total_canceladas": total_canceladas,
-        "total_aluno_ausente": total_aluno_ausente,
-        "total_substituido": total_substituido,
-        "total_ausencias_professor": total_ausencias_professor,
-        "taxa_presenca": (
-            (total_realizadas / (total_realizadas + total_aluno_ausente) * 100)
-            if (total_realizadas + total_aluno_ausente) > 0
-            else 0
-        ),
-        "top_alunos": aulas_kpi.filter(alunos__isnull=False)
-        .values("alunos__pk", "alunos__nome_completo")
-        .annotate(contagem=Count("alunos__pk"))
-        .order_by("-contagem")[:3],
-        "top_modalidades": aulas_kpi.filter(professores=professor)
-        .values("modalidade__nome")
-        .annotate(contagem=Count("modalidade"))
-        .order_by("-contagem")[:3],
-        "chart_labels": chart_labels,
-        "chart_data": chart_data,
-        "aulas_por_categoria": aulas_por_categoria,
-    }
-    return render(request, "scheduler/professor_detalhe.html", contexto)
+        curso_dict = dict(Lead.CURSO_CHOICES)
+        curso_labels = [curso_dict.get(item['curso_interesse'], 'Outro').title() for item in conversoes_por_curso_qs]
+        curso_data = [item['contagem'] for item in conversoes_por_curso_qs]
+
+        contexto = {
+            'titulo': f"Perfil de {user_obj.username.title()}",
+            'comercial_user': user_obj,
+            
+            # KPIs
+            'leads_criados': leads_criados_count,
+            'leads_convertidos': leads_convertidos_count,
+            'leads_perdidos': leads_perdidos_count,
+            'total_interacoes': total_interacoes,
+            'leads_contatados_distintos': leads_contatados_distintos_count,
+            'taxa_conversao': f"{taxa_conversao:.1f}",
+            
+            # Funil
+            'pipeline_novo': pipeline_novo,
+            'pipeline_em_contato': pipeline_em_contato,
+            'pipeline_negociando': pipeline_negociando,
+            
+            # Listas
+            'leads_ativos': leads_ativos_lista,
+            'ultimas_interacoes': ultimas_interacoes,
+            
+            # Gráficos
+            'fonte_labels': fonte_labels,
+            'fonte_data': fonte_data,
+            'curso_labels': curso_labels,
+            'curso_data': curso_data,
+        }
+        return render(request, 'scheduler/comercial_detalhe.html', contexto)
+
+    else:
+        professor = user_obj
+        
+        data_inicial_str = request.GET.get("data_inicial", "")
+        data_final_str = request.GET.get("data_final", "")
+        status_filtro = request.GET.get("status_filtro", "")
+        status_filtro_display = status_filtro.replace("_", " ") if status_filtro else ""
+
+        data_inicial, data_final = None, None
+        if data_inicial_str:
+            try:
+                data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        if data_final_str:
+            try:
+                data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        aulas_relacionadas_base = Aula.objects.filter(
+            Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
+        ).distinct()
+
+        aulas_kpi = aulas_relacionadas_base
+        if data_inicial:
+            aulas_kpi = aulas_kpi.filter(data_hora__date__gte=data_inicial)
+        if data_final:
+            aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
+
+        q_realizadas_normal = Q(
+            status="Realizada", relatorioaula__professor_que_validou=professor
+        ) & ~Q(modalidade__nome__icontains="atividade complementar")
+        q_realizadas_ac = Q(
+            status="Realizada",
+            modalidade__nome__icontains="atividade complementar",
+            presencas_professores__professor=professor,
+            presencas_professores__status="presente",
+        )
+        aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(
+            q_realizadas_normal | q_realizadas_ac
+        ).distinct()
+        total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
+        alunos_atendidos = PresencaAluno.objects.filter(
+            aula__in=aulas_realizadas_pelo_professor_no_periodo, status="presente"
+        ).count()
+
+        total_ausencias_professor = aulas_kpi.filter(
+            modalidade__nome__icontains="atividade complementar",
+            presencas_professores__professor=professor,
+            presencas_professores__status="ausente",
+        ).count()
+        total_agendadas = aulas_kpi.filter(status="Agendada", professores=professor).count()
+        total_canceladas = aulas_kpi.filter(
+            status="Cancelada", professores=professor
+        ).count()
+        total_aluno_ausente = aulas_kpi.filter(
+            status="Aluno Ausente", relatorioaula__professor_que_validou=professor
+        ).count()
+        total_substituido = (
+            aulas_kpi.filter(status="Realizada", professores=professor)
+            .exclude(relatorioaula__professor_que_validou=professor)
+            .exclude(modalidade__nome__icontains="atividade complementar")
+            .count()
+        )
+
+        aulas_por_categoria = (
+            aulas_realizadas_pelo_professor_no_periodo.values("modalidade__nome")
+            .annotate(contagem=Count("id", distinct=True))
+            .order_by("-contagem")
+        )
+
+        aulas_para_tabela = aulas_kpi
+        if status_filtro:
+            if status_filtro == "Realizada":
+                aulas_para_tabela = aulas_para_tabela.filter(
+                    q_realizadas_normal | q_realizadas_ac
+                )
+            elif status_filtro == "Substituído":
+                aulas_para_tabela = (
+                    aulas_para_tabela.filter(status="Realizada", professores=professor)
+                    .exclude(relatorioaula__professor_que_validou=professor)
+                    .exclude(modalidade__nome__icontains="atividade complementar")
+                )
+            elif status_filtro == "Aluno Ausente":
+                aulas_para_tabela = aulas_para_tabela.filter(
+                    status="Aluno Ausente", relatorioaula__professor_que_validou=professor
+                )
+            elif status_filtro in ["Agendada", "Cancelada"]:
+                aulas_para_tabela = aulas_para_tabela.filter(
+                    status=status_filtro, professores=professor
+                )
+
+        aulas_para_tabela = aulas_para_tabela.prefetch_related("presencas", "alunos")
+        aulas_do_professor_paginated = Paginator(
+            aulas_para_tabela.order_by("-data_hora"), 10
+        ).get_page(request.GET.get("page"))
+
+        for aula in aulas_do_professor_paginated.object_list:
+            if aula.status in ["Realizada", "Aluno Ausente"]:
+                presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
+                aula.alunos_com_status = []
+                for aluno in aula.alunos.all():
+                    status = presencas_map.get(aluno.id, "nao_lancado")
+                    aula.alunos_com_status.append({"aluno": aluno, "status": status})
+
+        chart_labels = [
+            "Realizadas",
+            "Agendadas",
+            "Ausências de Alunos",
+            "Canceladas",
+            "Fui Substituído",
+        ]
+        chart_data = [
+            total_realizadas,
+            total_agendadas,
+            total_aluno_ausente,
+            total_canceladas,
+            total_substituido,
+        ]
+
+        contexto = {
+            "professor": professor,
+            "titulo": f"Dashboard de: {professor.username}",
+            "aulas_do_professor": aulas_do_professor_paginated,
+            "data_inicial": data_inicial_str,
+            "data_final": data_final_str,
+            "status_filtro": status_filtro,
+            "status_filtro_display": status_filtro_display,
+            "total_realizadas": total_realizadas,
+            "alunos_atendidos": alunos_atendidos,
+            "total_agendadas": total_agendadas,
+            "total_canceladas": total_canceladas,
+            "total_aluno_ausente": total_aluno_ausente,
+            "total_substituido": total_substituido,
+            "total_ausencias_professor": total_ausencias_professor,
+            "taxa_presenca": (
+                (total_realizadas / (total_realizadas + total_aluno_ausente) * 100)
+                if (total_realizadas + total_aluno_ausente) > 0
+                else 0
+            ),
+            "top_alunos": aulas_kpi.filter(alunos__isnull=False)
+            .values("alunos__pk", "alunos__nome_completo")
+            .annotate(contagem=Count("alunos__pk"))
+            .order_by("-contagem")[:3],
+            "top_modalidades": aulas_kpi.filter(professores=professor)
+            .values("modalidade__nome")
+            .annotate(contagem=Count("modalidade"))
+            .order_by("-contagem")[:3],
+            "chart_labels": chart_labels,
+            "chart_data": chart_data,
+            "aulas_por_categoria": aulas_por_categoria,
+        }
+        return render(request, "scheduler/professor_detalhe.html", contexto)
 
 
 @login_required
@@ -2901,7 +2951,7 @@ def get_eventos_calendario(request):
         # Filtro por professor
         if request.user.tipo == "professor":
             aulas_no_periodo = aulas_no_periodo.filter(professores=request.user)
-        elif request.user.tipo == "admin" and professor_filtro_id:
+        elif request.user.tipo in ["admin", "comercial"] and professor_filtro_id:
             aulas_no_periodo = aulas_no_periodo.filter(
                 professores__id=professor_filtro_id
             )
@@ -3002,17 +3052,9 @@ def perfil_usuario(request):
 
 
 @login_required
-@user_passes_test(is_admin)
+@user_passes_test(lambda u: u.tipo in ["admin", "comercial"])
 def get_horario_fixo_data(request):
-    """
-    View multifuncional para a Grade de Horários.
-    - Se a requisição for AJAX (via fetch), retorna os dados em JSON.
-    - Se for uma requisição normal (acesso direto via URL), renderiza o template da página.
-    """
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-
-    # --- LÓGICA UNIFICADA PARA OBTER DADOS ---
-    # Esta lógica agora é a "fonte da verdade" tanto para o JSON quanto para os KPIs.
     today = timezone.now().date()
     start_date = today - timedelta(weeks=6)
 
@@ -3020,9 +3062,8 @@ def get_horario_fixo_data(request):
         data_hora__date__gte=start_date,
         data_hora__date__lte=today,
         status__in=["Realizada", "Agendada"],
-    ).prefetch_related("alunos")
+    ).prefetch_related("alunos", "professores").select_related("modalidade")
 
-    # ETAPA 1: Coletar todas as ocorrências de aulas por aluno
     ocorrencias_aluno = defaultdict(list)
     for aula in aulas_periodo:
         if not aula.alunos.exists():
@@ -3031,117 +3072,161 @@ def get_horario_fixo_data(request):
         dia_semana = dt_local.weekday()
         horario = dt_local.strftime("%H:00")
         data_aula = dt_local.date()
-        for aluno in aula.alunos.all():
-            ocorrencias_aluno[aluno.id].append(
-                {"slot": (dia_semana, horario), "data": data_aula}
-            )
 
-    # ETAPA 2: Determinar o "horário principal" de cada aluno
+        # Professores formatados igual aos alunos
+        conectivos = {"da", "de", "do", "das", "dos", "di", "du"}
+        def formatar_nome(nome):
+            partes = nome.strip().split()
+            if not partes:
+                return "?"
+            elif len(partes) == 1:
+                return partes[0].capitalize()
+            elif partes[1].lower() in conectivos and len(partes) > 2:
+                p1 = partes[0].capitalize()
+                p2 = partes[1].lower()
+                p3 = partes[2].capitalize()
+                return f"{p1} {p2} {p3}"
+            else:
+                return f"{partes[0].capitalize()} {partes[1].capitalize()}"
+
+        prof_nomes = [formatar_nome(p.username) for p in aula.professores.all()]
+        modalidade_nome = aula.modalidade.nome.title()
+
+        payload = {
+            "slot": (dia_semana, horario),
+            "data": data_aula,
+            "profs": prof_nomes,
+            "modalidade": modalidade_nome
+        }
+        for aluno in aula.alunos.all():
+            ocorrencias_aluno[aluno.id].append(payload)
+
     horario_principal_aluno = {}
     for aluno_id, aulas in ocorrencias_aluno.items():
         frequencia_slots = defaultdict(int)
-        data_recente_slot = defaultdict(lambda: date.min)
-        for aula in aulas:
-            slot = aula["slot"]
+        data_recente_slot = {}
+        payload_recente_slot = {}
+        for aula_data in aulas:
+            slot = aula_data["slot"]
             frequencia_slots[slot] += 1
-            if aula["data"] > data_recente_slot[slot]:
-                data_recente_slot[slot] = aula["data"]
+            if aula_data["data"] > data_recente_slot.get(slot, date.min):
+                data_recente_slot[slot] = aula_data["data"]
+                payload_recente_slot[slot] = aula_data
         if frequencia_slots:
             slot_principal = max(
                 frequencia_slots.keys(),
                 key=lambda slot: (frequencia_slots[slot], data_recente_slot[slot]),
             )
+            payload_principal = payload_recente_slot[slot_principal]
             horario_principal_aluno[aluno_id] = {
                 "slot": slot_principal,
                 "contagem": frequencia_slots[slot_principal],
+                "profs": payload_principal["profs"],
+                "modalidade": payload_principal["modalidade"]
             }
 
-    # ★★★ INÍCIO DA CORREÇÃO ★★★
-    # ETAPA 3: Montar a grade final (a "fonte da verdade")
     aluno_ids = list(horario_principal_aluno.keys())
-    alunos_map = {
-        aluno.id: aluno.nome_completo.title()
-        for aluno in Aluno.objects.filter(id__in=aluno_ids)
-    }
+    alunos_map = {}
+    conectivos = {"da", "de", "do", "das", "dos", "di", "du"}
+
+    def formatar_nome(nome):
+        partes = nome.strip().split()
+        if not partes:
+            return "Aluno ?"
+        elif len(partes) == 1:
+            return partes[0].capitalize()
+        elif partes[1].lower() in conectivos and len(partes) > 2:
+            p1 = partes[0].capitalize()
+            p2 = partes[1].lower()
+            p3 = partes[2].capitalize()
+            return f"{p1} {p2} {p3}"
+        else:
+            return f"{partes[0].capitalize()} {partes[1].capitalize()}"
+
+    for aluno in Aluno.objects.filter(id__in=aluno_ids):
+        alunos_map[aluno.id] = formatar_nome(aluno.nome_completo)
+
     LIMITE_HORARIO_FIXO = 3
     grade_horarios = defaultdict(dict)
 
     for aluno_id, info in horario_principal_aluno.items():
         dia_semana, horario = info["slot"]
         contagem = info["contagem"]
-        aluno_nome = alunos_map.get(aluno_id, "Aluno não encontrado")
+        aluno_nome = alunos_map.get(aluno_id, "Aluno ?")
         status_aluno = "fixo" if contagem >= LIMITE_HORARIO_FIXO else "variavel"
-
-        # Se o slot ainda não existe na grade, cria
+        prof_nomes = info["profs"]
+        modalidade = info["modalidade"]
         if not grade_horarios[horario].get(dia_semana):
             grade_horarios[horario][dia_semana] = {
                 "status": status_aluno,
-                "alunos": [aluno_nome],
+                "alunos": {aluno_nome},
+                "profs": set(prof_nomes),
+                "modalidades": {modalidade}
             }
-        # Se o slot já existe
         else:
-            grade_horarios[horario][dia_semana]["alunos"].append(aluno_nome)
-            # Promove o status para "fixo" se um aluno fixo entrar no grupo
+            grade_horarios[horario][dia_semana]["alunos"].add(aluno_nome)
+            grade_horarios[horario][dia_semana]["profs"].update(prof_nomes)
+            grade_horarios[horario][dia_semana]["modalidades"].add(modalidade)
             if status_aluno == "fixo":
                 grade_horarios[horario][dia_semana]["status"] = "fixo"
 
-    # Prepara o campo de texto para o JSON
     for horario, dias in grade_horarios.items():
         for dia, slot in dias.items():
-            slot["texto"] = "<br>".join(sorted(list(set(slot["alunos"]))))
-            # A chave 'alunos' não é mais necessária no JSON final
-            if "alunos" in slot:
-                del slot["alunos"]
+            slot["alunos_texto"] = "\n".join(sorted(slot["alunos"]))
+            slot["profs_texto"] = "\n".join(sorted(slot["profs"]))
+            slot["modalidades_texto"] = "\n".join(sorted(slot["modalidades"]))
+            del slot["alunos"]
+            del slot["profs"]
+            del slot["modalidades"]
 
-    # Se for uma requisição AJAX, retorna a grade em JSON
     if is_ajax:
         return JsonResponse(grade_horarios)
     else:
         total_fixo = 0
         total_variavel = 0
-        aulas_por_dia = [0] * 6  # Seg a Sab
-
-        # Define os horários visíveis, espelhando a regra do JavaScript
+        aulas_por_dia = [0] * 6
         horarios_visiveis = [f"{h:02d}:00" for h in range(8, 21)]
+        horarios_intervalo = ['12:00', '13:00']
+        slots_intervalo_livres = 0
 
-        for horario, dias in grade_horarios.items():
-            # CONDIÇÃO 1: Só processa o horário se ele estiver na lista de visíveis
-            if horario in horarios_visiveis:
-                for dia_index, slot_info in dias.items():
-                    # CONDIÇÃO 2: Só processa o dia se for de Segunda a Sábado
-                    if 0 <= dia_index <= 5:
-                        if slot_info["status"] == "fixo":
-                            total_fixo += 1
-                        else:  # status == 'variavel'
-                            total_variavel += 1
+        for horario in horarios_visiveis:
+            for dia_index in range(6):
+                slot_info = grade_horarios[horario].get(dia_index)
+                if slot_info:
+                    if slot_info["status"] == "fixo":
+                        total_fixo += 1
+                    else:
+                        total_variavel += 1
+                    aulas_por_dia[dia_index] += 1
+                else:
+                    if horario in horarios_intervalo:
+                        slots_intervalo_livres += 1
 
-                        # Para o gráfico
-                        aulas_por_dia[dia_index] += 1
-
-        total_slots_disponiveis = 6 * 13  # 6 dias (Seg-Sab) x 13 horários (8h-20h)
+        total_slots_disponiveis = 6 * 13
+        total_ocupados = total_fixo + total_variavel
+        total_livres = (total_slots_disponiveis - total_ocupados) - slots_intervalo_livres
+        total_slots_agendaveis = total_slots_disponiveis - slots_intervalo_livres
         taxa_ocupacao = (
-            ((total_fixo + total_variavel) / total_slots_disponiveis) * 100
-            if total_slots_disponiveis > 0
+            (total_ocupados / total_slots_agendaveis) * 100
+            if total_slots_agendaveis > 0
             else 0
         )
-        dias_semana_nomes = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
 
-        # Lógica do Tour (mantida)
-        ja_viu_tour = request.user.tours_vistos.filter(
-            tour_id="horarios_fixos_v1"
-        ).exists()
+        dias_semana_nomes = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]
+        ja_viu_tour = request.user.tours_vistos.filter(tour_id="horarios_fixos_v1").exists()
 
         context = {
             "titulo": "Grade de Horários",
             "mostrar_tour_horarios": not ja_viu_tour,
             "total_fixo": total_fixo,
             "total_variavel": total_variavel,
+            "total_livres": total_livres,
             "taxa_ocupacao": f"{taxa_ocupacao:.1f}",
             "ocupacao_chart_labels": dias_semana_nomes,
             "ocupacao_chart_data": aulas_por_dia,
         }
         return render(request, "scheduler/horarios_grid.html", context)
-
+  
 
 @login_required
 @require_POST
@@ -3164,7 +3249,7 @@ def marcar_tour_visto(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.tipo in ["admin", "professor"])
+@user_passes_test(lambda u: u.tipo in ["admin", "professor", "comercial"])
 def listar_reposicoes_pendentes(request):
     """
     Lista todas as faltas justificadas que ainda não tiveram uma aula de

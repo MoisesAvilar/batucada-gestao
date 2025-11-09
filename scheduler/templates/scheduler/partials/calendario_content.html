@@ -266,7 +266,7 @@
                                             <div class='d-flex justify-content-between align-items-center'>
                                                 <span class='text-muted small'>{{ dia|stringformat:'02d' }} de {{ mes_atual|date:'F'|capfirst }}</span>
                                             </div>
-                                            {% if user.tipo in 'admin, professor' %}
+                                            {% if user.tipo in 'admin, professor, comercial' %}
                                                 <button class='btn btn-sm btn-primary btn-agendar-popover ms-2' 
                                                         data-bs-toggle='modal' 
                                                         data-bs-target='#agendamentoModal'
@@ -290,7 +290,11 @@
         <ul class="list-unstyled mb-0">
             {% for aula in aulas %}
                 <li class="popover-aula-item">
-                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset popover-event-link">
+                    {% if user.tipo in 'admin, professor' %}
+                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset popover-event-link">
+                    {% else %}
+                        <div class="d-flex align-items-center popover-event-link">
+                    {% endif %}
                         <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
                         <span class="ms-2 small">
                             {% if aula.alunos.all|length == 1 %}
@@ -301,7 +305,7 @@
                                 {{ aula.modalidade.nome|title }}
                             {% endif %}
                         </span>
-                    </a>
+                    </>
                     <!-- Desktop: mostra lápis e lixeira -->
                     <div class="popover-actions d-none d-lg-flex">
                         <!-- Editar: disponível para admin e professor -->
@@ -378,7 +382,7 @@
                             {# Lado Direito: Contador de Aulas e Botão de Agendar #}
                             <div class="d-flex align-items-center gap-2">
                                 <span class="day-total-badge">{{ grupo.list|length }} Aula{{ grupo.list|length|pluralize }}</span>
-                                {% if user.tipo in 'admin, professor' %}
+                                {% if user.tipo in 'admin, professor, comercial' %}
                                     <button class="btn btn-sm btn-primary py-0 px-2" 
                                             title="Agendar nova aula para este dia"
                                             data-bs-toggle="modal" 
@@ -402,7 +406,12 @@
                             {# CORPO: Título (Aluno/Atividade) e Subtítulo (Modalidade) #}
                             <div>
                                 <h6 class="card-title-agenda">
-                                    <a href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}">
+                                    {% if user.tipo in 'admin, professor' %}
+                                        <a href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}">
+                                    {% else %}
+                                        <div class="d-flex align-items-center">
+                                    {% endif %}
+
                                         {% if "atividade complementar" in aula.modalidade.nome|lower %}
                                             {{ aula.modalidade.nome }}
                                         {% else %}
@@ -439,7 +448,29 @@
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><a class="dropdown-item" href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}"><i class="bi bi-pencil me-2"></i>{% if aula.status == 'Agendada' %}Editar{% else %}Ver Relatório{% endif %}</a></li>
+                                            {% if user.tipo in 'admin,professor' %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}">
+                                                    <i class="bi bi-pencil me-2"></i>
+                                                    {% if aula.status == 'Agendada' %}
+                                                        Editar
+                                                    {% else %}
+                                                        Ver Relatório
+                                                    {% endif %}
+                                                </a>
+                                            </li>
+
+                                        {% elif user.tipo == 'comercial' %}
+                                            {% if aula.status == 'Agendada' %}
+                                                <li>
+                                                    <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
+                                                        <i class="bi bi-pencil me-2"></i>
+                                                        Editar
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+
+                                        {% endif %}
                                             <li>
                                                 <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
                                                     <i class="bi bi-trash me-2"></i>Excluir
