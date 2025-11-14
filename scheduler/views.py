@@ -45,6 +45,7 @@ from django.db.models.functions import TruncMonth, Coalesce
 from django.core.paginator import Paginator
 from collections import defaultdict
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
@@ -62,7 +63,6 @@ def is_admin(user):
 
 # --- Função auxiliar para verificar conflitos (NÃO É UMA VIEW) ---
 def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
-    # ... (Implementação anterior que aceita lista de IDs está correta) ...
     if not professor_ids:
         return {"conflito": False, "mensagem": "Horário disponível."}
     aulas_conflitantes = Aula.objects.filter(
@@ -74,6 +74,53 @@ def _check_conflito_aula(professor_ids, data_hora, aula_id=None):
         # ... (lógica de mensagem de erro) ...
         return {"conflito": True, "mensagem": "Conflito de horário detectado."}
     return {"conflito": False, "mensagem": "Horário disponível."}
+
+
+def _check_conflito_aluno(aluno_ids, data_hora, aula_id=None):
+    """
+    Verifica se algum dos alunos já tem uma aula agendada no horário especificado.
+    Ignora aulas canceladas ou que já foram repostas.
+    """
+    if not aluno_ids:
+        return {"conflito": False}
+
+    status_de_conflito = ["Agendada", "Realizada", "Aluno Ausente"]
+
+    # ★ MUDANÇA: Adicionamos prefetch_related para performance ★
+    aulas_conflitantes = Aula.objects.filter(
+        alunos__id__in=aluno_ids,
+        data_hora=data_hora,
+        status__in=status_de_conflito
+    ).prefetch_related('alunos', 'professores').distinct() # Adicionado prefetch
+
+    if aula_id:
+        aulas_conflitantes = aulas_conflitantes.exclude(pk=aula_id)
+
+    aula_conflitante = aulas_conflitantes.first()
+
+    if aula_conflitante:
+        aluno_nome = "Um dos alunos"
+        try:
+            ids_na_aula = aula_conflitante.alunos.values_list('id', flat=True)
+            id_comum = set(aluno_ids).intersection(ids_na_aula).pop()
+            aluno = Aluno.objects.get(id=id_comum)
+            aluno_nome = aluno.nome_completo
+        except:
+            pass 
+
+        # ★ NOVO: Pega os nomes dos professores da aula conflitante ★
+        prof_nomes = [p.username.title() for p in aula_conflitante.professores.all()]
+        professores_conflito = ", ".join(prof_nomes) if prof_nomes else "N/A"
+
+        return {
+            "conflito": True,
+            "aluno_nome": aluno_nome,
+            "aula_conflitante_pk": aula_conflitante.pk,
+            "aula_conflitante_nome": str(aula_conflitante),
+            "professores_conflito": professores_conflito, # ★ NOVO CAMPO RETORNADO ★
+        }
+    
+    return {"conflito": False}
 
 
 # --- Views Principais (dashboard) ---
@@ -371,14 +418,39 @@ def agendar_aula(request):
 
                 conflitos_encontrados = []
                 for data_agendamento in datas_para_agendar:
-                    conflito_info = _check_conflito_aula(
+                    # 1. Checagem de professor (já existe)
+                    conflito_info_prof = _check_conflito_aula(
                         list(professores_ids), data_agendamento
                     )
-                    if conflito_info["conflito"]:
-                        mensagem = conflito_info.get("mensagem", "Conflito de horário")
+                    if conflito_info_prof["conflito"]:
+                        mensagem = conflito_info_prof.get("mensagem", "Conflito de horário de professor")
                         conflitos_encontrados.append(
                             f"{mensagem} na data {data_agendamento.strftime('%d/%m')}."
                         )
+                        continue  # Se o prof não pode, nem checa o aluno
+
+                    if not is_ac: 
+                        conflito_info_aluno = _check_conflito_aluno(
+                            list(alunos_ids), data_agendamento
+                        )
+                        if conflito_info_aluno["conflito"]:
+                            aluno_nome = conflito_info_aluno.get('aluno_nome', 'Um dos alunos')
+                            aula_pk = conflito_info_aluno.get('aula_conflitante_pk')
+                            prof_nomes = conflito_info_aluno.get('professores_conflito', 'N/A')
+                            
+                            # Constrói a mensagem
+                            link_aula = reverse('scheduler:aula_validar', args=[aula_pk])
+                            # ★ LINK CORRIGIDO ★
+                            link_substituicao = reverse('scheduler:aulas_para_substituir') 
+                            
+                            mensagem_html = (
+                                f"<b>Conflito:</b> O aluno <strong>{aluno_nome}</strong> já tem uma aula com <strong>{prof_nomes}</strong> neste horário. "
+                                f"<a href='{link_aula}' target='_blank' class='alert-link'>Clique para substituir essa aula</a>."
+                                f"<br><small>Caso queira substituir outro professor, acesse a página de "
+                                f"<a href='{link_substituicao}' target='_blank' class='alert-link'>Substituições</a>.</small>"
+                            )
+                            
+                            conflitos_encontrados.append(mark_safe(mensagem_html))
 
                 if conflitos_encontrados:
                     if is_ajax:
@@ -510,14 +582,43 @@ def editar_aula(request, pk):
                 professores_ids = {p.id for p in aula.professores.all()}
 
             # Lógica de recorrência na edição
-            conflito_info_principal = _check_conflito_aula(
+            modalidade = form.cleaned_data.get("modalidade")
+            is_ac = "atividade complementar" in modalidade.nome.lower()
+
+            # 1. Checa conflito de Professor
+            conflito_info_prof = _check_conflito_aula(
                 list(professores_ids), data_hora_nova, aula_id=aula.pk
             )
-            if conflito_info_principal["conflito"]:
+            
+            # 2. Checa conflito de Aluno
+            conflito_info_aluno = {"conflito": False} # Valor padrão
+            if not is_ac: # Só checa aluno se não for AC
+                conflito_info_aluno = _check_conflito_aluno(
+                    list(alunos_ids), data_hora_nova, aula_id=aula.pk
+                )
+
+            if conflito_info_prof["conflito"]:
                 messages.error(
                     request,
-                    f"Não foi possível atualizar a aula: {conflito_info_principal['mensagem']}",
+                    f"Não foi possível atualizar a aula: {conflito_info_prof['mensagem']}",
                 )
+            elif conflito_info_aluno["conflito"]:
+                # ★ MENSAGEM RICA E LINK CORRETO APLICADOS AQUI ★
+                aluno_nome = conflito_info_aluno.get('aluno_nome', 'Um dos alunos')
+                aula_pk = conflito_info_aluno.get('aula_conflitante_pk')
+                prof_nomes = conflito_info_aluno.get('professores_conflito', 'N/A')
+                
+                link_aula = reverse('scheduler:aula_validar', args=[aula_pk])
+                # ★ LINK CORRIGIDO ★
+                link_substituicao = reverse('scheduler:aulas_para_substituir')
+                
+                mensagem_html = (
+                    f"<b>Conflito:</b> O aluno <strong>{aluno_nome}</strong> já tem uma aula com <strong>{prof_nomes}</strong> neste horário. "
+                    f"<a href='{link_aula}' target='_blank' class='alert-link'>Clique para substituir essa aula</a>."
+                    f"<br><small>Caso queira substituir outro professor, acesse a página de "
+                    f"<a href='{link_substituicao}' target='_blank' class='alert-link'>Substituições</a>.</small>"
+                )
+                messages.error(request, mark_safe(mensagem_html))
             else:
                 aula_salva = form.save(
                     commit=False
