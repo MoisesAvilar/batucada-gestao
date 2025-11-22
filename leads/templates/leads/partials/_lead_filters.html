@@ -1,12 +1,13 @@
 <div class="row g-3">
     <div class="col-12 col-sm-6">
         <label for="id_nome" class="form-label small">Nome do Interessado</label>
-        <input type="text" class="form-control" name="nome" id="id_nome" value="{{ nome }}">
+        <input type="text" class="form-control" name="nome" id="id_nome" value="{{ nome }}" placeholder="Buscar por nome...">
     </div>
     <div class="col-12 col-sm-6">
         <label for="id_contato" class="form-label small">Contato</label>
-        <input type="text" class="form-control" name="contato" id="id_contato" value="{{ contato }}">
+        <input type="text" class="form-control" name="contato" id="id_contato" value="{{ contato }}" placeholder="Tel ou Email">
     </div>
+    
     <div class="col-12 col-sm-6">
         <label for="id_status" class="form-label small">Status</label>
         <select name="status" id="id_status" class="form-select">
@@ -18,6 +19,36 @@
             {% endfor %}
         </select>
     </div>
+
+    <div class="col-12 col-sm-6">
+        <label for="id_curso" class="form-label small">Curso de Interesse</label>
+        <select name="curso" id="id_curso" class="form-select">
+            <option value="">Todos os Cursos</option>
+            {% for value, display in curso_choices %}
+                <option value="{{ value }}" {% if curso_selecionado == value %}selected{% endif %}>
+                    {{ display }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-12 col-sm-6">
+        <label for="id_horario" class="form-label small">Horário de Preferência</label>
+        <select name="horario" id="id_horario" class="form-select">
+            <option value="">Qualquer Horário</option>
+            {% for value, display in horario_choices %}
+                <option value="{{ value }}" {% if horario_selecionado == value %}selected{% endif %}>
+                    {{ display }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-12 col-sm-6">
+        <label for="id_fonte" class="form-label small">Origem (Fonte)</label>
+        <input type="text" class="form-control" name="fonte" id="id_fonte" value="{{ fonte }}" placeholder="Ex: Google, Instagram...">
+    </div>
+
     <div class="col-12 col-sm-6">
         <label for="id_data_inicial" class="form-label small">Criado de</label>
         <input type="date" class="form-control" name="data_inicial" id="id_data_inicial" value="{{ data_inicial }}">

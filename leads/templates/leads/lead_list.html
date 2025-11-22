@@ -1,256 +1,319 @@
 {% extends "scheduler/base.html" %}
 {% load lead_extras %}
 {% load filters %}
-<style>
-    .thead-custom th {
-  background-color: #f8f9fa;
-  color: #212529;
-}
 
-@media (prefers-color-scheme: dark) {
-  .thead-custom th {
-    background-color: #1f1f1f;
-    color: #e9ecef;
-  }
-}
-
-</style>
 {% block content %}
-    {% include 'leads/_leads_nav.html' %}
+{% include 'leads/_leads_nav.html' %}
 
-  {% if page_obj.paginator.count > 0 %}
-    <div class="mb-3">
-        <p class="text-muted mb-0 small">
-            {% if page_obj.paginator.count == 1 %}
-                Mostrando <strong>1</strong> de <strong>1</strong> lead encontrado.
-            {% else %}
-                Mostrando <strong>{{ page_obj.start_index }}</strong> a 
-                <strong>{{ page_obj.end_index }}</strong> de 
-                <strong>{{ page_obj.paginator.count }}</strong> leads encontrados.
-            {% endif %}
-        </p>
-    </div>
+{% if page_obj.paginator.count > 0 %}
+<div class="mb-3">
+    <p class="text-muted mb-0 small">
+        {% if page_obj.paginator.count == 1 %}
+            Mostrando <strong>1</strong> de <strong>1</strong> lead encontrado.
+        {% else %}
+            Mostrando <strong>{{ page_obj.start_index }}</strong> a 
+            <strong>{{ page_obj.end_index }}</strong> de 
+            <strong>{{ page_obj.paginator.count }}</strong> leads encontrados.
+        {% endif %}
+    </p>
+</div>
 {% endif %}
-
-
 
 <div class="content-block">
     <div class="row">
 
-        <!-- TABELA DESKTOP -->
-        <div class="content-block d-none d-md-block">
+        <div class="content-block d-none d-md-block p-0 border-0 bg-transparent">
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-custom">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <th>ID</th>
-                            <th>Interessado</th>
-                            <th>Responsável</th>
+                            <th class="ps-3">Lead / Responsável</th>
                             <th>Contato</th>
-                            <th>Curso de Interesse</th>
-                            <th>Data de Criação</th>
+                            <th>Origem</th>
+                            <th>Curso & Horário</th>
+                            <th>Data</th>
+                            <th class="text-center">Obs.</th>
                             <th>Status</th>
-                            <th class="text-end">Ações</th>
+                            <th class="text-end pe-3">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
+
                         {% for lead in page_obj %}
                         <tr>
-                            <td>{{ forloop.counter }}</td>
-                            <td>
-                                <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none">
-                                    {{ lead.nome_interessado|default_if_none:"Não informado"|title|smart_truncate:2 }}
-                                </a>
+                            <td class="ps-3">
+                                <div class="d-flex flex-column">
+                                    <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="fw-bold text-decoration-none text-reset mb-1">
+                                        {{ lead.nome_interessado|default_if_none:"Não informado"|title|smart_truncate:2 }}
+                                    </a>
+                                    <small class="text-muted">
+                                        {{ lead.nome_responsavel|default_if_none:"—"|title|smart_truncate:1 }}
+                                    </small>
+                                </div>
                             </td>
-                            <td>
-                               {{ lead.nome_responsavel|default_if_none:"—"|title|smart_truncate:2 }}
-                            </td> 
+
                             <td>{{ lead.contato|format_contact }}</td>
+
+                            <td>
+                                {% if lead.fonte %}
+                                    {{ lead.fonte|title }}
+                                {% else %}
+                                    <span class="opacity-50">—</span>
+                                {% endif %}
+                            </td>
+
                             <td>
                                 {% if lead.curso_interesse %}
-                                    {{ lead.get_curso_interesse_display|title }}
+                                    <div class="d-flex flex-column">
+                                        <span class="fw-semibold text-primary-emphasis">
+                                            {{ lead.get_curso_interesse_display|title }}
+                                        </span>
+                                        {% if lead.melhor_horario_contato %}
+                                            <small class="text-muted">
+                                                <i class="bi bi-clock me-1"></i>{{ lead.get_melhor_horario_contato_display }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="opacity-50">—</span>
                                 {% endif %}
                             </td>
-                            <td>{{ lead.data_criacao|date:"F" }}</td>
-                            <td>{% include 'leads/partials/_status_badge.html' with status=lead.status %}</td>
-                            <td class="text-end">
+
+                            <td class="cursor-pointer" 
+                                data-bs-toggle="tooltip" 
+                                data-bs-html="true"
+                                title="<i class='bi bi-person-fill'></i> Criado por: <b>{% if lead.criado_por %}{{ lead.criado_por.get_full_name.title|default:lead.criado_por.username }}{% else %}Sistema{% endif %}</b>">
+                                {{ lead.data_criacao|date:"d/m/Y" }}
+                            </td>
+
+                            <td class="text-center">
+                                {% if lead.observacoes %}
+                                    <span data-bs-toggle="tooltip" data-bs-placement="top" title="{{ lead.observacoes }}">
+                                        <i class="bi bi-journal-text text-warning fs-5 cursor-pointer"></i>
+                                    </span>
+                                {% else %}
+                                    <i class="bi bi-journal text-muted opacity-25"></i>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if lead.status == 'convertido' and lead.convertido_por %}
+                                    <div data-bs-toggle="tooltip" 
+                                         data-bs-html="true"
+                                         title="<i class='bi bi-check-circle-fill'></i> Convertido por: <b>{{ lead.convertido_por.get_full_name.title|default:lead.convertido_por.username }}</b>">
+                                        {% include 'leads/partials/_status_badge.html' with status=lead.status %}
+                                    </div>
+                                {% else %}
+                                    {% include 'leads/partials/_status_badge.html' with status=lead.status %}
+                                {% endif %}
+                            </td>
+
+                            <td class="text-end pe-3">
+
                                 {% if lead.status == 'convertido' and lead.aluno_convertido %}
-                                    <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-sm btn-info">
+                                    <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-sm btn-light border shadow-sm">
                                         <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
                                     </a>
+
                                 {% else %}
+
                                     <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal" data-bs-target="#editLeadModal"
-                                                data-lead-url="{% url 'leads:lead_edit' lead.pk %}">Editar</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
-                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                            <span class="visually-hidden">Mais Ações</span>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            {% if lead.status != 'convertido' %}
+
+                                        <a href="{% url 'leads:converter_lead' lead.pk %}" 
+                                           class="btn btn-sm btn-outline-primary shadow-sm">
+                                            <i class="bi bi-check-circle me-1"></i> Converter
+                                        </a>
+
+                                        <button type="button"
+                                            class="btn btn-sm btn-outline-primary shadow-sm dropdown-toggle dropdown-toggle-split"
+                                            data-bs-toggle="dropdown"></button>
+
+                                        <ul class="dropdown-menu dropdown-menu-end shadow">
+
                                             <li>
-                                                <a class="dropdown-item" href="{% url 'leads:converter_lead' lead.pk %}">
-                                                    <i class="bi bi-check2-circle me-2"></i>Converter
-                                                </a>
-                                            </li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            {% endif %}
-                                            <li>
-                                                <button class="dropdown-item text-danger" type="button"
-                                                        data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
-                                                        data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
-                                                    <i class="bi bi-trash me-2"></i>Excluir
+                                                <button class="dropdown-item" type="button"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#editLeadModal"
+                                                        data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                                    <i class="bi bi-pencil me-2"></i> Editar
                                                 </button>
                                             </li>
+
+                                            <li><hr class="dropdown-divider"></li>
+
+                                            <li>
+                                                <button class="dropdown-item text-danger" type="button"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#confirmDeleteModal"
+                                                    data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
+                                                    <i class="bi bi-trash me-2"></i> Excluir
+                                                </button>
+                                            </li>
+
                                         </ul>
                                     </div>
+
                                 {% endif %}
+
                             </td>
                         </tr>
                         {% empty %}
-                            <tr>
-                                <td colspan="8">
-                                    <div class="card my-4">
-                                        <div class="card-body text-center py-5">
-                                            <!-- SVG inline aqui -->
-                                            <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="150" height="150" rx="16" fill="#f8f9fa"/>
-                                            <g fill="#ced4da">
-                                                <rect x="30" y="40" width="90" height="12" rx="6"/>
-                                                <rect x="30" y="60" width="60" height="12" rx="6"/>
-                                                <rect x="30" y="80" width="75" height="12" rx="6"/>
-                                                <circle cx="40" cy="115" r="8" fill="#dee2e6"/>
-                                                <circle cx="70" cy="115" r="8" fill="#dee2e6"/>
-                                                <circle cx="100" cy="115" r="8" fill="#dee2e6"/>
-                                            </g>
-                                            <text x="75" y="135" font-size="10" fill="#adb5bd" text-anchor="middle">Nenhum dado disponível</text>
-                                            </svg>
-
-                                            <h5 class="text-muted mt-3">Sem dados suficientes para gerar os gráficos</h5>
-                                            <p class="text-muted small">Adicione ou converta leads para visualizar os relatórios.</p>
+                        <tr>
+                            <td colspan="8">
+                                <div class="card border-0 bg-transparent my-4">
+                                    <div class="card-body text-center py-5">
+                                        <div class="mb-3 text-muted opacity-50">
+                                            <i class="bi bi-inbox fs-1"></i>
                                         </div>
-                                        </div>
-
-                                </td>
-                            </tr>
+                                        <h5 class="text-muted">Nenhum lead encontrado</h5>
+                                        <p class="text-muted small">Utilize o botão "Adicionar Lead" para começar.</p>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
                         {% endfor %}
+
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- CARDS MOBILE -->
         <div class="d-md-none">
         {% for lead in page_obj %}
-        <div class="card shadow-sm mb-3 border-0 rounded-3">
+        <div class="card shadow-sm mb-3 rounded-3 border-0">
             <div class="card-body">
-                <!-- Nome -->
-                <h6 class="fw-bold mb-2 text-truncate">
-                    <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
-                        {{ lead.nome_interessado|default_if_none:"Não informado"|title|smart_truncate:2 }}
-                    </a>
-                </h6>
 
-                <!-- Contato -->
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex flex-column overflow-hidden">
+                        <h6 class="fw-bold mb-0 text-truncate">
+                            <a href="{% url 'leads:lead_detalhe' lead.pk %}" class="text-decoration-none link-body-emphasis">
+                                {{ lead.nome_interessado|title|smart_truncate:2 }}
+                            </a>
+                        </h6>
+                        <small class="text-muted text-truncate">
+                            <i class="bi bi-person-badge me-1"></i>{{ lead.nome_responsavel|default_if_none:"—"|title }}
+                        </small>
+                    </div>
+                    <small class="text-muted ms-2 flex-shrink-0">#{{ forloop.counter }}</small>
+                </div>
+
                 <div class="mb-2 small text-muted">
                     {{ lead.contato|format_contact }}
                 </div>
 
-                <!-- Curso de interesse -->
-                <div class="mb-2 small text-muted">
-                    <i class="bi bi-music-note-list me-1"></i>
-                    {% if lead.curso_interesse %}
-                        {{ lead.get_curso_interesse_display|default_if_none:"Não informado"|title }}
+                <div class="mb-2 small text-muted d-flex align-items-center gap-2">
+                    <i class="bi bi-megaphone"></i>
+                    <span>
+                    {% if lead.fonte %}
+                        {{ lead.fonte|title }}
                     {% else %}
-                        <span class="text-muted">Curso não informado</span>
+                        Origem não informada
+                    {% endif %}
+                    </span>
+                </div>
+
+                <div class="mb-2 small text-muted d-flex align-items-center flex-wrap gap-2">
+                    <span class="d-flex align-items-center gap-1">
+                        <i class="bi bi-music-note-list"></i>
+                        {% if lead.curso_interesse %}
+                            {{ lead.get_curso_interesse_display|title }}
+                        {% else %}
+                            Curso não informado
+                        {% endif %}
+                    </span>
+                    
+                    {% if lead.melhor_horario_contato %}
+                        <span class="vr mx-1"></span>
+                        <span class="d-flex align-items-center gap-1">
+                            <i class="bi bi-clock"></i>
+                            {{ lead.get_melhor_horario_contato_display }}
+                        </span>
                     {% endif %}
                 </div>
-                
-                <!-- Data de criação -->
-                <div class="small text-muted mb-1">
-                    <i class="bi bi-calendar3 me-1"></i>
-                    Criado em: {{ lead.data_criacao|date:"F" }}
-                </div>
 
-                <!-- Status -->
+                {% if lead.observacoes %}
+                <div class="alert alert-light border py-2 px-2 mb-3 small">
+                    <div class="d-flex gap-2">
+                        <i class="bi bi-journal-text text-warning mt-1"></i>
+                        <span class="text-break">{{ lead.observacoes }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="mb-3">
                     {% include 'leads/partials/_status_badge.html' with status=lead.status %}
+                    
+                    {% if lead.status == 'convertido' and lead.convertido_por %}
+                        <div class="mt-2 small text-success d-flex align-items-center">
+                            <i class="bi bi-check-all me-1"></i>
+                            <span>Convertido por: <strong>{{ lead.convertido_por.first_name.title|default:lead.convertido_por.username }}</strong></span>
+                        </div>
+                    {% endif %}
                 </div>
 
-                <!-- Ações -->
+                <div class="d-flex justify-content-between align-items-center border-top pt-2 mb-3 small text-muted">
+                    <span>
+                        <i class="bi bi-calendar3 me-1"></i>{{ lead.data_criacao|date:"d/m/Y" }}
+                    </span>
+                    <span>
+                        <i class="bi bi-person-fill me-1"></i>
+                        Criado por: {% if lead.criado_por %}{{ lead.criado_por.first_name.title|default:lead.criado_por.username }}{% else %}Sistema{% endif %}
+                    </span>
+                </div>
+
                 {% if lead.status == 'convertido' and lead.aluno_convertido %}
-                    <div class="d-grid">
-                        <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-info btn-sm">
-                            <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
-                        </a>
-                    </div>
+                    <a href="{% url 'scheduler:aluno_detalhe' lead.aluno_convertido.pk %}" class="btn btn-info btn-sm w-100">
+                        <i class="bi bi-person-check-fill me-1"></i> Ver Aluno
+                    </a>
                 {% else %}
-                    <div class="d-flex justify-content-between gap-2">
-                        {% if lead.status != 'convertido' %}
-                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-success btn-sm w-100">
-                            <i class="bi bi-check-circle me-1"></i>Converter
+                    <div class="d-flex gap-2">
+
+                        <a href="{% url 'leads:converter_lead' lead.pk %}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                            <i class="bi bi-check-circle me-1"></i> Converter
                         </a>
-                        {% endif %}
-                        <div class="dropup w-100">
-                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle w-100"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-three-dots"></i> Mais
+
+                        <div class="dropup">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                    data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
+
+                            <ul class="dropdown-menu dropdown-menu-end shadow">
                                 <li>
-                                    <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editLeadModal"
-                                            data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
-                                        <i class="bi bi-pencil me-2"></i>Editar
+                                    <button class="dropdown-item"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editLeadModal"
+                                        data-lead-url="{% url 'leads:lead_edit' lead.pk %}">
+                                        <i class="bi bi-pencil me-2"></i> Editar
                                     </button>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal"
+                                    <button class="dropdown-item text-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#confirmDeleteModal"
                                             data-delete-url="{% url 'leads:lead_delete' lead.pk %}">
-                                        <i class="bi bi-trash me-2"></i>Excluir
+                                        <i class="bi bi-trash me-2"></i> Excluir
                                     </button>
                                 </li>
                             </ul>
                         </div>
+
                     </div>
                 {% endif %}
             </div>
         </div>
+
         {% empty %}
-        <tr>
-                                <td colspan="8">
-                                    <div class="card my-4">
-                                        <div class="card-body text-center py-5">
-                                            <!-- SVG inline aqui -->
-                                            <svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <rect width="150" height="150" rx="16" fill="#f8f9fa"/>
-                                            <g fill="#ced4da">
-                                                <rect x="30" y="40" width="90" height="12" rx="6"/>
-                                                <rect x="30" y="60" width="60" height="12" rx="6"/>
-                                                <rect x="30" y="80" width="75" height="12" rx="6"/>
-                                                <circle cx="40" cy="115" r="8" fill="#dee2e6"/>
-                                                <circle cx="70" cy="115" r="8" fill="#dee2e6"/>
-                                                <circle cx="100" cy="115" r="8" fill="#dee2e6"/>
-                                            </g>
-                                            <text x="75" y="135" font-size="10" fill="#adb5bd" text-anchor="middle">Nenhum dado disponível</text>
-                                            </svg>
-
-                                            <h5 class="text-muted mt-3">Sem dados suficientes para gerar os gráficos</h5>
-                                            <p class="text-muted small">Adicione ou converta leads para visualizar os relatórios.</p>
-                                        </div>
-                                        </div>
-
-                                </td>
-                            </tr>
+        <div class="text-center text-muted mt-5">
+            <i class="bi bi-inbox fs-1 opacity-50"></i>
+            <p class="mt-2">Nenhum lead encontrado.</p>
+        </div>
         {% endfor %}
-    </div>
+        </div>
 
     </div>
 </div>
-
 
 <div class="modal fade" id="editLeadModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -276,17 +339,17 @@
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmar Exclusão</h5>
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmar Exclusão</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p>Você tem certeza que deseja excluir este lead? Esta ação não pode ser desfeita.</p>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-0">
                 <form id="deleteForm" method="post">
                     {% csrf_token %}
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-danger">Sim, Excluir</button>
                 </form>
             </div>
@@ -301,24 +364,14 @@
 {% block extra_js %}
 {{ block.super }}
 {% include 'leads/partials/_filter_panel_js.html' %}
-<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasFilters" aria-labelledby="offcanvasFiltersLabel">
-  <div class="offcanvas-header">
-    <h5 class="offcanvas-title" id="offcanvasFiltersLabel"><i class="bi bi-funnel me-2"></i>Filtros de Leads</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-  </div>
-  <div class="offcanvas-body">
-    <form method="get">
-        {% include 'leads/partials/_lead_filters.html' %}
-        <div class="d-grid gap-2 mt-4">
-            <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
-            <a href="{% url 'leads:lead_listar' %}" class="btn btn-outline-secondary">Limpar Filtros</a>
-        </div>
-    </form>
-  </div>
-</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal de editar lead
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
     const editModalEl = document.getElementById('editLeadModal');
     if (editModalEl) {
         const editForm = editModalEl.querySelector('#editLeadForm');
@@ -333,9 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     for (const [key, value] of Object.entries(data)) {
                         const field = editForm.querySelector(`[name="${key}"]`);
-                        if (field) {
-                            field.value = value;
-                        }
+                        if (field) field.value = value;
                     }
                 });
         });
@@ -351,21 +402,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     window.location.reload();
                 } else {
-                    alert('Ocorreu um erro ao salvar. Verifique os campos.');
-                    console.error(data.errors);
+                    alert('Erro ao salvar. Verifique os campos.');
                 }
             });
         });
     }
 
-    // Modal de exclusão
     const deleteModalEl = document.getElementById('confirmDeleteModal');
     if (deleteModalEl) {
         deleteModalEl.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const url = button.getAttribute('data-delete-url');
-            const deleteForm = deleteModalEl.querySelector('#deleteForm');
-            deleteForm.setAttribute('action', url);
+            const url = event.relatedTarget.getAttribute('data-delete-url');
+            deleteModalEl.querySelector('#deleteForm').setAttribute('action', url);
         });
     }
 });

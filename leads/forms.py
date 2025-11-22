@@ -27,7 +27,7 @@ class LeadForm(forms.ModelForm):
             "nivel_experiencia",
             "melhor_horario_contato",
             "fonte",
-            # "observacoes",
+            "observacoes",
             # "proposito_estudo",
             # "objetivo_tocar",
             # "motivo_interesse_especifico",
@@ -44,7 +44,7 @@ class LeadForm(forms.ModelForm):
             ),
             "idade": forms.NumberInput(attrs={"class": "form-control"}),
             "fonte": forms.TextInput(attrs={"class": "form-control"}),
-            # "observacoes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+            "observacoes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
             "status": forms.Select(attrs={"class": "form-select"}),
             "curso_interesse": forms.Select(attrs={"class": "form-select"}),
             "nivel_experiencia": forms.Select(attrs={"class": "form-select"}),
@@ -60,12 +60,18 @@ class LeadForm(forms.ModelForm):
             # ),
             # "sobre_voce": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Formata o valor da data para o formato do widget HTML5
+
         if self.instance and self.instance.data_criacao:
             self.initial['data_criacao'] = self.instance.data_criacao.strftime('%Y-%m-%d')
+
+        self.fields['idade'].required = True
+        self.fields['curso_interesse'].required = True
+        self.fields['fonte'].required = True
+
+        self.fields['fonte'].label = "Origem"
 
     def clean_contato(self):
         contato = self.cleaned_data.get("contato", "").strip()

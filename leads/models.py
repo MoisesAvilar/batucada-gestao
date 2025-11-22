@@ -6,14 +6,32 @@ from datetime import date
 
 
 def get_escola_unidade_negocio():
-    """
-    Busca e retorna a instância de UnidadeNegocio "Escola".
-    Retorna None se não encontrar, para que o Django possa lidar com o erro.
-    """
     try:
         return UnidadeNegocio.objects.get(nome="Escola")
     except UnidadeNegocio.DoesNotExist:
         return None
+
+
+def smart_title(text):
+    if not text:
+        return text
+
+    preps = {"de", "da", "das", "do", "dos", "e"}
+
+    words = text.lower().split()
+    result = []
+
+    for i, word in enumerate(words):
+        if i == 0:
+            result.append(word.capitalize())
+            continue
+
+        if word in preps:
+            result.append(word)
+        else:
+            result.append(word.capitalize())
+
+    return " ".join(result)
 
 
 class Lead(models.Model):
@@ -21,11 +39,9 @@ class Lead(models.Model):
         ("novo", "Novo"),
         ("em_contato", "Em Contato"),
         ("negociando", "Negociando"),
-        ("convertido", "Convertido"),
         ("perdido", "Perdido"),
     )
 
-    # Dados do Lead
     nome_interessado = models.CharField(
         max_length=255, verbose_name="Nome do Interessado"
     )
@@ -45,12 +61,16 @@ class Lead(models.Model):
         help_text="Ex: Instagram, Indicação, etc.",
     )
 
-    CURSO_CHOICES = (
+    CURSO_CHOICES = sorted([
         ("batera_facil", "Batera no Fácil"),
         ("personalizado_batucada", "Personalizado Batucada"),
         ("mentoria_black_batucada", "Mentoria Black Batucada"),
+        ("baixo", "Baixo"),
+        ("guitarra", "Guitarra"),
+        ("teclado", "Teclado"),
+        ("canto", "Canto"),
         ("outro", "Outro"),
-    )
+    ], key=lambda x: x[1])
 
     NIVEL_CHOICES = (
         ("iniciante", "Iniciante (nunca toquei)"),
@@ -58,6 +78,7 @@ class Lead(models.Model):
         ("intermediario", "Intermediário (toco por hobby)"),
         ("avancado", "Avançado (busco aperfeiçoamento)"),
     )
+
     HORARIO_CHOICES = (
         ("manha", "Manhã (08:00 - 12:00)"),
         ("tarde", "Tarde (14:00 - 17:00)"),
@@ -86,7 +107,7 @@ class Lead(models.Model):
         verbose_name="Horário da Aula",
     )
     observacoes = models.TextField(
-        blank=True, null=True, verbose_name="Observações e Histórico"
+        blank=True, null=True, verbose_name="Observações"
     )
 
     proposito_estudo = models.TextField(
@@ -96,19 +117,15 @@ class Lead(models.Model):
         blank=True, null=True, verbose_name="Onde você gostaria de tocar?"
     )
     motivo_interesse_especifico = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Algo em específico que te fez interessar pela bateria?",
+        blank=True, null=True, verbose_name="Algo em específico que te fez interessar pela bateria?"
     )
     sobre_voce = models.TextField(
         blank=True, null=True, verbose_name="Conte um pouco sobre você"
     )
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="novo")
-    data_criacao = models.DateField(
-        default=date.today,
-        verbose_name="Data de Criação"
-    )
+    data_criacao = models.DateField(default=date.today, verbose_name="Data de Criação")
+
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -117,8 +134,11 @@ class Lead(models.Model):
         related_name="leads_criados",
         verbose_name="Criado por",
     )
+
     unidade_negocio = models.ForeignKey(
-        UnidadeNegocio, on_delete=models.PROTECT, default=get_escola_unidade_negocio
+        UnidadeNegocio,
+        on_delete=models.PROTECT,
+        default=get_escola_unidade_negocio
     )
 
     aluno_convertido = models.OneToOneField(
@@ -128,6 +148,7 @@ class Lead(models.Model):
         blank=True,
         related_name="lead_origem",
     )
+
     convertido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -139,6 +160,19 @@ class Lead(models.Model):
 
     def __str__(self):
         return self.nome_interessado
+
+    def save(self, *args, **kwargs):
+
+        if self.nome_interessado:
+            self.nome_interessado = smart_title(self.nome_interessado)
+
+        if self.nome_responsavel:
+            self.nome_responsavel = smart_title(self.nome_responsavel)
+
+        if self.fonte:
+            self.fonte = smart_title(self.fonte)
+
+        super().save(*args, **kwargs)
 
 
 class InteracaoLead(models.Model):
@@ -160,7 +194,10 @@ class InteracaoLead(models.Model):
     )
     notas = models.TextField(verbose_name="Anotações")
     responsavel = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
 
     class Meta:

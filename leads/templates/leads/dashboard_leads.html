@@ -85,7 +85,7 @@
                                             {% elif lead.status == 'em_contato' %} bg-warning-subtle text-warning-emphasis
                                             {% elif lead.status == 'negociando' %} bg-info-subtle text-info-emphasis
                                             {% else %} bg-secondary-subtle text-secondary-emphasis {% endif %}">
-                                            {{ lead.get_status_display }}
+                                            {{ lead.get_status_display.title }}
                                         </span>
                                     </td>
                                     <td class="text-end text-muted small">
