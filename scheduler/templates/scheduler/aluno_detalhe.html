@@ -205,9 +205,11 @@
                     <div class="text-center">
                         <div class="initials-avatar mx-auto mb-3">{{ aluno.nome_completo|first|upper }}</div>
                         <h2 class="h4 mb-1">{{ aluno.nome_completo|title }}</h2>
-                        {% with status_pgto=aluno.get_status_pagamento %}
-                            <span class="badge bg-{{ status_pgto.cor }}-subtle text-{{ status_pgto.cor }}-emphasis rounded-pill">Pagamento: {{ status_pgto.status }}</span>
-                        {% endwith %}
+                        {% if user.tipo == 'admin' %}
+                            {% with status_pgto=aluno.get_status_pagamento %}
+                                <span class="badge bg-{{ status_pgto.cor }}-subtle text-{{ status_pgto.cor }}-emphasis rounded-pill">Pagamento: {{ status_pgto.status }}</span>
+                            {% endwith %}
+                        {% endif %}
                         <p class="text-muted">{% if aluno.email %}{{ aluno.email }}{% else %}Email não informado{% endif %}</p>
                     </div>
                     <hr>
