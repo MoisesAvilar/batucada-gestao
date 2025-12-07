@@ -3473,7 +3473,9 @@ def gerar_relatorio_anual_ia(request, aluno_id):
                 mini = min(valores)
                 maxi = max(valores)
                 delta = maxi - mini 
-                lista_evolucao.append({'nome': nome, 'min': mini, 'max': maxi, 'delta': delta})
+                
+                if delta > 0: 
+                    lista_evolucao.append({'nome': nome, 'min': mini, 'max': maxi, 'delta': delta})
 
         top_5_rudimentos = sorted(lista_evolucao, key=lambda x: x['delta'], reverse=True)[:5]
 
@@ -3487,69 +3489,93 @@ def gerar_relatorio_anual_ia(request, aluno_id):
         lista_repertorio = "\n".join([f"- {m}" for m in repertorio_set]) or "Nenhuma música específica registrada."
 
         prompt = f"""
-        Atue como Coordenador Pedagógico do 'Studio Batucada'.
-        Sua tarefa é escrever APENAS O CORPO DO TEXTO do relatório em formato Markdown.
+        Atue como Coordenador Pedagógico do *Studio Batucada*.  
+        Escreva **exclusivamente o corpo do relatório anual**, em **formato Markdown**, seguindo rigorosamente todas as regras abaixo.
 
-        DADOS DO ALUNO:
-        Aluno: {aluno.nome_completo}
-        Curso: {curso_str}
-        Ano: {ano_atual}
+        ---
 
-        --- ESTATÍSTICAS PARA O RELATÓRIO ---
+        # 🔹 DADOS DO ALUNO
+        - Nome: **{aluno.nome_completo}**
+        - Curso: **{curso_str}**
+        - Ano: **{ano_atual}**
+
+        # 🔹 ESTATÍSTICAS DE EVOLUÇÃO (dados brutos)
         {lista_rudimentos_stats}
 
-        --- REPERTÓRIO TRABALHADO ---
+        # 🔹 REPERTÓRIO REGISTRADO
         {lista_repertorio}
 
-        --- HISTÓRICO DE AULAS (Contexto) ---
+        # 🔹 HISTÓRICO DE AULAS (contexto)
         {texto_historico}
 
-        --- REGRAS DE FORMATAÇÃO (OBRIGATÓRIO) ---
-        1. **PROIBIDO CABEÇALHO:** NÃO escreva título (ex: "Relatório Anual"), NÃO coloque nome do aluno, data ou "Studio Batucada" no topo. Comece direto pelo tópico 1.
-        2. **PROIBIDO RODAPÉ:** NÃO coloque linha de assinatura, "Atenciosamente" ou nome do coordenador no final. Termine o texto no ponto final da Conclusão.
-        3. **CURSOS:** Use estritamente o nome "{curso_str}" ao citar o curso.
+        ---
 
-        === DIRETRIZES DE FORMATAÇÃO (IMPORTANTE) ===
-        1. NÃO use cabeçalhos de documento (título, data, nome do aluno no topo). Comece direto pelo tópico "1. Visão Geral".
-        2. Nas seções de listas ("Destaques de Evolução" e "Músicas Trabalhadas"), você DEVE usar formatação de lista com marcadores (bullet points).
-        3. Coloque cada item da lista em uma NOVA LINHA.
-        4. Para garantir que o rudimentos e músicas sejam formatados como listas FAÇA USO DA TAG <br> SEMPRE após o subtitulo e após cada linha de item da lista.
+        # 🚨 REGRAS OBRIGATÓRIAS
 
-        === ESTRUTURA DO RELATÓRIO ===
+        ## 1) Estrutura fixa (NÃO ALTERAR)
+        O relatório **deve seguir exatamente** esta estrutura:
 
-        ## 1. Visão Geral
-        (Parágrafo de resumo executivo).
+        ## 1. Visão Geral  
+        (texto narrativo)
 
-        ## 2. Teoria e Leitura
-        (Parágrafo sobre conceitos absorvidos).
+        ## 2. Teoria e Leitura  
+        (texto narrativo)
 
-        ## 3. Técnica e Rudimentos
-        (Parágrafo narrativo sobre a evolução técnica).
+        ## 3. Técnica e Rudimentos  
+        (texto narrativo)
 
-        **Destaques de Evolução (Top 5):**
-        {lista_rudimentos_stats}
-        (Mantenha essa lista exatamente como está acima, usando hifens ou asteriscos para criar bullet points).
+        **Destaques de Evolução (Top 5):**  
+        {lista_rudimentos_stats}  
+        (MANTER esta lista exatamente como está — mesma ordem, mesmos hifens, mesmo conteúdo)
 
         [GRAFICO_EVOLUCAO]
 
-        ## 4. Coordenação e Ritmos
-        (Parágrafo de análise).
+        ## 4. Coordenação e Ritmos  
+        (texto narrativo)
 
-        ## 5. Repertório Musical
-        (Parágrafo sobre aplicação prática).
+        ## 5. Repertório Musical  
+        (texto narrativo)
 
-        **Músicas Trabalhadas:**
-        {lista_repertorio}
-        (Mantenha essa lista exatamente como está acima, com um item por linha).
+        **Músicas Trabalhadas:**  
+        {lista_repertorio}  
+        (manter exatamente a lista recebida)
 
-        ## 6. Pontos Fortes
-        (Destaque 2 ou 3 pontos).
+        ## 6. Pontos Fortes  
+        (texto narrativo, 2–3 pontos)
 
-        ## 7. Pontos de Melhoria
-        (Destaque 2 ou 3 pontos).
+        ## 7. Pontos de Melhoria  
+        (texto narrativo, 2–3 pontos)
 
-        ## 8. Conclusão
-        (Parecer final).
+        ## 8. Conclusão  
+        (texto narrativo)
+
+        ---
+
+        # 🚨 REGRAS DE FORMATAÇÃO (MUITO IMPORTANTES)
+
+        ### 🔒 Cabeçalho / Rodapé proibidos
+        - Não incluir **título**, **nome do aluno no topo**, **data**, **assinatura**, **“Atenciosamente”**, **nomes de responsáveis**.
+
+        ### 🔒 Curso
+        - Sempre citar o curso exatamente como: **"{curso_str}"**  
+        (idêntico, mesmo o plural, espaçamento e acentuação)
+
+        ### 🔒 Listas com `<br>`
+        Para garantir que as listas fiquem corretamente estruturadas no PDF:
+
+        - Após o subtítulo de cada lista, usar **`<br>`**.
+        - Após **cada item** da lista, também usar **`<br>`**.
+        - Nunca remover os hifens enviados pelo sistema.
+
+        ### ⚠️ NÃO reescrever ou resumir os itens das listas de rudimentos e repertório.
+        Apenas reproduzir exatamente os itens enviados.
+
+        ---
+
+        # 🧠 INSTRUÇÃO FINAL
+        Escreva com tom profissional, claro e avaliativo, mantendo coerência com os dados do aluno e com o histórico enviado.  
+        Não invente números, não altere datas e não descreva conteúdos inexistentes.
+
         """
 
         model_name = 'gemini-2.5-flash'
@@ -3646,13 +3672,37 @@ def baixar_relatorio_pdf(request):
                 plt.figure(figsize=(10, 4))
 
                 tem_dados = False
+
+                # Jitter horizontal (em índice, pois datas são strings)
+                jitter_valores = [-0.15, -0.05, 0.05, 0.15, 0.25]  # até 5 rudimentos
+                idx_rudi = 0
+
                 for nome, pontos in top_rudimentos:
-                    if len(pontos) >= 1: 
+                    if len(pontos) >= 1:
                         datas, bpms = zip(*pontos)
-                        plt.plot(datas, bpms, marker='o', label=nome, linewidth=2)
+
+                        # converte datas "dd/mm" para índice numérico
+                        x_base = list(range(len(datas)))
+
+                        # aplica jitter diferente para cada linha
+                        jitter = jitter_valores[idx_rudi % len(jitter_valores)]
+                        x_jitter = [x + jitter for x in x_base]
+
+                        plt.plot(
+                            x_jitter,
+                            bpms,
+                            marker='o',
+                            linewidth=2,
+                            label=nome
+                        )
+
                         tem_dados = True
+                        idx_rudi += 1
 
                 if tem_dados:
+                    # substitui números do eixo por suas datas originais
+                    plt.xticks(range(len(datas)), datas)
+
                     plt.title(f'Evolução Técnica (BPM) - {ano_atual}', fontsize=12, fontweight='bold')
                     plt.xlabel('Aulas', fontsize=9)
                     plt.ylabel('BPM', fontsize=9)
