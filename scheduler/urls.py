@@ -84,4 +84,6 @@ urlpatterns = [
     # --- URLs para Relatórios ---
     path("relatorios/", views.relatorios_aulas, name="relatorios_aulas"),
     path("perfil/", views.perfil_usuario, name="perfil_usuario"),
+    path('aluno/<int:aluno_id>/gerar-relatorio-ia/', views.gerar_relatorio_anual_ia, name='gerar_relatorio_ia'),
+    path('relatorio/baixar-pdf/', views.baixar_relatorio_pdf, name='baixar_pdf'),
 ]

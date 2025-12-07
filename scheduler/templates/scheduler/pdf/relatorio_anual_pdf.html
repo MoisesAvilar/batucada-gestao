@@ -1,0 +1,186 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Relatório de Desempenho</title>
+    <style>
+        /* --- 1. CONFIGURAÇÃO DA PÁGINA --- */
+        @page {
+            size: A4;
+            /* Margens: Topo, Direita, Fundo, Esquerda */
+            /* A margem de fundo (3cm) é crucial para o rodapé aparecer */
+            margin: 2cm 2cm 3cm 2cm; 
+            
+            /* Frame da Marca D'água (Fundo) */
+            @frame background_frame {
+                -pdf-frame-content: background_wrapper;
+                left: 0cm; top: 0cm; width: 100%; height: 100%;
+                z-index: -1;
+            }
+            
+            /* Frame do Rodapé (Fixo no fim da folha) */
+            @frame footer_frame {
+                -pdf-frame-content: footer_content;
+                left: 2cm; right: 2cm; bottom: 1cm; height: 1cm;
+            }
+        }
+
+        /* --- 2. ESTILOS GERAIS --- */
+        body {
+            font-family: Helvetica, sans-serif;
+            font-size: 11pt;
+            color: #222;
+            line-height: 1.5;
+        }
+
+        /* --- 3. MARCA D'ÁGUA (Centralização via Tabela) --- */
+        #background_wrapper {
+            width: 100%;
+            height: 100%;
+        }
+        /* Ajuste a opacidade aqui se precisar */
+        .watermark-img {
+            width: 70%; 
+            opacity: 0.15; 
+        }
+
+        /* --- 4. CABEÇALHO (Topo da Pág 1) --- */
+        table.header-table {
+            width: 100%;
+            border-bottom: 3px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .header-logo-img {
+            width: 130px; /* Tamanho da logo no topo */
+        }
+        .header-text {
+            text-align: right;
+            vertical-align: middle;
+        }
+        .header-title {
+            font-size: 20pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+            color: #000;
+        }
+        .header-subtitle {
+            font-size: 11pt;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        /* --- 5. TABELA DE INFORMAÇÕES DO ALUNO --- */
+        table.info-box {
+            width: 100%;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            margin-bottom: 30px;
+        }
+        .info-box td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+        .info-label {
+            width: 25%; /* Coluna dos rótulos fixa */
+            font-weight: bold;
+            color: #444;
+            text-transform: uppercase;
+            font-size: 9pt;
+        }
+        .info-value {
+            color: #000;
+            font-weight: normal;
+        }
+
+        /* --- 6. CONTEÚDO DO TEXTO --- */
+        .content {
+            text-align: justify;
+        }
+        /* Estilo para os títulos gerados pela IA (h1, h2, etc) */
+        h1, h2, h3 {
+            color: #000;
+            border-bottom: 1px solid #aaa;
+            padding-bottom: 5px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-size: 13pt;
+        }
+        p {
+            margin-bottom: 10px;
+        }
+
+        /* --- 7. RODAPÉ --- */
+        #footer_content {
+            text-align: center;
+            font-size: 8pt;
+            color: #777;
+            border-top: 1px solid #ccc;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="background_wrapper">
+        <table style="width: 100%; height: 100%;">
+            <tr>
+                <td style="vertical-align: middle; text-align: center;">
+                    <img src="{{ logo_path }}" class="watermark-img">
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="header-table">
+        <tr>
+            <td style="width: 30%;">
+                <img src="{{ logo_path }}" class="header-logo-img">
+            </td>
+            <td class="header-text">
+                <div class="header-title">Studio Batucada</div>
+                <div class="header-subtitle">Relatório de Desempenho Anual • 2025</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="info-box" cellspacing="0">
+<tr>
+            <td class="info-label">Aluno(a):</td>
+            <td class="info-value"><strong>{{ aluno }}</strong></td>
+        </tr>
+        <tr>
+            <td class="info-label">Curso(s):</td>
+            <td class="info-value">{{ curso }}</td> 
+        </tr>
+        <tr>
+            <td class="info-label">Ano Referência:</td>
+            <td class="info-value">2025</td>
+        </tr>
+        <tr>
+            <td class="info-label">Emissão:</td>
+            <td class="info-value">{% now "d/m/Y" %}</td>
+        </tr>
+    </table>
+
+    <div class="content">
+        {{ conteudo|safe }}
+    </div>
+
+    <table style="width: 100%; margin-top: 50px;">
+        <tr>
+            <td style="text-align: center;">
+                <div style="border-top: 1px solid #000; width: 60%; margin: 0 auto; padding-top: 5px;">
+                    <strong>Studio Batucada</strong><br>
+                    <span style="font-size: 10pt; color: #666;">Mais que batuques, tocamos histórias.</span>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

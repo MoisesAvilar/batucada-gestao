@@ -1,10 +1,23 @@
+
+import os
+import io
+import base64
+import re
+import matplotlib
+from django.conf import settings
+import matplotlib.pyplot as plt
+import google.generativeai as genai
 import json
+import markdown
 from django.db import transaction, DatabaseError
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.timezone import localtime
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.cache import never_cache
+from django.template.loader import get_template
+from xhtml2pdf import pisa
+from django.contrib.staticfiles import finders
 from leads.models import Lead, InteracaoLead
 from .models import (
     Aula,
@@ -54,6 +67,12 @@ from django.template.loader import render_to_string
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
+matplotlib.use('Agg')
+
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 
 # --- Funções de Teste para Permissões ---
@@ -3378,3 +3397,340 @@ def listar_reposicoes_pendentes(request):
         "reposicoes": reposicoes_pendentes_qs,
     }
     return render(request, "scheduler/reposicoes_listar.html", contexto)
+
+
+@login_required
+@require_POST
+def gerar_relatorio_anual_ia(request, aluno_id):
+    try:
+        aluno = Aluno.objects.get(pk=aluno_id)
+        ano_atual = timezone.now().year
+
+        aulas = Aula.objects.filter(
+            alunos=aluno,
+            data_hora__year=ano_atual,
+            status='Realizada'
+        ).exclude(relatorioaula__isnull=True).order_by('data_hora')
+
+        if not aulas.exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Nenhum relatório encontrado para {aluno.nome_completo} em {ano_atual}.'
+            })
+
+        historico_aulas = []
+        rudimentos_stats = defaultdict(list)
+        repertorio_set = set()
+        cursos_reais = set()
+
+        for aula in aulas:
+            if aula.modalidade:
+                cursos_reais.add(aula.modalidade.nome)
+
+            rel = getattr(aula, 'relatorioaula', None)
+            if not rel:
+                continue
+
+            rudimentos_txt_aula = []
+            for item in rel.itens_rudimentos.all():
+                rudimentos_txt_aula.append(f"{item.descricao} ({item.bpm}bpm)")
+                if item.bpm:
+                    nums = re.findall(r'\d+', str(item.bpm))
+                    if nums:
+                        val = int(max(nums, key=int))
+                        rudimentos_stats[item.descricao.strip().title()].append(val)
+
+            if rel.repertorio_musicas:
+                musicas = re.split(r'[,\n]+', rel.repertorio_musicas)
+                for m in musicas:
+                    m_limpa = m.strip()
+                    if m_limpa and len(m_limpa) > 2:
+                        repertorio_set.add(m_limpa)
+
+            dados_aula = []
+            if rel.conteudo_teorico:
+                dados_aula.append(f"Teoria: {rel.conteudo_teorico}")
+            if rudimentos_txt_aula:
+                dados_aula.append(f"Rudimentos: {', '.join(rudimentos_txt_aula)}")
+            if rel.repertorio_musicas:
+                dados_aula.append(f"Repertório: {rel.repertorio_musicas}")
+            if rel.observacoes_gerais:
+                dados_aula.append(f"Obs: {rel.observacoes_gerais}")
+
+            if dados_aula:
+                data_str = aula.data_hora.strftime('%d/%m')
+                nome_modalidade = aula.modalidade.nome if aula.modalidade else "Aula"
+                conteudo_str = " | ".join(dados_aula)
+                historico_aulas.append(f"### {data_str} ({nome_modalidade}):\n   {conteudo_str}")
+
+        texto_historico = "\n\n".join(historico_aulas)
+
+        curso_str = ", ".join(cursos_reais) if cursos_reais else "Curso não definido"
+
+        lista_evolucao = []
+        for nome, valores in rudimentos_stats.items():
+            if valores:
+                mini = min(valores)
+                maxi = max(valores)
+                delta = maxi - mini 
+                lista_evolucao.append({'nome': nome, 'min': mini, 'max': maxi, 'delta': delta})
+
+        top_5_rudimentos = sorted(lista_evolucao, key=lambda x: x['delta'], reverse=True)[:5]
+
+        lista_rudimentos_stats = ""
+        for r in top_5_rudimentos:
+            lista_rudimentos_stats += f"- {r['nome']}: Início {r['min']}bpm -> Máx {r['max']}bpm (Ganho de +{r['delta']}bpm)\n"
+
+        if not lista_rudimentos_stats:
+            lista_rudimentos_stats = "Nenhum dado numérico de BPM suficiente para cálculo de evolução."
+
+        lista_repertorio = "\n".join([f"- {m}" for m in repertorio_set]) or "Nenhuma música específica registrada."
+
+        prompt = f"""
+        Atue como Coordenador Pedagógico do 'Studio Batucada'.
+        Sua tarefa é escrever APENAS O CORPO DO TEXTO do relatório em formato Markdown.
+
+        DADOS DO ALUNO:
+        Aluno: {aluno.nome_completo}
+        Curso: {curso_str}
+        Ano: {ano_atual}
+
+        --- ESTATÍSTICAS PARA O RELATÓRIO ---
+        {lista_rudimentos_stats}
+
+        --- REPERTÓRIO TRABALHADO ---
+        {lista_repertorio}
+
+        --- HISTÓRICO DE AULAS (Contexto) ---
+        {texto_historico}
+
+        --- REGRAS DE FORMATAÇÃO (OBRIGATÓRIO) ---
+        1. **PROIBIDO CABEÇALHO:** NÃO escreva título (ex: "Relatório Anual"), NÃO coloque nome do aluno, data ou "Studio Batucada" no topo. Comece direto pelo tópico 1.
+        2. **PROIBIDO RODAPÉ:** NÃO coloque linha de assinatura, "Atenciosamente" ou nome do coordenador no final. Termine o texto no ponto final da Conclusão.
+        3. **CURSOS:** Use estritamente o nome "{curso_str}" ao citar o curso.
+
+        === DIRETRIZES DE FORMATAÇÃO (IMPORTANTE) ===
+        1. NÃO use cabeçalhos de documento (título, data, nome do aluno no topo). Comece direto pelo tópico "1. Visão Geral".
+        2. Nas seções de listas ("Destaques de Evolução" e "Músicas Trabalhadas"), você DEVE usar formatação de lista com marcadores (bullet points).
+        3. Coloque cada item da lista em uma NOVA LINHA.
+        4. Para garantir que o rudimentos e músicas sejam formatados como listas FAÇA USO DA TAG <br> SEMPRE após o subtitulo e após cada linha de item da lista.
+
+        === ESTRUTURA DO RELATÓRIO ===
+
+        ## 1. Visão Geral
+        (Parágrafo de resumo executivo).
+
+        ## 2. Teoria e Leitura
+        (Parágrafo sobre conceitos absorvidos).
+
+        ## 3. Técnica e Rudimentos
+        (Parágrafo narrativo sobre a evolução técnica).
+
+        **Destaques de Evolução (Top 5):**
+        {lista_rudimentos_stats}
+        (Mantenha essa lista exatamente como está acima, usando hifens ou asteriscos para criar bullet points).
+
+        [GRAFICO_EVOLUCAO]
+
+        ## 4. Coordenação e Ritmos
+        (Parágrafo de análise).
+
+        ## 5. Repertório Musical
+        (Parágrafo sobre aplicação prática).
+
+        **Músicas Trabalhadas:**
+        {lista_repertorio}
+        (Mantenha essa lista exatamente como está acima, com um item por linha).
+
+        ## 6. Pontos Fortes
+        (Destaque 2 ou 3 pontos).
+
+        ## 7. Pontos de Melhoria
+        (Destaque 2 ou 3 pontos).
+
+        ## 8. Conclusão
+        (Parecer final).
+        """
+
+        model_name = 'gemini-2.5-flash'
+
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            return JsonResponse({'status': 'success', 'relatorio': response.text})
+        except Exception as e_model:
+            return JsonResponse({'status': 'error', 'message': f"Erro na IA ({model_name}): {str(e_model)}"})
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f"Erro interno: {str(e)}"})
+
+
+def link_callback(uri, rel):
+    """
+    Converte URLs de arquivos estáticos (ex: /static/img/logo.png)
+    em caminhos absolutos do sistema de arquivos (ex: C:/Users/.../static/img/logo.png)
+    para que o xhtml2pdf consiga carregar as imagens.
+    """
+    sUrl = settings.STATIC_URL
+    sRoot = settings.STATIC_ROOT
+    mUrl = settings.MEDIA_URL
+    mRoot = settings.MEDIA_ROOT
+
+    if uri.startswith(mUrl):
+        path = os.path.join(mRoot, uri.replace(mUrl, ""))
+    elif uri.startswith(sUrl):
+        path = os.path.join(sRoot, uri.replace(sUrl, ""))
+    else:
+        return uri
+
+    if not os.path.isfile(path):
+        result = finders.find(uri.replace(sUrl, ""))
+        if result:
+            if isinstance(result, (list, tuple)):
+                path = result[0]
+            else:
+                path = result
+
+    if not os.path.isfile(path):
+        raise Exception(f'media URI must start with {sUrl} or {mUrl}. Path: {path}')
+
+    return path
+
+
+@login_required
+def baixar_relatorio_pdf(request):
+    if request.method == 'POST':
+        texto_markdown = request.POST.get('texto_relatorio', '')
+        nome_aluno_post = request.POST.get('nome_aluno', 'Aluno')
+
+        aluno = Aluno.objects.filter(nome_completo=nome_aluno_post).first()
+        ano_atual = timezone.now().year
+
+        curso_str = "Curso não identificado"
+        if aluno:
+            aulas_ano = Aula.objects.filter(
+                alunos=aluno,
+                data_hora__year=ano_atual,
+                status='Realizada'
+            ).select_related('modalidade')
+
+            modalidades = set()
+            for aula in aulas_ano:
+                if aula.modalidade:
+                    modalidades.add(aula.modalidade.nome)
+
+            if modalidades:
+                curso_str = ", ".join(modalidades)
+
+        grafico_base64 = None
+        if aluno:
+            itens = ItemRudimento.objects.filter(
+                relatorio__aula__alunos=aluno,
+                relatorio__aula__data_hora__year=ano_atual
+            ).select_related('relatorio__aula').order_by('relatorio__aula__data_hora')
+
+            dados_rudimentos = defaultdict(list)
+
+            for item in itens:
+                if item.bpm:
+                    bpm_match = re.findall(r'\d+', str(item.bpm))
+                    if bpm_match:
+                        bpm_valor = int(max(bpm_match, key=int))
+                        chave = item.descricao.strip().title()
+                        data_aula = item.relatorio.aula.data_hora.strftime('%d/%m')
+                        dados_rudimentos[chave].append((data_aula, bpm_valor))
+
+            top_rudimentos = sorted(dados_rudimentos.items(), key=lambda x: len(x[1]), reverse=True)[:5]
+
+            if top_rudimentos:
+                plt.figure(figsize=(10, 4))
+
+                tem_dados = False
+                for nome, pontos in top_rudimentos:
+                    if len(pontos) >= 1: 
+                        datas, bpms = zip(*pontos)
+                        plt.plot(datas, bpms, marker='o', label=nome, linewidth=2)
+                        tem_dados = True
+
+                if tem_dados:
+                    plt.title(f'Evolução Técnica (BPM) - {ano_atual}', fontsize=12, fontweight='bold')
+                    plt.xlabel('Aulas', fontsize=9)
+                    plt.ylabel('BPM', fontsize=9)
+                    plt.legend(title="Exercícios", fontsize='small')
+                    plt.grid(True, linestyle='--', alpha=0.5)
+                    plt.tight_layout()
+
+                    buffer = io.BytesIO()
+                    plt.savefig(buffer, format='png', transparent=True)
+                    buffer.seek(0)
+                    image_png = buffer.getvalue()
+                    buffer.close()
+                    plt.close()
+
+                    grafico_base64 = base64.b64encode(image_png).decode('utf-8')
+
+        html_conteudo = markdown.markdown(texto_markdown)
+
+        html_grafico = ""
+        if grafico_base64:
+            html_grafico = f"""
+            <div style="text-align: center; margin: 30px 0; page-break-inside: avoid;">
+                <h4 style="color: #333; border-bottom: 2px solid #ffc107; display: inline-block; margin-bottom: 15px;">
+                    Gráfico de Evolução Técnica
+                </h4><br>
+                <img src="data:image/png;base64,{grafico_base64}" style="width: 100%; max-width: 17cm;">
+                <p style="font-size: 9px; color: #666; margin-top: 5px;">
+                    * Evolução de velocidade (BPM) nos principais rudimentos praticados.
+                </p>
+            </div>
+            """
+
+        if '[GRAFICO_EVOLUCAO]' in html_conteudo and html_grafico:
+            html_conteudo = html_conteudo.replace('[GRAFICO_EVOLUCAO]', html_grafico)
+        elif html_grafico:
+            if '<h2>Técnica' in html_conteudo:
+                partes = html_conteudo.split('<h2>Técnica')
+                if len(partes) > 1:
+                    subpartes = partes[1].split('<h2>')
+                    if len(subpartes) > 1:
+                        nova_parte = subpartes[0] + html_grafico
+                        html_conteudo = partes[0] + '<h2>Técnica' + nova_parte + '<h2>' + '<h2>'.join(subpartes[1:])
+                    else:
+                        html_conteudo += f"<br>{html_grafico}"
+                else:
+                    html_conteudo += f"<br><hr>{html_grafico}"
+            else:
+                html_conteudo += f"<br><hr>{html_grafico}"
+
+        nome_arquivo_imagem = 'scheduler/img/logo_relatorio.png'
+        logo_path = finders.find(nome_arquivo_imagem)
+
+        if not logo_path:
+            logo_path = os.path.join(settings.BASE_DIR, 'scheduler', 'static', 'scheduler', 'img', 'logo_relatorio.png')
+
+        context = {
+            'conteudo': html_conteudo,
+            'aluno': nome_aluno_post,
+            'curso': curso_str,
+            'ano': ano_atual,
+            'logo_path': logo_path,
+        }
+
+        template_path = 'scheduler/pdf/relatorio_anual_pdf.html'
+        template = get_template(template_path)
+        html = template.render(context)
+
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="Relatorio {nome_aluno_post} - {ano_atual}.pdf"'
+
+        pisa_status = pisa.CreatePDF(
+            html,
+            dest=response,
+            link_callback=link_callback
+        )
+
+        if pisa_status.err:
+            return HttpResponse(f'Erro ao gerar PDF: {pisa_status.err}')
+        return response
+
+    return HttpResponse("Método não permitido")

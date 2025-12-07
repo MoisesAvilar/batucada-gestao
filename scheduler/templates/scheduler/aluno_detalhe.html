@@ -33,6 +33,64 @@
     }
 </style>
 
+<button id="btnGerarRelatorio"
+        class="btn btn-info text-dark shadow-sm fw-semibold w-100 
+               px-3 py-2 mb-3
+               rounded-pill rounded-md">
+    <i class="bi bi-stars me-2"></i>
+
+    <!-- Texto compacto no mobile -->
+    <span class="d-inline d-md-none">Gerar Relatório</span>
+
+    <!-- Texto completo no desktop -->
+    <span class="d-none d-md-inline">Gerar Relatório com IA</span>
+</button>
+
+
+<div id="containerRelatorioIA" class="card shadow-lg mb-5 d-none border-0 overflow-hidden">
+    <div class="card-header bg-body-tertiary border-bottom-0 pt-4 pb-3">
+        <div class="d-flex align-items-center">
+            <div class="p-2 bg-primary bg-opacity-10 rounded-circle me-3">
+                <i class="bi bi-robot fs-4 text-primary"></i>
+            </div>
+            <div>
+                <h5 class="card-title fw-bold mb-1">Relatório Pedagógico (IA)</h5>
+                <p class="text-muted small mb-0">
+                    O texto abaixo foi gerado automaticamente. 
+                    <span class="text-primary">Revise e edite</span> antes de gerar o documento oficial.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body bg-body-tertiary pt-0">
+        <form action="{% url 'scheduler:baixar_pdf' %}" method="POST" target="_blank">
+            {% csrf_token %}
+            <input type="hidden" name="nome_aluno" value="{{ aluno.nome_completo }}">
+            
+            <div class="form-floating mb-4">
+                <textarea 
+                    name="texto_relatorio" 
+                    id="textoRelatorioEditor" 
+                    class="form-control font-monospace shadow-none" 
+                    style="height: 500px; font-size: 0.95rem; border: 1px solid var(--bs-border-color);"
+                    placeholder="O relatório aparecerá aqui..."></textarea>
+                <label for="textoRelatorioEditor">Conteúdo do Relatório (Markdown)</label>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center bg-body p-3 rounded border">
+                <button type="button" class="btn btn-outline-secondary border-0" onclick="document.getElementById('containerRelatorioIA').classList.add('d-none')">
+                    <i class="bi bi-x-lg me-1"></i> Fechar
+                </button>
+                
+                <button type="submit" class="btn btn-success px-4 py-2 fw-semibold shadow-sm">
+                    <i class="bi bi-file-earmark-pdf-fill me-2"></i> Baixar PDF Oficial
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="accordion mb-4" id="accordionFiltros">
     <div class="accordion-item">
         <h2 class="accordion-header">
@@ -167,14 +225,21 @@
                     {% endif %}
                 </div>
                 
+                {% if user.tipo == 'admin' %}
                 <div class="content-block">
                     <h6 class="mb-3"><i class="bi bi-cash-stack me-2"></i>Histórico Financeiro</h6>
+
                     {% if historico_financeiro %}
                         <ul class="list-group list-group-flush">
                             {% for transacao in historico_financeiro %}
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                <div><span class="d-block">{{ transacao.description }}</span><small class="text-muted">{{ transacao.transaction_date|date:"d/m/Y" }}</small></div>
-                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">R$ {{ transacao.amount|floatformat:2 }}</span>
+                                <div>
+                                    <span class="d-block">{{ transacao.description }}</span>
+                                    <small class="text-muted">{{ transacao.transaction_date|date:"d/m/Y" }}</small>
+                                </div>
+                                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">
+                                    R$ {{ transacao.amount|floatformat:2 }}
+                                </span>
                             </li>
                             {% endfor %}
                         </ul>
@@ -182,6 +247,7 @@
                         <p class="text-muted small text-center mb-0 p-3">Nenhum registro de pagamento encontrado.</p>
                     {% endif %}
                 </div>
+                {% endif %}
 
                 <div class="content-block">
                     <h6 class="mb-3">Distribuição de Status</h6>
@@ -462,6 +528,50 @@ document.addEventListener('DOMContentLoaded', function() {
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
     renderStatusChart();
     renderEvolutionChart();
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.getElementById('btnGerarRelatorio').addEventListener('click', function() {
+    const btn = this;
+    const container = document.getElementById('containerRelatorioIA');
+    const editor = document.getElementById('textoRelatorioEditor');
+    
+    // Feedback visual
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Lendo relatórios...';
+
+    const url = "{% url 'scheduler:gerar_relatorio_ia' aluno.id %}";
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Mostra o container
+            container.classList.remove('d-none');
+            // Coloca o texto puro no textarea para edição
+            editor.value = data.relatorio;
+            // Scroll até o editor
+            container.scrollIntoView({behavior: "smooth"});
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Erro de conexão com o servidor.');
+        console.error(error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars"></i> Gerar Relatório com IA';
+    });
 });
 </script>
 {% endblock %}
