@@ -3524,7 +3524,7 @@ def gerar_relatorio_anual_ia(request, aluno_id):
         ## 3. Técnica e Rudimentos  
         (texto narrativo)
 
-        **Destaques de Evolução (Top 5):**  
+        ###Destaques de Evolução (Top 5):
         {lista_rudimentos_stats}  
         (MANTER esta lista exatamente como está — mesma ordem, mesmos hifens, mesmo conteúdo)
 
@@ -3536,7 +3536,7 @@ def gerar_relatorio_anual_ia(request, aluno_id):
         ## 5. Repertório Musical  
         (texto narrativo)
 
-        **Músicas Trabalhadas:**  
+        ###Músicas Trabalhadas:
         {lista_repertorio}  
         (manter exatamente a lista recebida)
 
@@ -3560,12 +3560,8 @@ def gerar_relatorio_anual_ia(request, aluno_id):
         - Sempre citar o curso exatamente como: **"{curso_str}"**  
         (idêntico, mesmo o plural, espaçamento e acentuação)
 
-        ### 🔒 Listas com `<br>`
-        Para garantir que as listas fiquem corretamente estruturadas no PDF:
-
-        - Após o subtítulo de cada lista, usar **`<br>`**.
-        - Após **cada item** da lista, também usar **`<br>`**.
-        - Nunca remover os hifens enviados pelo sistema.
+        ### 🔒 Listas 
+        Para garantir que as listas fiquem corretamente estruturadas no PDF faça listas usando a marcação para listas quando for listar os rudimentos, músicas, pontos fortes e pontos fracos
 
         ### ⚠️ NÃO reescrever ou resumir os itens das listas de rudimentos e repertório.
         Apenas reproduzir exatamente os itens enviados.
