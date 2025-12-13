@@ -133,6 +133,9 @@ class RelatorioAulaAdmin(admin.ModelAdmin):
         "aula__modalidade__nome",
         "conteudo_teorico",
         "repertorio_musicas",
+        "itens_rudimentos__descricao",
+        "itens_ritmo__descricao",
+        "itens_viradas__descricao",
     )
 
     # --- O RESTO DA SUA CONFIGURAÇÃO ---
