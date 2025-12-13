@@ -1487,7 +1487,16 @@ def validar_aula(request, pk):
         ):
             try:
                 with transaction.atomic():
-                    relatorio.professor_que_validou = request.user
+                    if not relatorio.professor_que_validou:
+                        if request.user.tipo == 'professor':
+                            relatorio.professor_que_validou = request.user
+
+                    elif request.user.tipo == 'admin' and relatorio.professor_que_validou != request.user:
+                        relatorio.ultimo_editor = request.user
+
+                    elif request.user == relatorio.professor_que_validou:
+                        relatorio.ultimo_editor = request.user
+
                     relatorio.save()
                     presenca_formset.save()
 

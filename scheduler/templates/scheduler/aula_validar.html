@@ -16,6 +16,17 @@
         z-index: 1040;
         display: none;
     }
+    .author-box {
+        background-color: var(--bs-tertiary-bg); /* Fundo cinza suave/escuro dependendo do tema */
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
     .accordion-item.active-accordion {
         position: relative;
         z-index: 1041;
@@ -46,29 +57,23 @@
         <p class="text-muted">{{ aula.modalidade.nome|title }} • {{ aula.data_hora|date:"d/m/Y, H:i" }}</p>
     </div>
 
-    {% if historico_ultima_aula and view_mode != 'visualizar' %}
-    <div class="accordion mb-4 sticky-accordion-header" id="accordionHistorico">
-        <div class="accordion-item content-block p-0">
-            <h2 class="accordion-header">
-                <button class="accordion-button collapsed bg-transparent" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistorico" aria-expanded="false">
-                    <i class="bi bi-clock-history me-2"></i>Ver Conteúdo da Última Aula ({{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }})
-                </button>
-            </h2>
-            <div id="collapseHistorico" class="accordion-collapse collapse">
-                <div class="accordion-body border-top">
-                    {% with relatorio=historico_ultima_aula %}
-                        {% include 'scheduler/partials/relatorio_view_exercicios.html' %}
-                        <hr class="my-4">
-                        {% include 'scheduler/partials/relatorio_view_repertorio.html' %}
-                    {% endwith %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
     <div class="content-block">
         {% if view_mode == 'visualizar' %}
+            
+            <div class="author-box text-body-secondary">
+                <i class="bi bi-person-circle fs-5"></i>
+                <div>
+                    Aula realizada por: 
+                    <strong class="text-body-emphasis">{{ relatorio.professor_que_validou.username|title|default:"Não validada" }}</strong>
+                    
+                    {% if relatorio.ultimo_editor and relatorio.ultimo_editor != relatorio.professor_que_validou %}
+                        <span class="ms-2 badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                            <i class="bi bi-pencil-fill me-1"></i> Editado por: {{ relatorio.ultimo_editor.username|title }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="tab-view-geral">
                     {% include 'scheduler/partials/relatorio_view_geral.html' %}

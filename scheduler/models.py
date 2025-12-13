@@ -266,6 +266,14 @@ class RelatorioAula(models.Model):
         related_name="aulas_validadas_por_mim",
         verbose_name="Professor que Realizou a Aula",
     )
+    ultimo_editor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="relatorios_editados",
+        verbose_name="Última Edição Por"
+    )
     data_criacao = models.DateTimeField(auto_now_add=True)
     data_atualizacao = models.DateTimeField(auto_now=True)
 

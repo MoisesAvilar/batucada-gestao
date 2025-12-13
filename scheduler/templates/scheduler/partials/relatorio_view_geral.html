@@ -1,62 +1,60 @@
-<h4 class="mt-4 mb-4">Informações Gerais</h4>
+<h4 class="mb-4 fw-bold text-body-emphasis">Informações Gerais</h4>
 
 {% if not is_ac and aula.alunos.all %}
-<h6 class="text-muted">Lista de Presença (Alunos)</h6>
-<ul class="list-group list-group-flush mb-4">
-    {% for presenca in aula.presencas.all %}
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-        <div class="d-flex flex-column">
-            <strong class="mb-1">
-                <a href="{% url 'scheduler:aluno_detalhe' presenca.aluno.pk %}" class="text-decoration-none" title="{{ presenca.aluno.nome_completo }}">
+    <h6 class="text-secondary text-uppercase small fw-bold mb-3">Lista de Presença (Alunos)</h6>
+    <div class="list-group list-group-flush mb-4 rounded border-0">
+        {% for presenca in aula.presencas.all %}
+        <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 py-2">
+            <div class="d-flex flex-column">
+                <a href="{% url 'scheduler:aluno_detalhe' presenca.aluno.pk %}" class="fw-semibold text-decoration-none text-primary fs-5" title="{{ presenca.aluno.nome_completo }}">
                     {{ presenca.aluno.nome_completo|truncatewords:3|title }}
                 </a>
-            </strong>              
-            <div class="d-flex flex-wrap gap-2">
+            </div>
+            <div>
                 {% if presenca.status == 'presente' %}
-                    <span class="badge bg-success-subtle text-success-emphasis">Presente</span>
+                    <span class="badge bg-success text-white px-3 py-2 rounded-pill">Presente</span>
                 {% elif presenca.status == 'ausente' and presenca.tipo_falta == 'justificada' %}
-                    <span class="badge bg-info-subtle text-info-emphasis">Falta Justificada</span>
+                    <span class="badge bg-info text-dark px-3 py-2 rounded-pill">Falta Justificada</span>
                 {% elif presenca.status == 'ausente' %}
-                    <span class="badge bg-danger-subtle text-danger-emphasis">Falta Injustificada</span>
+                    <span class="badge bg-danger text-white px-3 py-2 rounded-pill">Falta Injustificada</span>
                 {% endif %}
             </div>
         </div>
-    </li>
-    {% endfor %}
-</ul>
-{% elif is_ac %}
-    <h6 class="text-muted">Lista de Presença (Professores)</h6>
-    <ul class="list-group list-group-flush mb-4">
-        {% for presenca in aula.presencas_professores.all %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ presenca.professor.username|title }}
-            {% if presenca.status == 'presente' %}<span class="badge bg-success-subtle text-success-emphasis rounded-pill">Presente</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Ausente</span>{% endif %}
-        </li>
         {% endfor %}
-    </ul>
+    </div>
+
+{% elif is_ac %}
+    <h6 class="text-secondary text-uppercase small fw-bold mb-3">Lista de Presença (Professores)</h6>
+    <div class="list-group list-group-flush mb-4">
+        {% for presenca in aula.presencas_professores.all %}
+        <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0">
+            <span class="fw-semibold">{{ presenca.professor.username|title }}</span>
+            {% if presenca.status == 'presente' %}
+                <span class="badge bg-success-subtle text-success-emphasis rounded-pill">Presente</span>
+            {% else %}
+                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill">Ausente</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
 {% endif %}
 
-{# A seção de validação permanece a mesma #}
-<h6 class="text-muted">Validação do Relatório</h6>
-<div class="small">
-    <p class="mb-1">
-        <strong>Professor que realizou a aula:</strong> 
-        <span class="badge bg-primary-subtle text-primary-emphasis">
-            {{ relatorio.professor_que_validou.username|title|default:"Não registrado" }}
-        </span>
-    </p>
+<h6 class="text-secondary text-uppercase small fw-bold mb-2 mt-4">Dados do Registro</h6>
+<div class="small text-muted">
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-calendar-check"></i>
+        <span>Última atualização: <strong>{{ relatorio.data_atualizacao|date:"d/m/Y H:i" }}</strong></span>
+    </div>
 
     {% if aula.foi_substituida %}
-    <p class="mb-1">
-        <strong>Professor originalmente atribuído:</strong>
-        {% for prof in aula.professores.all %}
-            <span class="badge bg-secondary-subtle text-secondary-emphasis">
-                {{ prof.username|title }}
-            </span>{% if not forloop.last %}, {% endif %}
-        {% empty %}
-            <span class="text-muted">N/A</span>
-        {% endfor %}
-    </p>
+    <div class="d-flex align-items-center gap-2 mt-2 p-2 bg-warning-subtle rounded text-warning-emphasis">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>
+            <strong>Substituição:</strong> Originalmente atribuída a 
+            {% for prof in aula.professores.all %}
+                {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </span>
+    </div>
     {% endif %}
-    <p class="mb-0"><strong>Última atualização:</strong> {{ relatorio.data_atualizacao|date:"d/m/Y H:i" }}</p>
 </div>
