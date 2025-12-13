@@ -1,84 +1,176 @@
-<div class="content-block text-center">
+<style>
+    /* Estilos Específicos do Metrônomo para combinar com seu Dark Mode */
+    .metronome-display-container {
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
 
-  <!-- BPM -->
-  <div class="mb-3">
-    <label class="form-label fw-semibold">BPM</label>
-    <div class="d-flex justify-content-center align-items-center gap-2">
-      <button class="btn btn-outline-secondary btn-sm" id="bpm-minus-10">-10</button>
-      <button class="btn btn-outline-secondary btn-sm" id="bpm-minus-5">-5</button>
-      <input type="number" id="bpm-input" class="form-control form-control-sm text-center" value="120" min="40" max="240" style="width: 70px;">
-      <button class="btn btn-outline-secondary btn-sm" id="bpm-plus-5">+5</button>
-      <button class="btn btn-outline-secondary btn-sm" id="bpm-plus-10">+10</button>
-    </div>
-    <input type="range" id="bpm-slider" class="form-range mt-2" min="40" max="240" value="120">
-  </div>
+    .bpm-number {
+        font-size: 4rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--bs-primary);
+        font-variant-numeric: tabular-nums; /* Evita que o número "pule" quando muda a largura */
+    }
 
-    <!-- Subdivisões -->
-    <div class="mb-3">
-        <label class="form-label fw-semibold">Subdivisão</label>
-        <div id="subdivision-controls" 
-            class="d-flex flex-wrap gap-2 justify-content-center" 
-            role="group"
-            style="max-width: 100%;">
+    .bpm-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--bs-secondary-color);
+    }
 
-            <input type="radio" class="btn-check" name="subdivision" id="sub-1" value="1" autocomplete="off" checked>
-            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
-                for="sub-1" style="min-width: 60px; flex: 1 1 20%;">
-            <span style="font-size: 1.2rem;">♩</span>
-            <small>Semínima</small>
-            </label>
+    /* Slider Customizado */
+    input[type=range].custom-range {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+    }
+    input[type=range].custom-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 20px;
+        width: 20px;
+        border-radius: 50%;
+        background: var(--bs-primary);
+        cursor: pointer;
+        margin-top: -8px;
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+    }
+    input[type=range].custom-range::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: var(--bs-border-color);
+        border-radius: 2px;
+    }
 
-            <input type="radio" class="btn-check" name="subdivision" id="sub-2" value="2" autocomplete="off">
-            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
-                for="sub-2" style="min-width: 60px; flex: 1 1 20%;">
-            <span style="font-size: 1.2rem;">♫</span>
-            <small>Colcheia</small>
-            </label>
+    /* Indicador Visual de Batida (Luz) */
+    .beat-indicator {
+        width: 15px;
+        height: 15px;
+        background-color: var(--bs-secondary-bg);
+        border-radius: 50%;
+        margin: 0 auto 10px auto;
+        transition: background-color 0.05s;
+        border: 2px solid var(--bs-border-color);
+    }
+    .beat-indicator.active {
+        background-color: var(--bs-primary);
+        box-shadow: 0 0 15px var(--bs-primary);
+        border-color: var(--bs-primary);
+        transform: scale(1.2);
+    }
 
-            <input type="radio" class="btn-check" name="subdivision" id="sub-3" value="3" autocomplete="off">
-            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
-                for="sub-3" style="min-width: 60px; flex: 1 1 20%;">
-            <span style="font-size: 1.2rem;">♪♪♪</span>
-            <small>Tercina</small>
-            </label>
+    /* Botões de Subdivisão */
+    .btn-subdivision {
+        border: 1px solid var(--bs-border-color);
+        background-color: var(--bs-body-bg);
+        color: var(--bs-secondary-color);
+        transition: all 0.2s;
+    }
+    .btn-check:checked + .btn-subdivision {
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary-text-emphasis);
+        border-color: var(--bs-primary);
+        box-shadow: inset 0 0 0 1px var(--bs-primary);
+    }
+    
+    /* Botão Tap Tempo */
+    .btn-tap {
+        background-color: var(--bs-secondary-bg);
+        border: 1px solid var(--bs-border-color);
+        color: var(--bs-body-color);
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
+    .btn-tap:active {
+        background-color: var(--bs-primary);
+        color: white;
+    }
+</style>
 
-            <input type="radio" class="btn-check" name="subdivision" id="sub-4" value="4" autocomplete="off">
-            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
-                for="sub-4" style="min-width: 60px; flex: 1 1 20%;">
-            <span style="font-size: 1.2rem;">♬♬</span>
-            <small>Semicolcheia</small>
-            </label>
+<div class="content-block text-center p-0 border-0" style="background: transparent;">
 
-            <input type="radio" class="btn-check" name="subdivision" id="sub-6" value="6" autocomplete="off">
-            <label class="btn btn-outline-secondary d-flex flex-column align-items-center p-2 flex-fill text-nowrap" 
-                for="sub-6" style="min-width: 60px; flex: 1 1 20%;">
-            <span style="font-size: 1.2rem;">♫♫♫</span>
-            <small>Sextina</small>
-            </label>
+    <div class="metronome-display-container mb-4">
+        <div id="visual-beat-light" class="beat-indicator"></div>
+        
+        <div class="d-flex align-items-center justify-content-center gap-3">
+            <button class="btn btn-link text-decoration-none text-secondary p-0" id="bpm-minus-1" style="font-size: 2rem;"><i class="bi bi-dash-circle"></i></button>
+            
+            <div class="text-center" style="width: 160px;">
+                <div class="bpm-number" id="bpm-display-val">120</div>
+                <div class="bpm-label">BATIDAS / MIN</div>
+            </div>
+
+            <button class="btn btn-link text-decoration-none text-secondary p-0" id="bpm-plus-1" style="font-size: 2rem;"><i class="bi bi-plus-circle"></i></button>
+        </div>
+
+        <div class="mt-3 px-2">
+            <input type="range" id="bpm-slider" class="custom-range" min="40" max="240" value="120">
+        </div>
+
+        <div class="d-flex justify-content-center gap-2 mt-3">
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="bpm-minus-5">-5</button>
+            <button class="btn btn-tap btn-sm rounded-pill px-4" id="tap-tempo-btn">TAP TEMPO</button>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="bpm-plus-5">+5</button>
         </div>
     </div>
 
+    <div class="row g-3">
+        <div class="col-12">
+            <label class="form-label small text-muted text-uppercase fw-bold">Subdivisão</label>
+            <div id="subdivision-controls" class="d-flex flex-wrap gap-2 justify-content-center">
+                
+                <input type="radio" class="btn-check" name="subdivision" id="sub-1" value="1" checked>
+                <label class="btn btn-subdivision flex-fill rounded-3 py-2" for="sub-1">
+                    <span class="fs-4 d-block">♩</span>
+                </label>
 
+                <input type="radio" class="btn-check" name="subdivision" id="sub-2" value="2">
+                <label class="btn btn-subdivision flex-fill rounded-3 py-2" for="sub-2">
+                    <span class="fs-4 d-block">♫</span>
+                </label>
 
-  <!-- Botão Start/Stop -->
-  <div class="mb-4">
-    <button id="start-stop-btn" class="btn btn-lg btn-primary w-100">
-      <i class="bi bi-play-fill"></i> Iniciar
-    </button>
-  </div>
+                <input type="radio" class="btn-check" name="subdivision" id="sub-3" value="3">
+                <label class="btn btn-subdivision flex-fill rounded-3 py-2" for="sub-3">
+                    <span class="fs-4 d-block">3</span>
+                </label>
 
-  <!-- Temporizador -->
-  <div class="mb-2">
-    <label class="form-label fw-semibold">Parar após</label>
-    <div class="d-flex justify-content-center align-items-center gap-2">
-      <input type="number" id="timer-minutes" class="form-control form-control-sm text-center" value="3" min="0" max="60" style="width: 60px;">
-      <span class="small">min</span>
-      <input type="number" id="timer-seconds" class="form-control form-control-sm text-center" value="0" min="0" max="59" style="width: 60px;">
-      <span class="small">s</span>
+                <input type="radio" class="btn-check" name="subdivision" id="sub-4" value="4">
+                <label class="btn btn-subdivision flex-fill rounded-3 py-2" for="sub-4">
+                    <span class="fs-4 d-block">♬</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="col-12 mt-3">
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-body-tertiary border">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-hourglass-split text-secondary"></i>
+                    <span class="small fw-semibold text-muted">Timer:</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <input type="number" id="timer-minutes" class="form-control form-control-sm text-center border-0 bg-transparent fw-bold" value="3" min="0" max="60" style="width: 40px; padding: 0;">
+                    <span>:</span>
+                    <input type="number" id="timer-seconds" class="form-control form-control-sm text-center border-0 bg-transparent fw-bold" value="00" min="0" max="59" style="width: 40px; padding: 0;">
+                </div>
+                <div class="text-end" style="width: 50px;">
+                    <span id="timer-display" class="badge bg-secondary-subtle text-secondary-emphasis">03:00</span>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
-  <div>
-    <kbd id="timer-display" class="fs-3">03:00</kbd>
-  </div>
+
+    <div class="mt-4">
+        <button id="start-stop-btn" class="btn btn-lg btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm" style="letter-spacing: 1px;">
+            <i class="bi bi-play-fill me-2 fs-5"></i> INICIAR
+        </button>
+    </div>
+    
+    <input type="hidden" id="bpm-input" value="120">
 
 </div>

@@ -6,34 +6,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const startStopBtn = document.getElementById('start-stop-btn');
     if (!startStopBtn) return;
 
-    // Variáveis e referências
+    // --- Referências de Elementos ---
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const bpmInput = document.getElementById('bpm-input');
+    const bpmDisplayVal = document.getElementById('bpm-display-val'); // Texto grande
     const bpmSlider = document.getElementById('bpm-slider');
     const subdivisionControls = document.getElementById('subdivision-controls');
     const timerMinutesInput = document.getElementById('timer-minutes');
     const timerSecondsInput = document.getElementById('timer-seconds');
     const timerDisplay = document.getElementById('timer-display');
+    const visualLight = document.getElementById('visual-beat-light'); // Luzinha
+    const tapBtn = document.getElementById('tap-tempo-btn');
 
+    // --- Estado ---
     let isPlaying = false;
-    let bpm = parseInt(bpmInput.value, 10);
+    let bpm = 120;
     let subdivision = 1;
     let countdownTimerId = null;
     let timeRemaining = 0;
 
-    // NOVAS VARIÁVEIS PARA SCHEDULER PRECISO
-    let nextNoteTime = 0;         // próximo tempo (s) no AudioContext
-    let lookahead = 25.0;         // frequência de checagem (ms)
-    let scheduleAheadTime = 0.1;  // quanto tempo à frente agendar (s)
+    // --- Scheduler Audio ---
+    let nextNoteTime = 0;
+    let lookahead = 25.0;
+    let scheduleAheadTime = 0.1;
     let schedulerInterval = null;
 
-    // Sons
+    // --- Carregamento de Sons ---
     const sounds = { accent: null, sub: null };
     async function loadSound(url) {
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
         return await audioContext.decodeAudioData(arrayBuffer);
     }
+    
+    // Ajuste os caminhos conforme sua estrutura de static
     Promise.all([
         loadSound("{% static 'scheduler/sounds/clave-accent.wav' %}"),
         loadSound("{% static 'scheduler/sounds/clave-sub.wav' %}")
@@ -41,35 +46,47 @@ document.addEventListener('DOMContentLoaded', function() {
         sounds.accent = accentBuffer;
         sounds.sub = subBuffer;
         startStopBtn.disabled = false;
-        startStopBtn.innerHTML = '<i class="bi bi-play-fill"></i> Iniciar';
-    });
-    startStopBtn.disabled = true;
-    startStopBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Carregando...';
+    }).catch(err => console.error("Erro ao carregar sons:", err));
 
-    // Função para tocar o tick
+    // --- Motor de Áudio ---
     function playTick(isAccent, time) {
         if (!sounds.accent || !sounds.sub) return;
+        
+        // Som
         const source = audioContext.createBufferSource();
         source.buffer = isAccent ? sounds.accent : sounds.sub;
         source.connect(audioContext.destination);
         source.start(time);
 
-        // animação no botão no momento da batida principal
-        if (isAccent) {
-            setTimeout(() => {
-                openBtn.classList.add('is-pulsing');
-                setTimeout(() => openBtn.classList.remove('is-pulsing'), 200);
-            }, (time - audioContext.currentTime) * 1000);
-        }
+        // Visual (Sincronizado com o tempo)
+        // Usamos setTimeout baseado na diferença de tempo para ser visualmente preciso
+        const drawTime = (time - audioContext.currentTime) * 1000;
+        setTimeout(() => {
+            if (isAccent) {
+                // Flash na luz do modal
+                if(visualLight) {
+                    visualLight.classList.add('active');
+                    setTimeout(() => visualLight.classList.remove('active'), 100);
+                }
+                // Pulso no botão flutuante principal (se existir)
+                if(openBtn) {
+                    openBtn.classList.add('is-pulsing');
+                    setTimeout(() => openBtn.classList.remove('is-pulsing'), 200);
+                }
+            } else {
+                // Flash mais fraco para subdivisão (opcional)
+                if(visualLight) {
+                    visualLight.style.backgroundColor = 'var(--bs-border-color)';
+                    setTimeout(() => visualLight.style.backgroundColor = '', 50);
+                }
+            }
+        }, drawTime);
     }
 
-    // Agenda as notas com precisão
     function scheduler() {
         while (nextNoteTime < audioContext.currentTime + scheduleAheadTime) {
-            // Batida principal
-            playTick(true, nextNoteTime);
+            playTick(true, nextNoteTime); // Batida principal
 
-            // Subdivisões
             if (subdivision > 1) {
                 const subdivisionInterval = (60 / bpm) / subdivision;
                 for (let i = 1; i < subdivision; i++) {
@@ -80,14 +97,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Calcula o tempo da próxima batida
     function nextNote() {
         const secondsPerBeat = 60.0 / bpm;
         nextNoteTime += secondsPerBeat;
     }
 
     function startMetronome() {
-        nextNoteTime = audioContext.currentTime + 0.05; // pequeno atraso inicial
+        if (audioContext.state === 'suspended') audioContext.resume();
+        nextNoteTime = audioContext.currentTime + 0.05;
         schedulerInterval = setInterval(scheduler, lookahead);
     }
 
@@ -96,97 +113,123 @@ document.addEventListener('DOMContentLoaded', function() {
         schedulerInterval = null;
     }
 
-    // Temporizador
-    function updateTimerDisplay() {
+    // --- Timer ---
+    function updateTimerDisplayText() {
         const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
         const seconds = (timeRemaining % 60).toString().padStart(2, '0');
         timerDisplay.textContent = `${minutes}:${seconds}`;
     }
+
     function startTimer() {
-        const minutes = parseInt(timerMinutesInput.value, 10) || 0;
-        const seconds = parseInt(timerSecondsInput.value, 10) || 0;
-        timeRemaining = (minutes * 60) + seconds;
-        if (timeRemaining <= 0) return;
-        updateTimerDisplay();
+        const m = parseInt(timerMinutesInput.value, 10) || 0;
+        const s = parseInt(timerSecondsInput.value, 10) || 0;
+        timeRemaining = (m * 60) + s;
+        
+        if (timeRemaining <= 0) return; // Se for 0, roda infinito
+        
+        updateTimerDisplayText();
         countdownTimerId = setInterval(() => {
             timeRemaining--;
-            updateTimerDisplay();
+            updateTimerDisplayText();
             if (timeRemaining <= 0) stopAll();
         }, 1000);
     }
-    function updateTimerDisplayFromInputs() {
-        const minutes = parseInt(timerMinutesInput.value, 10) || 0;
-        const seconds = parseInt(timerSecondsInput.value, 10) || 0;
-        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
 
-    // Parar tudo
+    // --- Controles de UI ---
     function stopAll() {
         isPlaying = false;
         stopMetronome();
-        clearInterval(countdownTimerId);
-        countdownTimerId = null;
-        startStopBtn.innerHTML = '<i class="bi bi-play-fill"></i> Iniciar';
+        if (countdownTimerId) clearInterval(countdownTimerId);
+        startStopBtn.innerHTML = '<i class="bi bi-play-fill me-2 fs-5"></i> INICIAR';
         startStopBtn.classList.replace('btn-danger', 'btn-primary');
-        updateTimerDisplayFromInputs();
-        if (openBtn) openBtn.classList.remove('is-active');
+        startStopBtn.classList.remove('pulse-animation'); // Se tiver animação CSS
     }
 
-    // Evento principal play/stop
     startStopBtn.addEventListener('click', () => {
-        if (audioContext.state === 'suspended') audioContext.resume();
         isPlaying = !isPlaying;
         if (isPlaying) {
-            startStopBtn.innerHTML = '<i class="bi bi-stop-fill"></i> Parar';
+            startStopBtn.innerHTML = '<i class="bi bi-stop-fill me-2 fs-5"></i> PARAR';
             startStopBtn.classList.replace('btn-primary', 'btn-danger');
             startMetronome();
             startTimer();
-            if (openBtn) openBtn.classList.add('is-active');
         } else {
             stopAll();
         }
     });
 
-    // Controles de BPM
-    function updateBPM() {
-        bpmSlider.value = bpmInput.value;
-        bpm = parseInt(bpmInput.value, 10);
+    // --- Lógica de BPM ---
+    function setBPM(val) {
+        bpm = Math.min(240, Math.max(40, parseInt(val)));
+        bpmDisplayVal.textContent = bpm;
+        bpmSlider.value = bpm;
     }
-    function updateBPMSlider() {
-        bpmInput.value = bpmSlider.value;
-        bpm = parseInt(bpmSlider.value, 10);
-    }
-    bpmInput.addEventListener('change', updateBPM);
-    bpmSlider.addEventListener('change', updateBPMSlider);
-    bpmInput.addEventListener('input', () => bpmSlider.value = bpmInput.value);
-    bpmSlider.addEventListener('input', () => bpmInput.value = bpmSlider.value);
 
-    document.getElementById('bpm-minus-10').addEventListener('click', () => {
-        bpmInput.value = Math.max(40, parseInt(bpmInput.value) - 10);
-        updateBPM();
-    });
-    document.getElementById('bpm-minus-5').addEventListener('click', () => {
-        bpmInput.value = Math.max(40, parseInt(bpmInput.value) - 5);
-        updateBPM();
-    });
-    document.getElementById('bpm-plus-5').addEventListener('click', () => {
-        bpmInput.value = Math.min(240, parseInt(bpmInput.value) + 5);
-        updateBPM();
-    });
-    document.getElementById('bpm-plus-10').addEventListener('click', () => {
-        bpmInput.value = Math.min(240, parseInt(bpmInput.value) + 10);
-        updateBPM();
+    bpmSlider.addEventListener('input', (e) => {
+        setBPM(e.target.value);
     });
 
-    // Subdivisões
-    subdivisionControls.addEventListener('change', (event) => {
-        if (event.target.name === 'subdivision') {
-            subdivision = parseInt(event.target.value, 10);
+    // Botões de incremento/decremento
+    document.getElementById('bpm-minus-1').addEventListener('click', () => setBPM(bpm - 1));
+    document.getElementById('bpm-plus-1').addEventListener('click', () => setBPM(bpm + 1));
+    document.getElementById('bpm-minus-5').addEventListener('click', () => setBPM(bpm - 5));
+    document.getElementById('bpm-plus-5').addEventListener('click', () => setBPM(bpm + 5));
+
+    // --- Lógica TAP TEMPO ---
+    let tapTimes = [];
+    if(tapBtn) {
+        tapBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Evita foco estranho
+            
+            // Efeito visual no botão
+            tapBtn.style.transform = 'scale(0.95)';
+            setTimeout(() => tapBtn.style.transform = 'scale(1)', 100);
+
+            const now = Date.now();
+            
+            // Se o último tap foi há mais de 2 segundos, reseta
+            if (tapTimes.length > 0 && now - tapTimes[tapTimes.length - 1] > 2000) {
+                tapTimes = [];
+            }
+
+            tapTimes.push(now);
+
+            // Mantém apenas os últimos 4 taps para média
+            if (tapTimes.length > 4) tapTimes.shift();
+
+            if (tapTimes.length >= 2) {
+                // Calcula as diferenças
+                let intervals = [];
+                for (let i = 1; i < tapTimes.length; i++) {
+                    intervals.push(tapTimes[i] - tapTimes[i - 1]);
+                }
+                
+                // Média dos intervalos
+                const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                
+                // Converte ms para BPM
+                let newBpm = Math.round(60000 / avgInterval);
+                setBPM(newBpm);
+            }
+        });
+    }
+
+    // --- Subdivisões ---
+    subdivisionControls.addEventListener('change', (e) => {
+        if (e.target.name === 'subdivision') {
+            subdivision = parseInt(e.target.value, 10);
         }
     });
-
-    // Timer inputs
-    timerMinutesInput.addEventListener('input', updateTimerDisplayFromInputs);
-    timerSecondsInput.addEventListener('input', updateTimerDisplayFromInputs);
+    
+    // Atualiza display do timer se digitar nos inputs
+    function formatInput(input) {
+        let val = parseInt(input.value);
+        if(isNaN(val)) val = 0;
+        return val.toString().padStart(2, '0');
+    }
+    const updateTimerUI = () => {
+        timerDisplay.textContent = `${formatInput(timerMinutesInput)}:${formatInput(timerSecondsInput)}`;
+    };
+    timerMinutesInput.addEventListener('change', updateTimerUI);
+    timerSecondsInput.addEventListener('change', updateTimerUI);
 });
 </script>
