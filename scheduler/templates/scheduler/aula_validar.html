@@ -2,78 +2,128 @@
 
 {% block content %}
 <style>
-    .content-block { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color-translucent); padding: 1.5rem; border-radius: 0.75rem; }
-    .nav-tabs .nav-link { color: var(--bs-secondary-color); font-weight: 600; }
-    .nav-tabs .nav-link.active { color: var(--bs-primary); border-color: var(--bs-primary); border-bottom-color: transparent; }
-    .report-notes { background-color: var(--bs-body-bg); }
-    #historicoOverlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 1040;
-        display: none;
+    /* --- Estilos Gerais --- */
+    .content-block { 
+        background-color: var(--bs-tertiary-bg); 
+        border: 1px solid var(--bs-border-color-translucent); 
+        padding: 1.5rem; 
+        border-radius: 0.75rem; 
     }
+    
+    /* Tabs Navegação */
+    .nav-tabs .nav-link { color: var(--bs-secondary-color); font-weight: 600; }
+    .nav-tabs .nav-link.active { color: var(--bs-primary); border-color: var(--bs-primary); border-bottom-color: transparent; background-color: var(--bs-tertiary-bg); }
+    .nav-tabs { border-bottom-color: var(--bs-border-color); }
+
+    /* --- Overlay do Histórico --- */
+    #historicoOverlay {
+        position: fixed; top: 0; left: 0; 
+        width: 100vw; height: 100vh;
+        background-color: rgba(0, 0, 0, 0.6); 
+        z-index: 1040; /* Abaixo do item aberto (1045) */
+        display: none;
+        backdrop-filter: blur(2px); 
+    }
+
+    /* --- Box de Autoria --- */
     .author-box {
-        background-color: var(--bs-tertiary-bg); /* Fundo cinza suave/escuro dependendo do tema */
-        border: 1px solid var(--bs-border-color);
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
         border-radius: 0.5rem;
         padding: 0.75rem 1rem;
         margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.9rem;
+        display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;
     }
+
+    /* --- Autocomplete --- */
     .autocomplete-suggestions {
         position: absolute;
         border: 1px solid var(--bs-border-color);
         border-radius: 0.375rem;
-        background: var(--bs-body-bg);
-        overflow: hidden;
-        z-index: 1000;
+        background: var(--bs-tertiary-bg); 
+        overflow: hidden; z-index: 1000; width: 100%;
+        max-height: 200px; overflow-y: auto;
+        box-shadow: var(--shadow-md);
+        display: none;
+    }
+    .autocomplete-item { padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; color: var(--bs-body-color); }
+    .autocomplete-item:hover { background-color: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+    .input-wrapper-relative { position: relative; }
+
+    /* --- LÓGICA STICKY DO ACCORDION (Corrigida) --- */
+    
+    #accordionHistorico {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0; /* Cola no topo da área de rolagem */
+        z-index: 1025; /* Fica abaixo do Header Principal (1030) */
+        
+        /* Cor de fundo SÓLIDA e igual à página para cobrir o conteúdo que passa por baixo */
+        background-color: var(--bs-body-bg); 
+        
+        padding-top: 10px;
+        padding-bottom: 10px;
+        transition: z-index 0.2s ease;
+        
+        /* Margem negativa para compensar o padding visual e manter o fluxo */
+        margin-bottom: 1rem; 
+    }
+
+    /* Quando aberto, sobe o nível para ficar acima do overlay escuro */
+    #accordionHistorico.is-pinned-open {
+        z-index: 1045;
+    }
+
+    .accordion-item {
+        background-color: transparent;
+        border: none;
+    }
+
+    /* O Botão do Accordion */
+    .accordion-button-custom {
         width: 100%;
-        max-height: 200px;
-        overflow-y: auto;
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        display: none; /* Escondido por padrão */
-    }
-    .autocomplete-item {
-        padding: 0.5rem 1rem;
-        cursor: pointer;
-        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        font-weight: 600;
         color: var(--bs-body-color);
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.2s;
+        text-align: left;
     }
-    .autocomplete-item:hover {
+    
+    .accordion-button-custom:hover {
+        background-color: var(--bs-secondary-bg);
+    }
+
+    /* Estado ativo (Aberto) do botão */
+    .accordion-button-custom[aria-expanded="true"] {
         background-color: var(--bs-primary-bg-subtle);
         color: var(--bs-primary-text-emphasis);
+        border-color: var(--bs-primary-bg-subtle);
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
-    /* Garante que o input pai tenha posição relativa para a lista colar nele */
-    .input-wrapper-relative {
-        position: relative; 
+
+    /* Painel de Conteúdo */
+    .accordion-body-custom {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-top: none;
+        border-bottom-left-radius: 0.5rem;
+        border-bottom-right-radius: 0.5rem;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-lg); 
     }
-    .accordion-item.active-accordion {
-        position: relative;
-        z-index: 1041;
-        border: 1px solid var(--bs-primary);
-        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
-    }
-    .sticky-accordion-header {
-        position: sticky;
-        /* "Gruda" 1rem abaixo do topo da área de rolagem */
-        top: -1px; 
-        /* Z-index acima do conteúdo normal, mas abaixo do overlay */
-        z-index: 1035; 
-    }
-    .sticky-accordion-header.is-opening {
-        z-index: 1041; 
-    }
+
+    /* Animação do Metrônomo */
     @keyframes beat-pulse {
-        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
-        50% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
-        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+        50% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
     }
     #btn-open-metronome.is-pulsing { animation: beat-pulse var(--pulse-duration, 200ms) ease-out; }
 </style>
@@ -84,12 +134,55 @@
         <p class="text-muted">{{ aula.modalidade.nome|title }} • {{ aula.data_hora|date:"d/m/Y, H:i" }}</p>
     </div>
 
+    {% if historico_ultima_aula %}
+    <div id="accordionHistorico">
+        <div class="accordion-item">
+            
+            <button class="accordion-button-custom collapsed" 
+                    type="button" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#collapseHistorico" 
+                    aria-expanded="false" 
+                    aria-controls="collapseHistorico">
+                <i class="bi bi-clock-history me-2 text-primary"></i>
+                <span class="flex-grow-1">Ver Conteúdo da Última Aula</span> 
+                <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill border border-secondary-subtle">
+                    {{ historico_ultima_aula.aula.data_hora|date:"d/m/Y" }}
+                </span>
+                <i class="bi bi-chevron-down ms-3 small"></i>
+            </button>
+            
+            <div id="collapseHistorico" class="accordion-collapse collapse" data-bs-parent="#accordionHistorico">
+                <div class="accordion-body-custom">
+                    {% with relatorio=historico_ultima_aula %}
+                        {% include 'scheduler/partials/relatorio_view_exercicios.html' %}
+                        
+                        <hr class="my-4" style="border-color: var(--bs-border-color);">
+                        
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                {% include 'scheduler/partials/relatorio_view_repertorio.html' %}
+                            </div>
+                        </div>
+                    {% endwith %}
+                    
+                    <div class="text-end mt-3 pt-2 border-top" style="border-color: var(--bs-border-color) !important;">
+                        <a href="{% url 'scheduler:aula_validar' historico_ultima_aula.aula.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            Abrir Relatório Completo <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="content-block">
         {% if view_mode == 'visualizar' %}
             
-            <div class="author-box text-body-secondary">
-                <i class="bi bi-person-circle fs-5"></i>
-                <div>
+            <div class="author-box">
+                <i class="bi bi-person-circle fs-5 text-secondary"></i>
+                <div class="text-body-secondary">
                     Aula realizada por: 
                     <strong class="text-body-emphasis">{{ relatorio.professor_que_validou.username|title|default:"Não validada" }}</strong>
                     
@@ -109,7 +202,7 @@
                 </div>
             </div>
 
-            <div class="mt-4 pt-4 border-top text-center">
+            <div class="mt-4 pt-4 border-top text-center" style="border-color: var(--bs-border-color) !important;">
                 {% if pode_editar %}
                     <a href="?mode=editar" class="btn btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar Relatório</a>
                 {% endif %}
@@ -119,21 +212,21 @@
         {% else %}
             <form method="post" id="relatorio-form">
                 {% csrf_token %}
-                <ul class="nav nav-tabs mb-4">
+                <!-- <ul class="nav nav-tabs mb-4">
                     <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-edit-presenca">Presença</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-teoria">Teoria</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-exercicios">Exercícios</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-repertorio">Repertório</a></li>
                     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-edit-obs">Observações</a></li>
-                </ul>
+                </ul> -->
                 <div class="tab-content">
-                    <div class="tab-pane fade show active" id="tab-edit-presenca">{% include 'scheduler/partials/relatorio_form_presenca.html' %}</div>
-                    <div class="tab-pane fade" id="tab-edit-teoria">{% include 'scheduler/partials/relatorio_form_teoria.html' %}</div>
-                    <div class="tab-pane fade" id="tab-edit-exercicios">{% include 'scheduler/partials/relatorio_form_exercicios.html' %}</div>
-                    <div class="tab-pane fade" id="tab-edit-repertorio">{% include 'scheduler/partials/relatorio_form_repertorio.html' %}</div>
-                    <div class="tab-pane fade" id="tab-edit-obs">{% include 'scheduler/partials/relatorio_form_observacoes.html' %}</div>
+                    <div class=<id="tab-edit-presenca">{% include 'scheduler/partials/relatorio_form_presenca.html' %}</div>
+                    <div class=id="tab-edit-teoria">{% include 'scheduler/partials/relatorio_form_teoria.html' %}</div>
+                    <div class=id="tab-edit-exercicios">{% include 'scheduler/partials/relatorio_form_exercicios.html' %}</div>
+                    <div class=id="tab-edit-repertorio">{% include 'scheduler/partials/relatorio_form_repertorio.html' %}</div>
+                    <div class=id="tab-edit-obs">{% include 'scheduler/partials/relatorio_form_observacoes.html' %}</div>
                 </div>
-                <div class="mt-4 pt-4 border-top d-flex justify-content-end gap-2">
+                <div class="mt-4 pt-4 border-top d-flex justify-content-end gap-2" style="border-color: var(--bs-border-color) !important;">
                     <a href="{% url 'scheduler:aula_listar' %}" class="btn btn-outline-secondary">Cancelar</a>
                     <button type="submit" class="btn btn-success"><i class="bi bi-check-circle-fill me-1"></i> Salvar Relatório</button>
                 </div>
@@ -159,11 +252,11 @@
 
 <div id="historicoOverlay"></div>
 
-<div id="metronomeModal" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="z-index: 1051; background: rgba(0, 0, 0, 0.6);">
+<div id="metronomeModal" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="z-index: 1051; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px);">
   <div class="d-flex justify-content-center align-items-center h-100">
-    <div class="bg-body p-4 rounded shadow" style="max-width: 500px; width: 90%;">
+    <div class="bg-body p-4 rounded shadow" style="max-width: 500px; width: 90%; border: 1px solid var(--bs-border-color);">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0"><i class="bi bi-music-note-beamed me-2"></i>Metrônomo</h5>
+        <h5 class="mb-0 text-body-emphasis"><i class="bi bi-music-note-beamed me-2"></i>Metrônomo</h5>
         <button class="btn-close" id="close-metronome" aria-label="Fechar"></button>
       </div>
       {% include 'scheduler/partials/_metronome_component.html' %}
@@ -178,32 +271,23 @@
 {% include 'scheduler/partials/_metronome_js.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Lógica de Formsets ---
     function setupFormset(buttonId, containerId, templateId, prefix) {
         const addButton = document.getElementById(buttonId);
         if (!addButton) return;
-        
         const formContainer = document.getElementById(containerId);
         const template = document.getElementById(templateId);
         const totalFormsInput = document.getElementById(`id_${prefix}-TOTAL_FORMS`);
-
-        if (!formContainer || !template || !totalFormsInput) {
-            console.error(`Erro de configuração do Formset para o prefixo: ${prefix}. Elemento não encontrado.`);
-            return;
-        }
-        
+        if (!formContainer || !template || !totalFormsInput) return;
         addButton.addEventListener('click', function() {
             const currentFormCount = parseInt(totalFormsInput.value);
             const newFormHtml = template.innerHTML.replace(/__prefix__/g, currentFormCount);
-            
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = newFormHtml;
-            const newRow = tempDiv.firstElementChild;
-            
-            formContainer.appendChild(newRow);
+            formContainer.appendChild(tempDiv.firstElementChild);
             totalFormsInput.value = currentFormCount + 1;
         });
     }
-
     setupFormset('add-rudimento-form', 'rudimentos-form-container', 'rudimento-empty-form', 'rudimentos');
     setupFormset('add-ritmo-form', 'ritmo-form-container', 'ritmo-empty-form', 'ritmo');
     setupFormset('add-virada-form', 'viradas-form-container', 'virada-empty-form', 'viradas');
@@ -211,11 +295,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.body.addEventListener('click', function(e) {
         const removeButton = e.target.closest('.btn-remove-exercicio-row');
         if (!removeButton) return;
-
         const row = removeButton.closest('.p-3.rounded');
         if (row) {
             const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
-            
             if (deleteCheckbox) {
                 deleteCheckbox.checked = true;
                 row.style.display = 'none';
@@ -234,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- Metrônomo ---
     const openBtn = document.getElementById('btn-open-metronome');
     const modal = document.getElementById('metronomeModal');
     const closeBtn = document.getElementById('close-metronome');
@@ -243,32 +326,23 @@ document.addEventListener('DOMContentLoaded', function() {
       modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('d-none'); });
     }
 
+    // --- ACCORDION STICKY & OVERLAY ---
     const collapseHistorico = document.getElementById('collapseHistorico');
     const historicoOverlay = document.getElementById('historicoOverlay');
-    const accordionButton = document.querySelector('[data-bs-target="#collapseHistorico"]');
-    const accordionItem = document.querySelector('#accordionHistorico .accordion-item');
-    
-    if (collapseHistorico && historicoOverlay && accordionButton && accordionItem) {
-        const accordionHeader = document.getElementById('accordionHistorico'); // ★ NOVO
+    const stickyContainer = document.getElementById('accordionHistorico'); // O container que gruda
 
+    if (collapseHistorico && historicoOverlay && stickyContainer) {
         collapseHistorico.addEventListener('show.bs.collapse', (event) => {
             if (event.target === collapseHistorico) {
                 historicoOverlay.style.display = 'block';
-                accordionItem.classList.add('active-accordion');
-                accordionHeader.classList.add('is-opening'); // ★ NOVO
+                // Adiciona classe ao CONTAINER para elevar o z-index acima do overlay
+                stickyContainer.classList.add('is-pinned-open');
             }
         });
         collapseHistorico.addEventListener('hide.bs.collapse', (event) => {
             if (event.target === collapseHistorico) {
                 historicoOverlay.style.display = 'none';
-                accordionItem.classList.remove('active-accordion');
-                accordionHeader.classList.remove('is-opening'); // ★ NOVO
-            }
-        });
-        historicoOverlay.addEventListener('click', () => {
-            if (event.target === collapseHistorico) {
-                historicoOverlay.style.display = 'none';
-                accordionItem.classList.remove('active-accordion');
+                stickyContainer.classList.remove('is-pinned-open');
             }
         });
         historicoOverlay.addEventListener('click', () => {
@@ -277,37 +351,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-        document.querySelectorAll('input[name$="-status"]').forEach(radioStatus => {
+    // --- Toggle Tipo de Falta ---
+    document.querySelectorAll('input[name$="-status"]').forEach(radioStatus => {
         const parentContainer = radioStatus.closest('.row');
         if (!parentContainer) return;
-
         const toggleTipoFalta = () => {
             const selectedStatusInput = parentContainer.querySelector('input[name$="-status"]:checked');
-            if (!selectedStatusInput) return; // Se nada estiver selecionado, não faz nada
-            
+            if (!selectedStatusInput) return;
             const selectedStatus = selectedStatusInput.value;
             const tipoFaltaField = parentContainer.querySelector('.tipo-falta-field');
-            
             if (tipoFaltaField) {
-                if (selectedStatus === 'ausente') {
-                    tipoFaltaField.classList.remove('d-none');
-                } else {
-                    tipoFaltaField.classList.add('d-none');
-                }
+                selectedStatus === 'ausente' ? tipoFaltaField.classList.remove('d-none') : tipoFaltaField.classList.add('d-none');
             }
         };
-
         parentContainer.querySelectorAll('input[name$="-status"]').forEach(radio => {
             radio.addEventListener('change', toggleTipoFalta);
         });
-
         toggleTipoFalta();
     });
     
+    // --- Autocomplete ---
     let debounceTimer;
     const apiUrl = "{% url 'scheduler:api_autocomplete' %}";
-
-    // 1. Função para fechar todas as listas abertas
     function closeAllLists(elmnt) {
         const items = document.getElementsByClassName("autocomplete-suggestions");
         for (let i = 0; i < items.length; i++) {
@@ -316,67 +381,42 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
-
-    // 2. Event Listener Global (Delegation) para lidar com Formsets dinâmicos
     document.addEventListener('input', function(e) {
         if (!e.target.classList.contains('autocomplete-input')) return;
-        
         const input = e.target;
         const type = input.dataset.type;
         const val = input.value;
-
-        // Fecha listas anteriores
         closeAllLists();
-
         if (!val || val.length < 2) return;
-
-        // Debounce: Espera o usuário parar de digitar por 300ms
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-            
-            // Certifica que o input tem um wrapper relativo (para posicionar a lista)
             if (getComputedStyle(input.parentNode).position === 'static') {
                 input.parentNode.style.position = 'relative';
             }
-
             fetch(`${apiUrl}?term=${encodeURIComponent(val)}&type=${type}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.length === 0) return;
-
-                    // Cria a DIV da lista
                     const listDiv = document.createElement("div");
                     listDiv.setAttribute("class", "autocomplete-suggestions");
-                    
-                    // Posiciona exatamente abaixo do input
                     listDiv.style.top = (input.offsetHeight + 2) + "px";
                     listDiv.style.left = 0;
-                    
-                    // Cria os itens
                     data.forEach(itemText => {
                         const itemDiv = document.createElement("div");
                         itemDiv.className = "autocomplete-item";
-                        // Destaca a parte que coincide (opcional, visual sugar)
                         const regex = new RegExp(`(${val})`, "gi");
                         itemDiv.innerHTML = itemText.replace(regex, "<strong>$1</strong>");
-                        
-                        // Ao clicar no item
                         itemDiv.addEventListener("click", function() {
-                            input.value = itemText; // Preenche o input
-                            closeAllLists(); // Fecha a lista
+                            input.value = itemText; 
+                            closeAllLists(); 
                         });
-                        
                         listDiv.appendChild(itemDiv);
                     });
-
                     input.parentNode.appendChild(listDiv);
                     listDiv.style.display = "block";
                 });
-
-        }, 300); // 300ms delay
+        }, 300); 
     });
-
-    // 3. Fecha a lista se clicar fora
     document.addEventListener("click", function (e) {
         if (!e.target.classList.contains('autocomplete-input')) {
             closeAllLists(e.target);
