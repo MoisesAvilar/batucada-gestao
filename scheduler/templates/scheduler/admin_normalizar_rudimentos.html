@@ -26,23 +26,32 @@
         </div>
 
         <div class="table-responsive border rounded bg-white">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" style="border-collapse: collapse;">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 50px;" class="text-center">
+                        <th style="width: 40px;" class="text-center">
                             <input type="checkbox" class="form-check-input" id="selectAll" style="cursor: pointer;">
                         </th>
-                        <th>Nome Atual (Variação Encontrada)</th>
+                        <th style="width: 40px;"></th> <th>Nome Atual (Variação)</th>
                         <th style="width: 150px;" class="text-center">Ocorrências</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in rudimentos %}
-                    <tr>
+                    <tr class="position-relative">
                         <td class="text-center">
                             <input type="checkbox" name="nomes_originais" value="{{ item.descricao }}" class="form-check-input item-check" style="cursor: pointer;">
                         </td>
-                        <td class="fw-medium text-secondary">
+                        <td>
+                            <button class="btn btn-sm btn-link text-decoration-none text-secondary p-0" type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse-{{ forloop.counter }}" 
+                                    aria-expanded="false"
+                                    title="Ver onde foi usado">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                        <td class="fw-medium text-secondary" onclick="document.getElementById('collapse-{{ forloop.counter }}').classList.toggle('show')" style="cursor: pointer;">
                             {{ item.descricao }}
                         </td>
                         <td class="text-center">
@@ -51,9 +60,57 @@
                             </span>
                         </td>
                     </tr>
+
+                    <tr>
+                        <td colspan="4" class="p-0 border-0">
+                            <div class="collapse bg-body-tertiary" id="collapse-{{ forloop.counter }}">
+                                <div class="p-3 ps-5 border-bottom">
+                                    <h6 class="text-muted small text-uppercase fw-bold mb-2">
+                                        <i class="bi bi-clock-history me-1"></i> Usado recentemente em:
+                                    </h6>
+                                    <div class="row g-2">
+                                        {% for exemplo in item.exemplos %}
+                                        <div class="col-md-6 col-lg-4">
+                                            <div class="card h-100 shadow-sm border-0">
+                                                <div class="card-body p-2 d-flex flex-column small">
+                                                    <div class="d-flex justify-content-between mb-1">
+                                                        <strong class="text-primary">{{ exemplo.relatorio.aula.data_hora|date:"d/m/Y" }}</strong>
+                                                        <span class="badge bg-light text-dark border">
+                                                            {{ exemplo.relatorio.professor_que_validou.username|title }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-muted mb-1">
+                                                        <i class="bi bi-people me-1"></i>
+                                                        {% for aluno in exemplo.relatorio.aula.alunos.all %}
+                                                            {{ aluno.nome_completo|truncatewords:2 }}{% if not forloop.last %}, {% endif %}
+                                                        {% empty %}
+                                                            Sem alunos
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% if exemplo.bpm %}
+                                                    <div class="text-success">
+                                                        <i class="bi bi-speedometer2 me-1"></i> {{ exemplo.bpm }} BPM
+                                                    </div>
+                                                    {% endif %}
+                                                    
+                                                    <a href="{% url 'scheduler:aula_validar' exemplo.relatorio.aula.pk %}" target="_blank" class="stretched-link"></a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% if item.total > 5 %}
+                                        <div class="text-center mt-2 small text-muted fst-italic">
+                                            E mais {{ item.total|add:"-5" }} ocorrências antigas...
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="3" class="text-center py-5 text-muted">
+                        <td colspan="4" class="text-center py-5 text-muted">
                             Nenhum rudimento cadastrado ainda.
                         </td>
                     </tr>

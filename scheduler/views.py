@@ -3811,20 +3811,37 @@ def normalizar_rudimentos(request):
         else:
             messages.warning(request, "Selecione pelo menos um item e digite o nome correto.")
 
-    # QUERY INTELIGENTE:
-    # 1. Agrupa por descrição (values)
-    # 2. Conta quantos existem de cada (annotate)
-    # 3. Ordena alfabeticamente para facilitar encontrar variações (order_by)
-    rudimentos_agrupados = (
+    stats_rudimentos = (
         ItemRudimento.objects
         .values('descricao')
         .annotate(total=Count('id'))
         .order_by('descricao')
     )
 
+    lista_completa = []
+
+    # 2. Para cada nome diferente, buscamos exemplos reais
+    for item in stats_rudimentos:
+        nome_rudimento = item['descricao']
+        
+        # Busca as 5 últimas vezes que isso apareceu
+        exemplos = (
+            ItemRudimento.objects
+            .filter(descricao=nome_rudimento)
+            .select_related('relatorio__aula', 'relatorio__professor_que_validou')
+            .prefetch_related('relatorio__aula__alunos')
+            .order_by('-relatorio__aula__data_hora')[:5]
+        )
+        
+        lista_completa.append({
+            'descricao': nome_rudimento,
+            'total': item['total'],
+            'exemplos': exemplos
+        })
+
     contexto = {
         'titulo': 'Normalização de Rudimentos',
-        'rudimentos': rudimentos_agrupados
+        'rudimentos': lista_completa
     }
     
     return render(request, 'scheduler/admin_normalizar_rudimentos.html', contexto)
