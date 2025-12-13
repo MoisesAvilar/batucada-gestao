@@ -262,9 +262,7 @@ class RelatorioAulaForm(forms.ModelForm):
             ),
         }
 
-# ★★★ INÍCIO DA SOLUÇÃO ★★★
 
-# 1. CRIAMOS UM FORMULÁRIO BASE "INTELIGENTE"
 class BaseExercicioForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
@@ -283,26 +281,26 @@ class BaseExercicioForm(forms.ModelForm):
         
         return cleaned_data
 
-# 2. CRIAMOS FORMULÁRIOS ESPECÍFICOS QUE USAM A LÓGICA DO FORMULÁRIO BASE
+
 class ItemRudimentoForm(BaseExercicioForm):
     class Meta:
         model = ItemRudimento
         fields = ("descricao", "bpm", "duracao_min", "observacoes")
+
 
 class ItemRitmoForm(BaseExercicioForm):
     class Meta:
         model = ItemRitmo
         fields = ("descricao", "livro_metodo", "bpm", "duracao_min", "observacoes")
 
+
 class ItemViradaForm(BaseExercicioForm):
     class Meta:
         model = ItemVirada
         fields = ("descricao", "bpm", "duracao_min", "observacoes")
 
-# ★★★ FIM DA SOLUÇÃO ★★★
-
-
 # --- FORMSETS ATUALIZADOS PARA USAR OS NOVOS FORMS ---
+
 
 ItemRudimentoFormSet = inlineformset_factory(
     parent_model=RelatorioAula,

@@ -3789,3 +3789,42 @@ def baixar_relatorio_pdf(request):
         return response
 
     return HttpResponse("Método não permitido")
+
+
+@login_required
+@user_passes_test(is_admin)
+def normalizar_rudimentos(request):
+    if request.method == 'POST':
+        # 1. Pega a lista dos nomes "errados" que o admin marcou
+        nomes_originais = request.POST.getlist('nomes_originais')
+        
+        # 2. Pega o nome "certo" que ele digitou
+        nome_correto = request.POST.get('nome_correto')
+        
+        if nomes_originais and nome_correto:
+            # 3. O MÁGICO UPDATE EM MASSA
+            # Busca todos os itens com os nomes errados e troca pelo certo de uma vez
+            registros_afetados = ItemRudimento.objects.filter(descricao__in=nomes_originais).update(descricao=nome_correto)
+            
+            messages.success(request, f"Sucesso! {registros_afetados} exercícios foram unificados para '{nome_correto}'.")
+            return redirect('scheduler:normalizar_rudimentos')
+        else:
+            messages.warning(request, "Selecione pelo menos um item e digite o nome correto.")
+
+    # QUERY INTELIGENTE:
+    # 1. Agrupa por descrição (values)
+    # 2. Conta quantos existem de cada (annotate)
+    # 3. Ordena alfabeticamente para facilitar encontrar variações (order_by)
+    rudimentos_agrupados = (
+        ItemRudimento.objects
+        .values('descricao')
+        .annotate(total=Count('id'))
+        .order_by('descricao')
+    )
+
+    contexto = {
+        'titulo': 'Normalização de Rudimentos',
+        'rudimentos': rudimentos_agrupados
+    }
+    
+    return render(request, 'scheduler/admin_normalizar_rudimentos.html', contexto)

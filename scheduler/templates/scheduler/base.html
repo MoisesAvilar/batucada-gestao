@@ -468,6 +468,15 @@
                                 <span class="d-none d-sm-inline">{{ user.first_name|default:user.username|title }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+                                {% if user.tipo == 'admin' %}
+                                    <li><h6 class="dropdown-header">Manutenção</h6></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:normalizar_rudimentos' %}">
+                                            <i class="bi bi-magic me-2"></i> Normalizar Rudimentos
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
                                 {% if user.tipo in 'admin,professor,comercial' %}
                                     <li><a class="dropdown-item" href="{% url 'scheduler:professor_detalhe' user.pk %}"><i class="bi bi-person me-2"></i> Perfil</a></li>
                                     <li><a class="dropdown-item" href="{% url 'scheduler:perfil_usuario' %}"><i class="bi bi-gear me-2"></i> Configurações</a></li>

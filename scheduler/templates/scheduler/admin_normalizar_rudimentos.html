@@ -1,0 +1,95 @@
+{% extends "scheduler/base.html" %}
+
+{% block content %}
+<div class="content-block">
+    <div class="mb-4">
+        <h3 class="fw-bold text-body-emphasis"><i class="bi bi-magic me-2"></i>Normalizar Rudimentos</h3>
+        <p class="text-muted">
+            Selecione as variações incorretas na lista abaixo (ex: "doble stroke", "doublo stroke") e defina um único nome padrão para todas elas.
+        </p>
+    </div>
+
+    <form method="post" id="form-normalizacao">
+        {% csrf_token %}
+        
+        <div class="card mb-4 shadow-sm border-primary sticky-top" style="top: 80px; z-index: 100;">
+            <div class="card-body bg-primary-subtle rounded">
+                <label class="form-label fw-bold text-primary-emphasis">Para qual nome você deseja renomear os itens selecionados?</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-pencil-fill text-primary"></i></span>
+                    <input type="text" name="nome_correto" class="form-control form-control-lg" placeholder="Digite o nome PADRÃO aqui (ex: Double Stroke Roll)" required>
+                    <button class="btn btn-primary btn-lg px-4" type="submit">
+                        <i class="bi bi-check-lg me-1"></i> Unificar Selecionados
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive border rounded bg-white">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;" class="text-center">
+                            <input type="checkbox" class="form-check-input" id="selectAll" style="cursor: pointer;">
+                        </th>
+                        <th>Nome Atual (Variação Encontrada)</th>
+                        <th style="width: 150px;" class="text-center">Ocorrências</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in rudimentos %}
+                    <tr>
+                        <td class="text-center">
+                            <input type="checkbox" name="nomes_originais" value="{{ item.descricao }}" class="form-check-input item-check" style="cursor: pointer;">
+                        </td>
+                        <td class="fw-medium text-secondary">
+                            {{ item.descricao }}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill px-3">
+                                {{ item.total }} x
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-5 text-muted">
+                            Nenhum rudimento cadastrado ainda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Script simples para "Selecionar Todos"
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.item-check');
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                checkboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+            });
+        }
+        
+        // Dica de UX: Se clicar no nome, marca o checkbox
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            row.addEventListener('click', function(e) {
+                if (e.target.type !== 'checkbox') {
+                    const cb = this.querySelector('.item-check');
+                    if(cb) cb.checked = !cb.checked;
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
