@@ -3845,3 +3845,20 @@ def normalizar_rudimentos(request):
     }
     
     return render(request, 'scheduler/admin_normalizar_rudimentos.html', contexto)
+
+
+@login_required
+def api_autocomplete_exercicios(request):
+    term = request.GET.get('term', '')
+    tipo = request.GET.get('type', 'rudimento')
+
+    if len(term) < 2:
+        return JsonResponse([], safe=False)
+
+    results = []
+
+    if tipo == 'rudimento':
+        results = ItemRudimento.objects.filter(descricao__icontains=term)\
+            .values_list('descricao', flat=True).distinct()[:10]
+
+    return JsonResponse(list(results), safe=False)

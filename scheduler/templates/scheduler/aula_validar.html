@@ -27,6 +27,33 @@
         gap: 0.5rem;
         font-size: 0.9rem;
     }
+    .autocomplete-suggestions {
+        position: absolute;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        background: var(--bs-body-bg);
+        overflow: hidden;
+        z-index: 1000;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        display: none; /* Escondido por padrão */
+    }
+    .autocomplete-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: var(--bs-body-color);
+    }
+    .autocomplete-item:hover {
+        background-color: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary-text-emphasis);
+    }
+    /* Garante que o input pai tenha posição relativa para a lista colar nele */
+    .input-wrapper-relative {
+        position: relative; 
+    }
     .accordion-item.active-accordion {
         position: relative;
         z-index: 1041;
@@ -275,6 +302,85 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         toggleTipoFalta();
+    });
+    
+    let debounceTimer;
+    const apiUrl = "{% url 'scheduler:api_autocomplete' %}";
+
+    // 1. Função para fechar todas as listas abertas
+    function closeAllLists(elmnt) {
+        const items = document.getElementsByClassName("autocomplete-suggestions");
+        for (let i = 0; i < items.length; i++) {
+            if (elmnt != items[i]) {
+                items[i].parentNode.removeChild(items[i]);
+            }
+        }
+    }
+
+    // 2. Event Listener Global (Delegation) para lidar com Formsets dinâmicos
+    document.addEventListener('input', function(e) {
+        if (!e.target.classList.contains('autocomplete-input')) return;
+        
+        const input = e.target;
+        const type = input.dataset.type;
+        const val = input.value;
+
+        // Fecha listas anteriores
+        closeAllLists();
+
+        if (!val || val.length < 2) return;
+
+        // Debounce: Espera o usuário parar de digitar por 300ms
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            
+            // Certifica que o input tem um wrapper relativo (para posicionar a lista)
+            if (getComputedStyle(input.parentNode).position === 'static') {
+                input.parentNode.style.position = 'relative';
+            }
+
+            fetch(`${apiUrl}?term=${encodeURIComponent(val)}&type=${type}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length === 0) return;
+
+                    // Cria a DIV da lista
+                    const listDiv = document.createElement("div");
+                    listDiv.setAttribute("class", "autocomplete-suggestions");
+                    
+                    // Posiciona exatamente abaixo do input
+                    listDiv.style.top = (input.offsetHeight + 2) + "px";
+                    listDiv.style.left = 0;
+                    
+                    // Cria os itens
+                    data.forEach(itemText => {
+                        const itemDiv = document.createElement("div");
+                        itemDiv.className = "autocomplete-item";
+                        // Destaca a parte que coincide (opcional, visual sugar)
+                        const regex = new RegExp(`(${val})`, "gi");
+                        itemDiv.innerHTML = itemText.replace(regex, "<strong>$1</strong>");
+                        
+                        // Ao clicar no item
+                        itemDiv.addEventListener("click", function() {
+                            input.value = itemText; // Preenche o input
+                            closeAllLists(); // Fecha a lista
+                        });
+                        
+                        listDiv.appendChild(itemDiv);
+                    });
+
+                    input.parentNode.appendChild(listDiv);
+                    listDiv.style.display = "block";
+                });
+
+        }, 300); // 300ms delay
+    });
+
+    // 3. Fecha a lista se clicar fora
+    document.addEventListener("click", function (e) {
+        if (!e.target.classList.contains('autocomplete-input')) {
+            closeAllLists(e.target);
+        }
     });
 });
 </script>

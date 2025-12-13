@@ -87,4 +87,5 @@ urlpatterns = [
     path('aluno/<int:aluno_id>/gerar-relatorio-ia/', views.gerar_relatorio_anual_ia, name='gerar_relatorio_ia'),
     path('relatorio/baixar-pdf/', views.baixar_relatorio_pdf, name='baixar_pdf'),
     path("normalizar-rudimentos/", views.normalizar_rudimentos, name="normalizar_rudimentos"),
+    path('autocomplete/', views.api_autocomplete_exercicios, name='api_autocomplete'),
 ]

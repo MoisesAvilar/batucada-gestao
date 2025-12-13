@@ -310,7 +310,7 @@ ItemRudimentoFormSet = inlineformset_factory(
     can_delete=True,
     widgets={
         "descricao": forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "Ex: Toque simples"}
+            attrs={"class": "form-control autocomplete-input", "placeholder": "Ex: Toque simples", "data-type": "rudimento", "autocomplete": "off"}
         ),
         "bpm": forms.TextInput(attrs={"class": "form-control", "placeholder": "BPM"}),
         "duracao_min": forms.NumberInput(
