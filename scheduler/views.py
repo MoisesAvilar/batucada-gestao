@@ -413,7 +413,7 @@ def agendar_aula(request):
             else:
                 datas_para_agendar = []
 
-                reposicao_de_id_hidden = request.POST.get("reposicao_de_id")
+                reposicao_de_id_hidden = request.POST.get("reposicao_de_id") or request.GET.get("reposicao_de")
                 if reposicao_de_id_hidden:
                     is_recorrente = False
 

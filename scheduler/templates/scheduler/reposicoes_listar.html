@@ -1,4 +1,5 @@
 {% extends "scheduler/base.html" %}
+{% load l10n %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -47,7 +48,7 @@
                                 {% endfor %}
                             </td>
                             <td class="text-end">
-                                <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id }}" class="btn btn-sm btn-primary">
+                                <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id|unlocalize }}" class="btn btn-sm btn-primary">
                                     <i class="bi bi-calendar-plus me-1"></i> Agendar Reposição
                                 </a>
                             </td>
@@ -84,7 +85,7 @@
                         </p>
                     </div>
                     <div class="card-footer text-end">
-                        <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id }}" class="btn btn-primary w-100">
+                        <a href="{% url 'scheduler:aula_agendar' %}?reposicao_de={{ presenca.id|unlocalize }}" class="btn btn-primary w-100">
                             <i class="bi bi-calendar-plus me-1"></i> Agendar Reposição
                         </a>
                     </div>
