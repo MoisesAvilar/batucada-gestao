@@ -3417,7 +3417,7 @@ def listar_reposicoes_pendentes(request):
 def gerar_relatorio_anual_ia(request, aluno_id):
     try:
         aluno = Aluno.objects.get(pk=aluno_id)
-        ano_atual = timezone.now().year
+        ano_atual = 2025
 
         aulas = Aula.objects.filter(
             alunos=aluno,
