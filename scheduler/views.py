@@ -3639,7 +3639,7 @@ def baixar_relatorio_pdf(request):
         nome_aluno_post = request.POST.get('nome_aluno', 'Aluno')
 
         aluno = Aluno.objects.filter(nome_completo=nome_aluno_post).first()
-        ano_atual = timezone.now().year
+        ano_atual = 2025
 
         curso_str = "Curso não identificado"
         if aluno:
