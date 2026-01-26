@@ -1,5 +1,3 @@
-# Em leads/templatetags/lead_extras.py
-
 import re
 from django import template
 from django.utils.html import format_html
@@ -8,18 +6,19 @@ register = template.Library()
 
 
 @register.filter(name="format_contact", is_safe=True)
-def format_contact(value):
+def format_contact(value, custom_whatsapp_url=None):
     """
     Formata um valor de contato.
     - Se for e-mail, cria um link 'mailto:'.
     - Se for telefone, cria um dropdown com opções para WhatsApp e ligação.
+    - custom_whatsapp_url: (Opcional) URL completa para o WhatsApp (ex: com mensagem pré-definida).
     """
     if not isinstance(value, str):
         return value
 
     value = value.strip()
 
-    # --- Lógica para E-mail (sem alteração) ---
+    # --- Lógica para E-mail ---
     if "@" in value:
         return format_html(
             '<a href="mailto:{0}" class="text-decoration-none">'
@@ -28,7 +27,7 @@ def format_contact(value):
             value,
         )
 
-    # --- NOVA LÓGICA PARA TELEFONE (COM DROPDOWN) ---
+    # --- Lógica para Telefone ---
     else:
         digits_only = re.sub(r"\D", "", value)
         formatted_phone = ""
@@ -42,22 +41,26 @@ def format_contact(value):
                 digits_only[0:2], digits_only[2:6], digits_only[6:10]
             )
         else:
-            return value  # Retorna o original se não for um telefone válido
+            return value
 
-        # Prepara os números para os links (assumindo código do Brasil 55 para o WhatsApp)
-        whatsapp_number = "55" + digits_only
+        # Define qual URL usar: a personalizada (vinda da View) ou a padrão
+        if custom_whatsapp_url and str(custom_whatsapp_url).startswith("http"):
+            final_whatsapp_url = custom_whatsapp_url
+        else:
+            final_whatsapp_url = f"https://wa.me/55{digits_only}"
+
         tel_number = digits_only
 
-        # Monta o HTML do dropdown do Bootstrap
+        # Monta o HTML do dropdown
         dropdown_html = format_html(
             """
             <div class="dropdown d-inline-block">
-                <a href="#" class="text-decoration-none dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-telephone me-2"></i>{0}
+                <a href="#" class="text-decoration-none dropdown-toggle text-body" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-whatsapp me-1 text-success opacity-75"></i>{0}
                 </a>
                 <ul class="dropdown-menu">
                     <li>
-                        <a class="dropdown-item" href="https://wa.me/{1}" target="_blank" rel="noopener noreferrer">
+                        <a class="dropdown-item" href="{1}" target="_blank" rel="noopener noreferrer">
                             <i class="bi bi-whatsapp me-2 text-success"></i>Abrir WhatsApp
                         </a>
                     </li>
@@ -70,7 +73,7 @@ def format_contact(value):
             </div>
             """,
             formatted_phone,
-            whatsapp_number,
+            final_whatsapp_url,
             tel_number,
         )
         return dropdown_html

@@ -10,6 +10,17 @@ from .models import (
     ReceitaRecorrente,
 )
 from store.models import Produto
+from scheduler.models import Aluno
+
+
+class AlunoFinanceiroForm(forms.ModelForm):
+    class Meta:
+        model = Aluno
+        fields = ['valor_mensalidade', 'dia_vencimento'] 
+        widgets = {
+            'valor_mensalidade': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'dia_vencimento': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '31', 'placeholder': 'Dia'}),
+        }
 
 # ==============================================================================
 # NOVOS FORMULÁRIOS DE RECEITA (INÍCIO DA NOSSA ALTERAÇÃO)

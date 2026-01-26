@@ -1,0 +1,36 @@
+<form id="formConfigAluno" method="post" action="{% url 'finances:configurar_aluno_modal' aluno.pk %}">
+    {% csrf_token %}
+    
+    <div class="modal-header border-bottom-0 pb-0">
+        <div>
+            <h5 class="modal-title fw-bold">Configuração Financeira</h5>
+            <div class="text-muted small">{{ aluno.nome_completo }}</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+
+    <div class="modal-body">
+        <div class="row g-3">
+            <div class="col-6">
+                <label class="form-label small fw-bold text-uppercase text-muted">Valor (R$)</label>
+                {{ form.valor_mensalidade }}
+            </div>
+            <div class="col-6">
+                <label class="form-label small fw-bold text-uppercase text-muted">Dia Vencimento</label>
+                {{ form.dia_vencimento }}
+            </div>
+        </div>
+        {% if form.valor_mensalidade.errors or form.dia_vencimento.errors %}
+            <div class="alert alert-danger mt-3 py-2 small mb-0">
+                {{ form.valor_mensalidade.errors }}
+                {{ form.dia_vencimento.errors }}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="modal-footer border-top-0 pt-0">
+        <button type="submit" class="btn btn-primary w-100 fw-bold">
+            Salvar Alterações
+        </button>
+    </div>
+</form>

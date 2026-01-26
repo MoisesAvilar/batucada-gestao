@@ -331,6 +331,12 @@
                                             </a>
                                         </li>
                                         <li class="nav-item">
+                                            <a href="{% url 'finances:mensalidades_list' %}"
+                                            class="nav-link {% if 'mensalidades_list' in request.resolver_match.view_name %}active{% endif %}">
+                                                Mensalidades
+                                            </a>
+                                        </li>
+                                        <li class="nav-item">
                                             <a href="{% url 'finances:recorrencia_list' %}"
                                             class="nav-link {% if 'recorrencia' in request.resolver_match.view_name %}active{% endif %}">
                                                 Recorrências

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from django.views.generic import TemplateView
 
 app_name = "scheduler"
 
@@ -88,4 +89,6 @@ urlpatterns = [
     path('relatorio/baixar-pdf/', views.baixar_relatorio_pdf, name='baixar_pdf'),
     path("normalizar-rudimentos/", views.normalizar_rudimentos, name="normalizar_rudimentos"),
     path('autocomplete/', views.api_autocomplete_exercicios, name='api_autocomplete'),
+
+    path('404/', TemplateView.as_view(template_name="404.html")),
 ]

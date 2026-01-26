@@ -9,8 +9,11 @@ urlpatterns = [
     path('ajax/add-category/', views.add_category_ajax, name='add_category_ajax'),
     path('ajax/get-aluno-details/<int:aluno_id>/', views.get_aluno_details, name='ajax_get_aluno_details'),
     path('ajax/calcular-pagamento-professor/', views.calcular_pagamento_professor_ajax, name='ajax_calcular_pagamento_professor'),
+    path('aluno/<int:pk>/configurar-modal/', views.configurar_aluno_modal, name='configurar_aluno_modal'),
     path('receitas/add/mensalidade/', views.add_mensalidade, name='add_mensalidade'),
     path('receitas/add/venda/', views.add_venda, name='add_venda'),
+    path("mensalidades/", views.mensalidades_list, name="mensalidades_list"),
+    path("mensalidades/receber/", views.mensalidade_receber, name="mensalidade_receber"),
     path('contas-a-pagar/', views.despesa_list_view, name='despesa_list'),
     path('contas-a-pagar/baixar/<int:pk>/', views.baixar_despesa_view, name='baixar_despesa'),
     path('contas-a-receber/', views.receita_list_view, name='receita_list'),
@@ -31,4 +34,5 @@ urlpatterns = [
     path('dre/export/xlsx/', views.export_dre_xlsx, name='export_dre_xlsx'),
     path('dre/export/pdf/', views.export_dre_pdf, name='export_dre_pdf'),
     path('aging-report/', views.aging_report_view, name='aging_report'),
+    path('mensalidades/<int:pk>/recibo/', views.gerar_recibo_pdf, name='gerar_recibo_pdf'),
 ]

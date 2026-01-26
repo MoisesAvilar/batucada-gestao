@@ -37,6 +37,13 @@ class Category(models.Model):
 
 
 class Transaction(models.Model):
+    FORMA_PAGAMENTO_CHOICES = (
+        ("pix", "Pix"),
+        ("cartao", "Cartão"),
+        ("especie", "Espécie"),
+        ("transferencia", "Transferência"),
+        ("boleto", "Boleto"),
+    )
     description = models.CharField(max_length=255, verbose_name="Descrição")
     amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor")
     category = models.ForeignKey(
@@ -44,6 +51,13 @@ class Transaction(models.Model):
     )
     transaction_date = models.DateField(
         default=timezone.now, verbose_name="Data da Transação"
+    )
+    forma_pagamento = models.CharField(
+        max_length=20,
+        choices=FORMA_PAGAMENTO_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name="Forma de Pagamento",
     )
 
     student = models.ForeignKey(

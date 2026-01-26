@@ -1,7 +1,10 @@
+import os
+import base64
 from decimal import Decimal
 
 from django.apps import apps
 from django.http import JsonResponse
+from urllib.parse import quote
 from collections import defaultdict
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -22,9 +25,15 @@ from .forms import (
     ReceitaRecorrenteForm,
     MensalidadeReceitaForm,
     VendaReceitaForm,
+    AlunoFinanceiroForm,
 )
+from scheduler.models import Aluno
 
-from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from scheduler.models import Aluno
+from .models import Receita, Category, Transaction
+
+from django.shortcuts import render, get_object_or_404, redirect
 from django.forms.models import model_to_dict
 from django.db.models import Sum, Count
 from django.db import transaction
@@ -34,6 +43,7 @@ from datetime import date, timedelta, datetime
 from django.db.models import Q
 from scheduler.models import Aula, CustomUser, Modalidade, PresencaAluno
 from django.utils.timezone import now
+from django.http import JsonResponse, HttpResponse
 from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -44,9 +54,10 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Border, Side
 from openpyxl.cell.rich_text import TextBlock, Text
-from django.http import HttpResponse
-from django.template.loader import render_to_string
+from django.template.loader import render_to_string, get_template
 from xhtml2pdf import pisa
+from django.conf import settings
+from django.contrib.staticfiles import finders
 
 
 def admin_required(view_func):
@@ -73,8 +84,18 @@ def add_months(start_date, months):
 @admin_required
 def transaction_list_view(request):
     MESES_PT = {
-        1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-        7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+        1: "Jan",
+        2: "Fev",
+        3: "Mar",
+        4: "Abr",
+        5: "Mai",
+        6: "Jun",
+        7: "Jul",
+        8: "Ago",
+        9: "Set",
+        10: "Out",
+        11: "Nov",
+        12: "Dez",
     }
     unidade_ativa_id = request.session.get("unidade_ativa_id")
     if not unidade_ativa_id:
@@ -96,21 +117,49 @@ def transaction_list_view(request):
     )
 
     # ... (o restante da lógica de KPIs e contas vencidas permanece igual) ...
-    total_a_pagar = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id, status="a_pagar", data_competencia__range=[start_date, end_date]).aggregate(total=Sum("valor"))["total"] or 0
-    total_a_receber = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id, status="a_receber", data_competencia__range=[start_date, end_date]).aggregate(total=Sum("valor"))["total"] or 0
-    contas_vencidas = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_pagar', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
-    receitas_atrasadas = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id, status='a_receber', data_competencia__lt=today).aggregate(count=Count('id'), total=Sum('valor'))
-    transactions = Transaction.objects.filter(unidade_negocio_id=unidade_ativa_id, transaction_date__range=[start_date, end_date]).select_related("category")
+    total_a_pagar = (
+        Despesa.objects.filter(
+            unidade_negocio_id=unidade_ativa_id,
+            status="a_pagar",
+            data_competencia__range=[start_date, end_date],
+        ).aggregate(total=Sum("valor"))["total"]
+        or 0
+    )
+    total_a_receber = (
+        Receita.objects.filter(
+            unidade_negocio_id=unidade_ativa_id,
+            status="a_receber",
+            data_competencia__range=[start_date, end_date],
+        ).aggregate(total=Sum("valor"))["total"]
+        or 0
+    )
+    contas_vencidas = Despesa.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status="a_pagar",
+        data_competencia__lt=today,
+    ).aggregate(count=Count("id"), total=Sum("valor"))
+    receitas_atrasadas = Receita.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        status="a_receber",
+        data_competencia__lt=today,
+    ).aggregate(count=Count("id"), total=Sum("valor"))
+    transactions = Transaction.objects.filter(
+        unidade_negocio_id=unidade_ativa_id,
+        transaction_date__range=[start_date, end_date],
+    ).select_related("category")
     no_data = not transactions.exists()
+
     # ==============================================================================
     # --- FLUXO DE CAIXA REALISTA (COM MESES EM PORTUGUÊS) ---
     # ==============================================================================
     def get_monthly_data(transactions, tipo):
         qs = transactions.filter(category__type=tipo)
-        monthly = qs.annotate(month=TruncMonth("transaction_date")) \
-                      .values("month") \
-                      .annotate(total=Sum("amount")) \
-                      .order_by("month")
+        monthly = (
+            qs.annotate(month=TruncMonth("transaction_date"))
+            .values("month")
+            .annotate(total=Sum("amount"))
+            .order_by("month")
+        )
         # ★ ALTERAÇÃO 1: Usar o objeto 'date' como chave, em vez de uma string formatada
         month_map = {d["month"]: float(d["total"]) for d in monthly}
         return month_map
@@ -124,12 +173,14 @@ def transaction_list_view(request):
     flow_chart_dates = sorted(list(months_set))
 
     # ★ ALTERAÇÃO 2: Cria as legendas em português usando o dicionário MESES_PT
-    flow_chart_labels = [f"{MESES_PT[d.month]}/{d.strftime('%y')}" for d in flow_chart_dates]
+    flow_chart_labels = [
+        f"{MESES_PT[d.month]}/{d.strftime('%y')}" for d in flow_chart_dates
+    ]
 
     # ★ ALTERAÇÃO 3: Busca os dados usando as chaves de data ordenadas
     flow_chart_income_data = [income_map.get(m, 0) for m in flow_chart_dates]
     flow_chart_expense_data = [expense_map.get(m, 0) for m in flow_chart_dates]
-    
+
     # ==============================================================================
     # --- FIM DAS ALTERAÇÕES NO FLUXO DE CAIXA ---
     # ==============================================================================
@@ -138,8 +189,8 @@ def transaction_list_view(request):
         # ... (função rolling_average sem alterações) ...
         result = []
         for i in range(len(data)):
-            slice_data = data[max(0, i-window+1):i+1]
-            result.append(sum(slice_data)/len(slice_data))
+            slice_data = data[max(0, i - window + 1) : i + 1]
+            result.append(sum(slice_data) / len(slice_data))
         return result
 
     flow_chart_income_avg = rolling_average(flow_chart_income_data)
@@ -147,19 +198,29 @@ def transaction_list_view(request):
 
     total_income = sum(flow_chart_income_data)
     # total_expenses terá um valor negativo (ex: -21941.84)
-    total_expenses = sum(flow_chart_expense_data) 
-    
+    total_expenses = sum(flow_chart_expense_data)
+
     balance = total_income + total_expenses
-    
-    expenses_by_category = transactions.filter(category__type="expense").values("category__name").annotate(total=Sum("amount")).order_by("-total")
+
+    expenses_by_category = (
+        transactions.filter(category__type="expense")
+        .values("category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
     chart_labels = [item["category__name"] for item in expenses_by_category]
     chart_data = [float(item["total"]) for item in expenses_by_category]
 
-    income_by_category = transactions.filter(category__type="income").values("category__name").annotate(total=Sum("amount")).order_by("-total")
+    income_by_category = (
+        transactions.filter(category__type="income")
+        .values("category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
     income_chart_labels = [item["category__name"] for item in income_by_category]
     income_chart_data = [float(item["total"]) for item in income_by_category]
-    
-    paginator = Paginator(transactions.order_by('-transaction_date'), 20)
+
+    paginator = Paginator(transactions.order_by("-transaction_date"), 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
     form = TransactionForm(initial={"unidade_negocio": unidade_ativa_id})
@@ -173,34 +234,46 @@ def transaction_list_view(request):
             messages.success(request, "Lançamento adicionado com sucesso!")
             return redirect(request.get_full_path())
 
-    return render(request, "finances/transaction_list.html", {
-        "page_obj": page_obj,
-        "form": form,
-        "total_income": total_income,
-        "total_expenses": abs(total_expenses),
-        "balance": balance,
-        "start_date": start_date,
-        "end_date": end_date,
-        "data_ontem": ontem,
-        "chart_labels": chart_labels,
-        "chart_data": chart_data,
-        "income_chart_labels": income_chart_labels,
-        "income_chart_data": income_chart_data,
-        "total_a_pagar": total_a_pagar,
-        "total_a_receber": total_a_receber,
-        'contas_vencidas_count': contas_vencidas['count'] or 0,
-        'contas_vencidas_total': contas_vencidas['total'] or 0,
-        'receitas_atrasadas_count': receitas_atrasadas['count'] or 0,
-        'receitas_atrasadas_total': receitas_atrasadas['total'] or 0,
-        'flow_chart_labels': flow_chart_labels,
-        'flow_chart_income_data': flow_chart_income_data,
-        'flow_chart_expense_data': flow_chart_expense_data,
-        'flow_chart_income_avg': flow_chart_income_avg,
-        'flow_chart_expense_avg': flow_chart_expense_avg,
-        'top_produtos_vendidos': Produto.objects.filter(unidade_negocio_id=unidade_ativa_id, receitas__data_competencia__range=[start_date, end_date]).annotate(total_vendido=Sum('receitas__valor')).order_by('-total_vendido').filter(total_vendido__gt=0)[:5],
-        'top_despesas': transactions.filter(category__type='expense').order_by('amount')[:5],
-        'no_data': no_data,
-    })
+    return render(
+        request,
+        "finances/transaction_list.html",
+        {
+            "page_obj": page_obj,
+            "form": form,
+            "total_income": total_income,
+            "total_expenses": abs(total_expenses),
+            "balance": balance,
+            "start_date": start_date,
+            "end_date": end_date,
+            "data_ontem": ontem,
+            "chart_labels": chart_labels,
+            "chart_data": chart_data,
+            "income_chart_labels": income_chart_labels,
+            "income_chart_data": income_chart_data,
+            "total_a_pagar": total_a_pagar,
+            "total_a_receber": total_a_receber,
+            "contas_vencidas_count": contas_vencidas["count"] or 0,
+            "contas_vencidas_total": contas_vencidas["total"] or 0,
+            "receitas_atrasadas_count": receitas_atrasadas["count"] or 0,
+            "receitas_atrasadas_total": receitas_atrasadas["total"] or 0,
+            "flow_chart_labels": flow_chart_labels,
+            "flow_chart_income_data": flow_chart_income_data,
+            "flow_chart_expense_data": flow_chart_expense_data,
+            "flow_chart_income_avg": flow_chart_income_avg,
+            "flow_chart_expense_avg": flow_chart_expense_avg,
+            "top_produtos_vendidos": Produto.objects.filter(
+                unidade_negocio_id=unidade_ativa_id,
+                receitas__data_competencia__range=[start_date, end_date],
+            )
+            .annotate(total_vendido=Sum("receitas__valor"))
+            .order_by("-total_vendido")
+            .filter(total_vendido__gt=0)[:5],
+            "top_despesas": transactions.filter(category__type="expense").order_by(
+                "amount"
+            )[:5],
+            "no_data": no_data,
+        },
+    )
 
 
 @admin_required
@@ -368,39 +441,45 @@ def despesa_list_view(request):
     # --- Lógica de Listagem e Filtros (GET) ---
 
     # 1. Capturar parâmetros de filtro
-    descricao = request.GET.get('descricao', '')
-    data_inicial = request.GET.get('data_inicial', '')
-    data_final = request.GET.get('data_final', '')
-    professor_id = request.GET.get('professor', '')
-    categoria_id = request.GET.get('categoria', '')
-    status = request.GET.get('status', '')
+    descricao = request.GET.get("descricao", "")
+    data_inicial = request.GET.get("data_inicial", "")
+    data_final = request.GET.get("data_final", "")
+    professor_id = request.GET.get("professor", "")
+    categoria_id = request.GET.get("categoria", "")
+    status = request.GET.get("status", "")
 
     # --- Início do Cálculo dos KPIs ---
     # Esta queryset é apenas para os KPIs, refletindo os totais da unidade de negócio
     base_qs_kpi = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id)
-    
-    total_a_pagar = base_qs_kpi.filter(status='a_pagar').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
 
-    pago_qs = base_qs_kpi.filter(status='pago')
-    if data_inicial: 
+    total_a_pagar = base_qs_kpi.filter(status="a_pagar").aggregate(total=Sum("valor"))[
+        "total"
+    ] or Decimal("0.00")
+
+    pago_qs = base_qs_kpi.filter(status="pago")
+    if data_inicial:
         pago_qs = pago_qs.filter(data_pagamento__gte=data_inicial)
-    if data_final: 
+    if data_final:
         pago_qs = pago_qs.filter(data_pagamento__lte=data_final)
-    total_pago = pago_qs.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-    
-    total_recorrentes = DespesaRecorrente.objects.filter(unidade_negocio_id=unidade_ativa_id, ativa=True).count()
-    
+    total_pago = pago_qs.aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
+
+    total_recorrentes = DespesaRecorrente.objects.filter(
+        unidade_negocio_id=unidade_ativa_id, ativa=True
+    ).count()
+
     today = now().date()
     data_limite_vencimento = today + timedelta(days=5)
     total_a_vencer = base_qs_kpi.filter(
-        status='a_pagar',
+        status="a_pagar",
         data_competencia__gte=today,
-        data_competencia__lte=data_limite_vencimento
-    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+        data_competencia__lte=data_limite_vencimento,
+    ).aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
     # --- Fim do Cálculo dos KPIs ---
 
     # 2. Queryset principal para a lista, com filtros aplicados
-    despesas_list = Despesa.objects.filter(unidade_negocio_id=unidade_ativa_id).select_related("categoria", "professor")
+    despesas_list = Despesa.objects.filter(
+        unidade_negocio_id=unidade_ativa_id
+    ).select_related("categoria", "professor")
 
     if descricao:
         despesas_list = despesas_list.filter(descricao__icontains=descricao)
@@ -415,10 +494,17 @@ def despesa_list_view(request):
     if status:
         despesas_list = despesas_list.filter(status=status)
 
-    orderby = request.GET.get('orderby', '-data_competencia')
-    allowed_orderby_fields = ['descricao', '-descricao', 'valor', '-valor', 'data_competencia', '-data_competencia']
+    orderby = request.GET.get("orderby", "-data_competencia")
+    allowed_orderby_fields = [
+        "descricao",
+        "-descricao",
+        "valor",
+        "-valor",
+        "data_competencia",
+        "-data_competencia",
+    ]
     if orderby not in allowed_orderby_fields:
-        orderby = '-data_competencia'
+        orderby = "-data_competencia"
 
     despesas_list = despesas_list.order_by(orderby)
     titulo = "Saídas"
@@ -438,10 +524,12 @@ def despesa_list_view(request):
     paginator = Paginator(despesas_list, 20)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    
+
     # Adiciona flag 'is_vencida' para o template
     for despesa in page_obj:
-        despesa.is_vencida = despesa.data_competencia < today and despesa.status == 'a_pagar'
+        despesa.is_vencida = (
+            despesa.data_competencia < today and despesa.status == "a_pagar"
+        )
 
     # 3. Montar o contexto para o template
     context = {
@@ -450,16 +538,16 @@ def despesa_list_view(request):
         "titulo": titulo,
         "orderby": orderby,
         "filtro_ativo": filtro_ativo,
-        "professores": CustomUser.objects.filter(tipo__in=['admin', 'professor']),
-        "categorias": Category.objects.filter(type='expense'),
+        "professores": CustomUser.objects.filter(tipo__in=["admin", "professor"]),
+        "categorias": Category.objects.filter(type="expense"),
         "status_choices": Despesa.STATUS_CHOICES,
         "filtros_aplicados": {
-            'descricao': descricao,
-            'data_inicial': data_inicial,
-            'data_final': data_final,
-            'professor': professor_id,
-            'categoria': categoria_id,
-            'status': status,
+            "descricao": descricao,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "professor": professor_id,
+            "categoria": categoria_id,
+            "status": status,
         },
         "today": today,
         # Adicionando os KPIs ao contexto
@@ -593,13 +681,13 @@ def receita_list_view(request):
     if not unidade_ativa_id:
         messages.warning(request, "Selecione uma Unidade de Negócio.")
         return redirect("scheduler:dashboard")
-    
-    descricao = request.GET.get('descricao', '')
-    data_inicial = request.GET.get('data_inicial', '')
-    data_final = request.GET.get('data_final', '')
-    aluno_id = request.GET.get('aluno', '')
-    categoria_id = request.GET.get('categoria', '')
-    status = request.GET.get('status', '')
+
+    descricao = request.GET.get("descricao", "")
+    data_inicial = request.GET.get("data_inicial", "")
+    data_final = request.GET.get("data_final", "")
+    aluno_id = request.GET.get("aluno", "")
+    categoria_id = request.GET.get("categoria", "")
+    status = request.GET.get("status", "")
 
     receitas_list = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id)
 
@@ -616,13 +704,20 @@ def receita_list_view(request):
     if status:
         receitas_list = receitas_list.filter(status=status)
 
-    orderby = request.GET.get('orderby', '-data_competencia') # Padrão: mais recentes
-    
+    orderby = request.GET.get("orderby", "-data_competencia")  # Padrão: mais recentes
+
     # Lista de campos permitidos para evitar ordenação maliciosa
-    allowed_orderby_fields = ['descricao', '-descricao', 'valor', '-valor', 'data_competencia', '-data_competencia']
+    allowed_orderby_fields = [
+        "descricao",
+        "-descricao",
+        "valor",
+        "-valor",
+        "data_competencia",
+        "-data_competencia",
+    ]
     if orderby not in allowed_orderby_fields:
-        orderby = '-data_competencia' # Garante um padrão seguro
-        
+        orderby = "-data_competencia"  # Garante um padrão seguro
+
     receitas_list = receitas_list.order_by(orderby)
     titulo = "Entradas"
 
@@ -638,23 +733,31 @@ def receita_list_view(request):
         titulo = "Receitas a Vencer"
 
     base_qs = Receita.objects.filter(unidade_negocio_id=unidade_ativa_id)
-    
-    total_a_receber = base_qs.filter(status='a_receber').aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
 
-    recebido_qs = base_qs.filter(status='recebido')
-    if data_inicial: recebido_qs = recebido_qs.filter(data_recebimento__gte=data_inicial)
-    if data_final: recebido_qs = recebido_qs.filter(data_recebimento__lte=data_final)
-    total_recebido = recebido_qs.aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
-    
-    total_recorrentes = ReceitaRecorrente.objects.filter(unidade_negocio_id=unidade_ativa_id, ativa=True).count()
-    
+    total_a_receber = base_qs.filter(status="a_receber").aggregate(total=Sum("valor"))[
+        "total"
+    ] or Decimal("0.00")
+
+    recebido_qs = base_qs.filter(status="recebido")
+    if data_inicial:
+        recebido_qs = recebido_qs.filter(data_recebimento__gte=data_inicial)
+    if data_final:
+        recebido_qs = recebido_qs.filter(data_recebimento__lte=data_final)
+    total_recebido = recebido_qs.aggregate(total=Sum("valor"))["total"] or Decimal(
+        "0.00"
+    )
+
+    total_recorrentes = ReceitaRecorrente.objects.filter(
+        unidade_negocio_id=unidade_ativa_id, ativa=True
+    ).count()
+
     hoje = now().date()
     data_limite = hoje + timedelta(days=5)
     total_a_vencer = base_qs.filter(
-        status='a_receber',
+        status="a_receber",
         data_competencia__gte=hoje,
-        data_competencia__lte=data_limite
-    ).aggregate(total=Sum('valor'))['total'] or Decimal('0.00')
+        data_competencia__lte=data_limite,
+    ).aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
 
     paginator = Paginator(receitas_list, 20)
     page_number = request.GET.get("page")
@@ -671,15 +774,15 @@ def receita_list_view(request):
         "orderby": orderby,
         "filtro_ativo": filtro_ativo,
         "alunos": Aluno.objects.all(),
-        "categorias": Category.objects.filter(type='income'),
+        "categorias": Category.objects.filter(type="income"),
         "status_choices": Receita.STATUS_CHOICES,
         "filtros_aplicados": {
-            'descricao': descricao,
-            'data_inicial': data_inicial,
-            'data_final': data_final,
-            'aluno': aluno_id,
-            'categoria': categoria_id,
-            'status': status,
+            "descricao": descricao,
+            "data_inicial": data_inicial,
+            "data_final": data_final,
+            "aluno": aluno_id,
+            "categoria": categoria_id,
+            "status": status,
         },
         "total_a_receber": total_a_receber,
         "total_recebido": total_recebido,
@@ -739,9 +842,7 @@ def edit_mensalidade(request, pk):
     Busca dados e salva alterações para uma MENSALIDADE.
     AGORA USANDO A LÓGICA AJAX.
     """
-    receita = get_object_or_404(
-        Receita, pk=pk, produto__isnull=True
-    )
+    receita = get_object_or_404(Receita, pk=pk, produto__isnull=True)
 
     if request.method == "POST":
         form = MensalidadeReceitaForm(request.POST, instance=receita)
@@ -779,9 +880,7 @@ def edit_venda(request, pk):
     Busca dados e salva alterações para uma VENDA.
     AGORA USANDO A LÓGICA AJAX.
     """
-    receita = get_object_or_404(
-        Receita, pk=pk, produto__isnull=False
-    )
+    receita = get_object_or_404(Receita, pk=pk, produto__isnull=False)
 
     quantidade_antiga = receita.quantidade
     produto_antigo = receita.produto
@@ -875,22 +974,21 @@ def recorrencia_list_view(request):
     )
 
     total_despesas_recorrentes = despesas_recorrentes.filter(ativa=True).aggregate(
-        total=Sum('valor')
-    )['total'] or Decimal('0.00')
+        total=Sum("valor")
+    )["total"] or Decimal("0.00")
 
-    receitas_fixas = receitas_recorrentes.filter(ativa=True, aluno__isnull=True).aggregate(
-        total=Sum('valor')
-    )['total'] or Decimal('0.00')
+    receitas_fixas = receitas_recorrentes.filter(
+        ativa=True, aluno__isnull=True
+    ).aggregate(total=Sum("valor"))["total"] or Decimal("0.00")
 
     mensalidades = Aluno.objects.filter(
-        status='ativo',
+        status="ativo",
         receitas_recorrentes__unidade_negocio_id=unidade_ativa_id,
-        receitas_recorrentes__ativa=True
-    ).aggregate(total=Sum('valor_mensalidade'))['total'] or Decimal('0.00')
+        receitas_recorrentes__ativa=True,
+    ).aggregate(total=Sum("valor_mensalidade"))["total"] or Decimal("0.00")
 
     total_receitas_recorrentes = receitas_fixas + mensalidades
     saldo_recorrente_mensal = total_receitas_recorrentes - total_despesas_recorrentes
-
 
     context = {
         "despesa_form": despesa_form,
@@ -1098,37 +1196,44 @@ def dre_view(request):
     if dre_comp:
         variacoes = {}
         for key in [
-            "total_receitas", "total_custos", "lucro_bruto",
-            "total_despesas", "resultado"
+            "total_receitas",
+            "total_custos",
+            "lucro_bruto",
+            "total_despesas",
+            "resultado",
         ]:
             val_principal = dre_principal.get(key, Decimal("0.00"))
             val_comp = dre_comp.get(key, Decimal("0.00"))
 
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
+            var_perc = (
+                (var_abs / val_comp * 100)
+                if val_comp != 0
+                else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
+            )
             variacoes[key] = {"abs": var_abs, "perc": var_perc}
         context["variacoes"] = variacoes
 
         # Gera as listas mescladas para as categorias
         context["merged_receitas"] = merge_and_compare_categories(
-            dre_principal.get('receitas_por_categoria', []),
-            dre_comp.get('receitas_por_categoria', [])
+            dre_principal.get("receitas_por_categoria", []),
+            dre_comp.get("receitas_por_categoria", []),
         )
         context["merged_custos"] = merge_and_compare_categories(
-            dre_principal.get('custos_por_categoria', []),
-            dre_comp.get('custos_por_categoria', [])
+            dre_principal.get("custos_por_categoria", []),
+            dre_comp.get("custos_por_categoria", []),
         )
         context["merged_despesas"] = merge_and_compare_categories(
-            dre_principal.get('despesas_por_categoria', []),
-            dre_comp.get('despesas_por_categoria', [])
+            dre_principal.get("despesas_por_categoria", []),
+            dre_comp.get("despesas_por_categoria", []),
         )
     no_data = (
-            dre_principal and
-            dre_principal.get('total_receitas', 0) == 0 and
-            dre_principal.get('total_custos', 0) == 0 and
-            dre_principal.get('total_despesas', 0) == 0
-        )
-    context['no_data'] = no_data
+        dre_principal
+        and dre_principal.get("total_receitas", 0) == 0
+        and dre_principal.get("total_custos", 0) == 0
+        and dre_principal.get("total_despesas", 0) == 0
+    )
+    context["no_data"] = no_data
 
     return render(request, "finances/dre_report.html", context)
 
@@ -1157,7 +1262,7 @@ def dre_details_view(request):
         unidade_negocio_id=unidade_ativa_id,
         categoria__name=category_name,
     )
-    
+
     if modelo == "despesa":
         classificacao = request.GET.get("classificacao")
         if classificacao:
@@ -1165,29 +1270,37 @@ def dre_details_view(request):
 
     # ===================== INÍCIO DA CORREÇÃO =====================
     # Define os campos para otimização de acordo com o modelo
-    if modelo == 'receita':
-        related_fields = ['aluno', 'categoria']
+    if modelo == "receita":
+        related_fields = ["aluno", "categoria"]
     else:  # 'despesa'
-        related_fields = ['professor', 'categoria']
-    
-    lancamentos = base_qs.filter(
-        data_competencia__month__gte=start_date_obj.month,
-        data_competencia__day__gte=start_date_obj.day,
-        data_competencia__month__lte=end_date_obj.month,
-        data_competencia__day__lte=end_date_obj.day,
-    ).select_related(*related_fields).order_by('-data_competencia')
+        related_fields = ["professor", "categoria"]
+
+    lancamentos = (
+        base_qs.filter(
+            data_competencia__month__gte=start_date_obj.month,
+            data_competencia__day__gte=start_date_obj.day,
+            data_competencia__month__lte=end_date_obj.month,
+            data_competencia__day__lte=end_date_obj.day,
+        )
+        .select_related(*related_fields)
+        .order_by("-data_competencia")
+    )
     # ===================== FIM DA CORREÇÃO =====================
 
-    lancamentos_por_ano = defaultdict(lambda: {'itens': [], 'total_ano': Decimal('0.00')})
-    total_geral = Decimal('0.00')
+    lancamentos_por_ano = defaultdict(
+        lambda: {"itens": [], "total_ano": Decimal("0.00")}
+    )
+    total_geral = Decimal("0.00")
 
     for lancamento in lancamentos:
         ano = lancamento.data_competencia.year
-        lancamentos_por_ano[ano]['itens'].append(lancamento)
-        lancamentos_por_ano[ano]['total_ano'] += lancamento.valor
+        lancamentos_por_ano[ano]["itens"].append(lancamento)
+        lancamentos_por_ano[ano]["total_ano"] += lancamento.valor
         total_geral += lancamento.valor
 
-    dados_agrupados = sorted(lancamentos_por_ano.items(), key=lambda x: x[0], reverse=True)
+    dados_agrupados = sorted(
+        lancamentos_por_ano.items(), key=lambda x: x[0], reverse=True
+    )
 
     context = {
         "dados_agrupados": dados_agrupados,
@@ -1211,7 +1324,7 @@ def export_dre_xlsx(request):
     start_date = date.fromisoformat(start_date_str)
     end_date = date.fromisoformat(end_date_str)
     dre_data = get_dre_data(unidade_ativa_id, start_date, end_date)
-    
+
     dre_comp = None
     if start_date_comp_str and end_date_comp_str:
         start_date_comp = date.fromisoformat(start_date_comp_str)
@@ -1225,28 +1338,34 @@ def export_dre_xlsx(request):
     # --- Estilos (sem alterações) ---
     bold_font = Font(bold=True)
     white_font_bold = Font(color="FFFFFF", bold=True)
-    header_fill = PatternFill(start_color="EAEAEA", end_color="EAEAEA", fill_type="solid")
-    total_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
-    final_fill = PatternFill(start_color="424242", end_color="424242", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="EAEAEA", end_color="EAEAEA", fill_type="solid"
+    )
+    total_fill = PatternFill(
+        start_color="F5F5F5", end_color="F5F5F5", fill_type="solid"
+    )
+    final_fill = PatternFill(
+        start_color="424242", end_color="424242", fill_type="solid"
+    )
     right_align = Alignment(horizontal="right")
     center_align = Alignment(horizontal="center")
 
-    headers = ['Descrição', 'Período Principal']
+    headers = ["Descrição", "Período Principal"]
     if dre_comp:
-        headers.extend(['Período Comparativo', 'Variação (R$)', 'Variação (%)'])
+        headers.extend(["Período Comparativo", "Variação (R$)", "Variação (%)"])
     num_cols = len(headers)
 
     # --- Cabeçalho do Arquivo (sem alterações) ---
-    ws['A1'] = 'Demonstrativo de Resultados (DRE)'
+    ws["A1"] = "Demonstrativo de Resultados (DRE)"
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
-    ws['A1'].font = Font(bold=True, size=16)
-    ws['A1'].alignment = center_align
+    ws["A1"].font = Font(bold=True, size=16)
+    ws["A1"].alignment = center_align
     periodo_str = f'Principal: {start_date.strftime("%d/%m/%Y")} a {end_date.strftime("%d/%m/%Y")}'
     if dre_comp:
         periodo_str += f' | Comparativo: {start_date_comp.strftime("%d/%m/%Y")} a {end_date_comp.strftime("%d/%m/%Y")}'
-    ws['A2'] = periodo_str
+    ws["A2"] = periodo_str
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
-    ws['A2'].alignment = center_align
+    ws["A2"].alignment = center_align
 
     # --- Cabeçalho da Tabela (sem alterações) ---
     for col_idx, header_title in enumerate(headers, 1):
@@ -1263,9 +1382,12 @@ def export_dre_xlsx(request):
         font = bold_font if is_total else (white_font_bold if is_final else None)
         for col_idx in range(1, num_cols + 1):
             cell = ws.cell(row=row_idx, column=col_idx)
-            if fill: cell.fill = fill
-            if font: cell.font = font
-            if col_idx > 1: cell.alignment = right_align
+            if fill:
+                cell.fill = fill
+            if font:
+                cell.font = font
+            if col_idx > 1:
+                cell.alignment = right_align
 
     # ===================== INÍCIO DA CORREÇÃO =====================
     def add_data_row(data, indent=0):
@@ -1279,66 +1401,159 @@ def export_dre_xlsx(request):
                 if dre_comp and i == num_cols:
                     cell.number_format = '0.0"%"'
                 else:
-                    cell.number_format = 'R$ #,##0.00'
+                    cell.number_format = "R$ #,##0.00"
         row_cursor += 1
+
     # ===================== FIM DA CORREÇÃO =====================
-    
+
     # --- Lógica para preencher os dados (sem alterações) ---
     if dre_comp:
         variacoes = {}
-        for key in ['total_receitas', 'total_custos', 'lucro_bruto', 'total_despesas', 'resultado']:
-            val_principal = dre_data.get(key, Decimal('0.00'))
-            val_comp = dre_comp.get(key, Decimal('0.00'))
+        for key in [
+            "total_receitas",
+            "total_custos",
+            "lucro_bruto",
+            "total_despesas",
+            "resultado",
+        ]:
+            val_principal = dre_data.get(key, Decimal("0.00"))
+            val_comp = dre_comp.get(key, Decimal("0.00"))
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
-            variacoes[key] = {'abs': var_abs, 'perc': var_perc}
-        
-        merged_receitas = merge_and_compare_categories(dre_data.get('receitas_por_categoria', []), dre_comp.get('receitas_por_categoria', []))
-        merged_custos = merge_and_compare_categories(dre_data.get('custos_por_categoria', []), dre_comp.get('custos_por_categoria', []))
-        merged_despesas = merge_and_compare_categories(dre_data.get('despesas_por_categoria', []), dre_comp.get('despesas_por_categoria', []))
-        
-        add_data_row(['(+) Receita Operacional Bruta', dre_data['total_receitas'], dre_comp['total_receitas'], variacoes['total_receitas']['abs'], variacoes['total_receitas']['perc']])
+            var_perc = (
+                (var_abs / val_comp * 100)
+                if val_comp != 0
+                else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
+            )
+            variacoes[key] = {"abs": var_abs, "perc": var_perc}
+
+        merged_receitas = merge_and_compare_categories(
+            dre_data.get("receitas_por_categoria", []),
+            dre_comp.get("receitas_por_categoria", []),
+        )
+        merged_custos = merge_and_compare_categories(
+            dre_data.get("custos_por_categoria", []),
+            dre_comp.get("custos_por_categoria", []),
+        )
+        merged_despesas = merge_and_compare_categories(
+            dre_data.get("despesas_por_categoria", []),
+            dre_comp.get("despesas_por_categoria", []),
+        )
+
+        add_data_row(
+            [
+                "(+) Receita Operacional Bruta",
+                dre_data["total_receitas"],
+                dre_comp["total_receitas"],
+                variacoes["total_receitas"]["abs"],
+                variacoes["total_receitas"]["perc"],
+            ]
+        )
         apply_row_styles(row_cursor - 1, is_total=True)
-        for r in merged_receitas: add_data_row([f"+ {r['name']}", r['principal'], r['comparativo'], r['var_abs'], r['var_perc']], indent=1)
-        
-        add_data_row(['(-) Custos Diretos', -dre_data['total_custos'], -dre_comp['total_custos'], -variacoes['total_custos']['abs'], -variacoes['total_custos']['perc']])
+        for r in merged_receitas:
+            add_data_row(
+                [
+                    f"+ {r['name']}",
+                    r["principal"],
+                    r["comparativo"],
+                    r["var_abs"],
+                    r["var_perc"],
+                ],
+                indent=1,
+            )
+
+        add_data_row(
+            [
+                "(-) Custos Diretos",
+                -dre_data["total_custos"],
+                -dre_comp["total_custos"],
+                -variacoes["total_custos"]["abs"],
+                -variacoes["total_custos"]["perc"],
+            ]
+        )
         apply_row_styles(row_cursor - 1, is_total=True)
-        for c in merged_custos: add_data_row([f"- {c['name']}", -c['principal'], -c['comparativo'], -c['var_abs'], -c['var_perc']], indent=1)
-        
-        add_data_row(['(=) Lucro Bruto', dre_data['lucro_bruto'], dre_comp['lucro_bruto'], variacoes['lucro_bruto']['abs'], variacoes['lucro_bruto']['perc']])
+        for c in merged_custos:
+            add_data_row(
+                [
+                    f"- {c['name']}",
+                    -c["principal"],
+                    -c["comparativo"],
+                    -c["var_abs"],
+                    -c["var_perc"],
+                ],
+                indent=1,
+            )
+
+        add_data_row(
+            [
+                "(=) Lucro Bruto",
+                dre_data["lucro_bruto"],
+                dre_comp["lucro_bruto"],
+                variacoes["lucro_bruto"]["abs"],
+                variacoes["lucro_bruto"]["perc"],
+            ]
+        )
         apply_row_styles(row_cursor - 1, is_total=True)
 
-        add_data_row(['(-) Despesas Operacionais', -dre_data['total_despesas'], -dre_comp['total_despesas'], -variacoes['total_despesas']['abs'], -variacoes['total_despesas']['perc']])
+        add_data_row(
+            [
+                "(-) Despesas Operacionais",
+                -dre_data["total_despesas"],
+                -dre_comp["total_despesas"],
+                -variacoes["total_despesas"]["abs"],
+                -variacoes["total_despesas"]["perc"],
+            ]
+        )
         apply_row_styles(row_cursor - 1, is_total=True)
-        for d in merged_despesas: add_data_row([f"- {d['name']}", -d['principal'], -d['comparativo'], -d['var_abs'], -d['var_perc']], indent=1)
+        for d in merged_despesas:
+            add_data_row(
+                [
+                    f"- {d['name']}",
+                    -d["principal"],
+                    -d["comparativo"],
+                    -d["var_abs"],
+                    -d["var_perc"],
+                ],
+                indent=1,
+            )
 
-        add_data_row(['(=) Resultado do Período', dre_data['resultado'], dre_comp['resultado'], variacoes['resultado']['abs'], variacoes['resultado']['perc']])
+        add_data_row(
+            [
+                "(=) Resultado do Período",
+                dre_data["resultado"],
+                dre_comp["resultado"],
+                variacoes["resultado"]["abs"],
+                variacoes["resultado"]["perc"],
+            ]
+        )
         apply_row_styles(row_cursor - 1, is_final=True)
 
-    else: # Lógica para período único
-        add_data_row(['(+) Receita Operacional Bruta', dre_data['total_receitas']])
+    else:  # Lógica para período único
+        add_data_row(["(+) Receita Operacional Bruta", dre_data["total_receitas"]])
         apply_row_styles(row_cursor - 1, is_total=True)
-        for r in dre_data['receitas_por_categoria']: add_data_row([f"+ {r['categoria__name']}", r['total_cat']], indent=1)
-        
-        add_data_row(['(-) Custos Diretos', -dre_data['total_custos']])
-        apply_row_styles(row_cursor - 1, is_total=True)
-        for c in dre_data['custos_por_categoria']: add_data_row([f"- {c['categoria__name']}", -c['total_cat']], indent=1)
+        for r in dre_data["receitas_por_categoria"]:
+            add_data_row([f"+ {r['categoria__name']}", r["total_cat"]], indent=1)
 
-        add_data_row(['(=) Lucro Bruto', dre_data['lucro_bruto']])
+        add_data_row(["(-) Custos Diretos", -dre_data["total_custos"]])
+        apply_row_styles(row_cursor - 1, is_total=True)
+        for c in dre_data["custos_por_categoria"]:
+            add_data_row([f"- {c['categoria__name']}", -c["total_cat"]], indent=1)
+
+        add_data_row(["(=) Lucro Bruto", dre_data["lucro_bruto"]])
         apply_row_styles(row_cursor - 1, is_total=True)
 
-        add_data_row(['(-) Despesas Operacionais', -dre_data['total_despesas']])
+        add_data_row(["(-) Despesas Operacionais", -dre_data["total_despesas"]])
         apply_row_styles(row_cursor - 1, is_total=True)
-        for d in dre_data['despesas_por_categoria']: add_data_row([f"- {d['categoria__name']}", -d['total_cat']], indent=1)
+        for d in dre_data["despesas_por_categoria"]:
+            add_data_row([f"- {d['categoria__name']}", -d["total_cat"]], indent=1)
 
-        add_data_row(['(=) Resultado do Período', dre_data['resultado']])
+        add_data_row(["(=) Resultado do Período", dre_data["resultado"]])
         apply_row_styles(row_cursor - 1, is_final=True)
 
     # --- Ajuste final de colunas e cores (sem alterações) ---
-    ws.column_dimensions['A'].width = 50
+    ws.column_dimensions["A"].width = 50
     for i in range(2, num_cols + 1):
         ws.column_dimensions[get_column_letter(i)].width = 20
-    
+
     if dre_comp:
         file_name = (
             f"DRE Comparativo "
@@ -1350,10 +1565,12 @@ def export_dre_xlsx(request):
             f"DRE "
             f"{start_date.strftime('%d-%m-%Y')} a {end_date.strftime('%d-%m-%Y')}.xlsx"
         )
-    
+
     # Resposta HTTP com o nome de arquivo correto e sem linhas duplicadas
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
     wb.save(response)
     return response
 
@@ -1370,7 +1587,7 @@ def export_dre_pdf(request):
     end_date = date.fromisoformat(end_date_str)
     # Renomeando 'dre_data' para 'dre_principal' para alinhar com o template
     dre_principal = get_dre_data(unidade_ativa_id, start_date, end_date)
-    
+
     dre_comp = None
     start_date_comp = None
     end_date_comp = None
@@ -1391,28 +1608,41 @@ def export_dre_pdf(request):
 
     if dre_comp:
         variacoes = {}
-        for key in ["total_receitas", "total_custos", "lucro_bruto", "total_despesas", "resultado"]:
+        for key in [
+            "total_receitas",
+            "total_custos",
+            "lucro_bruto",
+            "total_despesas",
+            "resultado",
+        ]:
             val_principal = dre_principal.get(key, Decimal("0.00"))
             val_comp = dre_comp.get(key, Decimal("0.00"))
             var_abs = val_principal - val_comp
-            var_perc = (var_abs / val_comp * 100) if val_comp != 0 else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
+            var_perc = (
+                (var_abs / val_comp * 100)
+                if val_comp != 0
+                else (Decimal("100.0") if val_principal != 0 else Decimal("0.0"))
+            )
             variacoes[key] = {"abs": var_abs, "perc": var_perc}
         context["variacoes"] = variacoes
 
         # Adicionando as listas detalhadas ao contexto (a parte que estava faltando)
         context["merged_receitas"] = merge_and_compare_categories(
-            dre_principal.get('receitas_por_categoria', []), dre_comp.get('receitas_por_categoria', [])
+            dre_principal.get("receitas_por_categoria", []),
+            dre_comp.get("receitas_por_categoria", []),
         )
         context["merged_custos"] = merge_and_compare_categories(
-            dre_principal.get('custos_por_categoria', []), dre_comp.get('custos_por_categoria', [])
+            dre_principal.get("custos_por_categoria", []),
+            dre_comp.get("custos_por_categoria", []),
         )
         context["merged_despesas"] = merge_and_compare_categories(
-            dre_principal.get('despesas_por_categoria', []), dre_comp.get('despesas_por_categoria', [])
+            dre_principal.get("despesas_por_categoria", []),
+            dre_comp.get("despesas_por_categoria", []),
         )
 
     html_string = render_to_string("finances/dre_pdf_template.html", context)
     response = HttpResponse(content_type="application/pdf")
-    
+
     def format_date_for_filename(d):
         # Converte date para dd-mm-yyyy
         return d.strftime("%d-%m-%Y")
@@ -1426,7 +1656,7 @@ def export_dre_pdf(request):
         file_name = f"DRE {format_date_for_filename(start_date)} a {format_date_for_filename(end_date)}.pdf"
 
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-    
+
     pisa_status = pisa.CreatePDF(html_string, dest=response)
     if pisa_status.err:
         return HttpResponse("Ocorreu um erro ao gerar o PDF.")
@@ -1566,27 +1796,29 @@ def _process_aging_data(queryset, date_field_name, today):
     """
     # --- CORRIGIDO: Chaves do dicionário renomeadas para serem válidas no template ---
     buckets = {
-        'a_vencer': {'min': -9999, 'max': 0,    'label': 'A Vencer'},
-        'd1_30':    {'min': 1,    'max': 30,   'label': '1-30 dias'},
-        'd31_60':   {'min': 31,   'max': 60,   'label': '31-60 dias'},
-        'd61_90':   {'min': 61,   'max': 90,   'label': '61-90 dias'},
-        'd90_plus': {'min': 91,   'max': 9999, 'label': '90+ dias'},
+        "a_vencer": {"min": -9999, "max": 0, "label": "A Vencer"},
+        "d1_30": {"min": 1, "max": 30, "label": "1-30 dias"},
+        "d31_60": {"min": 31, "max": 60, "label": "31-60 dias"},
+        "d61_90": {"min": 61, "max": 90, "label": "61-90 dias"},
+        "d90_plus": {"min": 91, "max": 9999, "label": "90+ dias"},
     }
-    
-    entity_data = defaultdict(lambda: {
-        'entity': None,
-        'total_geral': Decimal('0.00'),
-        'buckets': {key: Decimal('0.00') for key in buckets}
-    })
 
-    column_totals = {key: Decimal('0.00') for key in buckets}
-    grand_total = Decimal('0.00')
+    entity_data = defaultdict(
+        lambda: {
+            "entity": None,
+            "total_geral": Decimal("0.00"),
+            "buckets": {key: Decimal("0.00") for key in buckets},
+        }
+    )
+
+    column_totals = {key: Decimal("0.00") for key in buckets}
+    grand_total = Decimal("0.00")
 
     for item in queryset:
         days_overdue = (today - getattr(item, date_field_name)).days
-        
+
         for key, limits in buckets.items():
-            if limits['min'] <= days_overdue <= limits['max']:
+            if limits["min"] <= days_overdue <= limits["max"]:
                 bucket_key = key
                 break
         else:
@@ -1598,21 +1830,23 @@ def _process_aging_data(queryset, date_field_name, today):
         else:
             entity_id = item.descricao.lower()
             entity_name = item.descricao
-        
-        entity_data[entity_id]['entity'] = entity_name
-        entity_data[entity_id]['buckets'][bucket_key] += item.valor
-        entity_data[entity_id]['total_geral'] += item.valor
-        
+
+        entity_data[entity_id]["entity"] = entity_name
+        entity_data[entity_id]["buckets"][bucket_key] += item.valor
+        entity_data[entity_id]["total_geral"] += item.valor
+
         column_totals[bucket_key] += item.valor
         grand_total += item.valor
 
-    sorted_entities = sorted(entity_data.values(), key=lambda x: x['total_geral'], reverse=True)
+    sorted_entities = sorted(
+        entity_data.values(), key=lambda x: x["total_geral"], reverse=True
+    )
 
     return {
-        'entities': sorted_entities,
-        'column_totals': column_totals,
-        'grand_total': grand_total,
-        'bucket_labels': [b['label'] for b in buckets.values()]
+        "entities": sorted_entities,
+        "column_totals": column_totals,
+        "grand_total": grand_total,
+        "bucket_labels": [b["label"] for b in buckets.values()],
     }
 
 
@@ -1627,22 +1861,471 @@ def aging_report_view(request):
 
     # Processa Contas a Receber
     recebiveis_abertos = Receita.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status='a_receber'
-    ).select_related('aluno')
-    aging_recebiveis = _process_aging_data(recebiveis_abertos, 'data_competencia', today)
+        unidade_negocio_id=unidade_ativa_id, status="a_receber"
+    ).select_related("aluno")
+    aging_recebiveis = _process_aging_data(
+        recebiveis_abertos, "data_competencia", today
+    )
 
     # Processa Contas a Pagar
     pagaveis_abertos = Despesa.objects.filter(
-        unidade_negocio_id=unidade_ativa_id,
-        status='a_pagar'
+        unidade_negocio_id=unidade_ativa_id, status="a_pagar"
     )
-    aging_pagaveis = _process_aging_data(pagaveis_abertos, 'data_competencia', today)
+    aging_pagaveis = _process_aging_data(pagaveis_abertos, "data_competencia", today)
 
     context = {
         "aging_recebiveis": aging_recebiveis,
         "aging_pagaveis": aging_pagaveis,
         "report_date": today,
     }
+
+    return render(request, "finances/aging_report.html", context)
+
+
+@login_required
+def mensalidades_list(request):
+    MESES_PT = {
+        1: "Janeiro",
+        2: "Fevereiro",
+        3: "Março",
+        4: "Abril",
+        5: "Maio",
+        6: "Junho",
+        7: "Julho",
+        8: "Agosto",
+        9: "Setembro",
+        10: "Outubro",
+        11: "Novembro",
+        12: "Dezembro",
+    }
+
+    if request.user.tipo == "professor":
+        return redirect("scheduler:dashboard")
+
+    unidade_ativa_id = request.session.get("unidade_ativa_id")
+    if not unidade_ativa_id:
+        messages.warning(request, "Selecione uma Unidade de Negócio.")
+        return redirect("scheduler:dashboard")
+
+    hoje = timezone.localdate()
+    primeiro_dia_mes_atual = date(hoje.year, hoje.month, 1)
+
+    search_query = request.GET.get("search", "").strip()
+    status_filter = request.GET.get("status", "")
+    ano_get = request.GET.get("ano", str(hoje.year)).replace(".", "")
+    try:
+        ano = int(ano_get)
+    except ValueError:
+        ano = hoje.year
+    mes = int(request.GET.get("mes", hoje.month))
+
+    mes_extenso = MESES_PT[mes]
+    data_competencia_base = date(ano, mes, 1)
+
+    meses_list = [(i, MESES_PT[i]) for i in range(1, 13)]
+    ano_atual = timezone.localdate().year
+    anos = list(range(ano_atual - 1, ano_atual + 3))
+
+    categoria_mensalidade = get_object_or_404(
+        Category, name__iexact="Mensalidade", unidade_negocio_id=unidade_ativa_id
+    )
+
+    alunos_qs = Aluno.objects.filter(status="ativo")
+    if search_query:
+        alunos_qs = alunos_qs.filter(
+            Q(nome_completo__icontains=search_query)
+            | Q(responsavel_nome__icontains=search_query)
+            | Q(telefone__icontains=search_query)
+        )
+    alunos = alunos_qs.order_by("nome_completo")
+
+    lista = []
+
+    # --- INÍCIO ADIÇÃO DE CONTADORES ---
+    kpi_recebido = Decimal("0.00")
+    count_recebido = 0  # <--- NOVO
     
-    return render(request, 'finances/aging_report.html', context)
+    kpi_atrasado = Decimal("0.00")
+    count_atrasado = 0  # <--- NOVO
+    
+    kpi_em_aberto = Decimal("0.00")
+    count_em_aberto = 0 # <--- NOVO
+    # --- FIM ADIÇÃO DE CONTADORES ---
+
+    with transaction.atomic():
+        for aluno in alunos:
+            receita = (
+                Receita.objects.filter(
+                    unidade_negocio_id=unidade_ativa_id,
+                    categoria=categoria_mensalidade,
+                    aluno=aluno,
+                    data_competencia__year=ano,
+                    data_competencia__month=mes,
+                )
+                .select_related("transacao")
+                .first()
+            )
+
+            transacao_avulsa = None
+            if not receita:
+                transacao_avulsa = Transaction.objects.filter(
+                    unidade_negocio_id=unidade_ativa_id,
+                    student=aluno,
+                    category=categoria_mensalidade,
+                    transaction_date__year=ano,
+                    transaction_date__month=mes,
+                    receita__isnull=True,
+                ).first()
+
+            tem_valor = bool(aluno.valor_mensalidade)
+            tem_vencimento = bool(aluno.dia_vencimento)
+
+            if transacao_avulsa and not receita:
+                receita = Receita.objects.create(
+                    unidade_negocio_id=unidade_ativa_id,
+                    categoria=categoria_mensalidade,
+                    aluno=aluno,
+                    descricao=f"{aluno.nome_completo}",
+                    valor=transacao_avulsa.amount,
+                    data_competencia=data_competencia_base,
+                    status="recebido",
+                    data_recebimento=transacao_avulsa.transaction_date,
+                    transacao=transacao_avulsa,
+                )
+            elif not receita and tem_valor and tem_vencimento:
+                if data_competencia_base >= primeiro_dia_mes_atual:
+                    receita = Receita.objects.create(
+                        unidade_negocio_id=unidade_ativa_id,
+                        categoria=categoria_mensalidade,
+                        aluno=aluno,
+                        descricao=f"{aluno.nome_completo}",
+                        valor=aluno.valor_mensalidade,
+                        data_competencia=data_competencia_base,
+                        status="a_receber",
+                    )
+
+            item = {
+                "aluno": aluno,
+                "responsavel": aluno.responsavel_nome or "—",
+                "telefone": aluno.telefone,
+                "whatsapp_url": None,
+                "competencia": f"{mes:02d}/{ano}",
+                "pode_receber": False,
+            }
+
+            if not receita:
+
+                status_slug = "nao_configurado"
+                status_display = "Não configurado"
+                status_color = "secondary"
+
+                if tem_valor and tem_vencimento:
+                    status_slug = "nao_gerado"
+                    status_display = "Não gerado"
+                    status_color = "light text-muted border"
+
+                item.update(
+                    {
+                        "status": status_display,
+                        "status_slug": status_slug,
+                        "status_color": status_color,
+                        "valor": aluno.valor_mensalidade if tem_valor else "—",
+                        "vencimento": "—",
+                    }
+                )
+                lista.append(item)
+                continue
+
+            transacao = receita.transacao
+            paga = transacao is not None
+            vencimento = None
+            atrasada = False
+
+            if aluno.dia_vencimento:
+                try:
+                    vencimento = date(ano, mes, aluno.dia_vencimento)
+                except ValueError:
+                    vencimento = (date(ano, mes, 1) + timedelta(days=32)).replace(
+                        day=1
+                    ) - timedelta(days=1)
+                atrasada = (not paga) and (hoje > vencimento)
+
+            valor_real = receita.valor or Decimal("0.00")
+
+            if paga:
+                status = "Paga"
+                status_slug = "paga"
+                status_color = "success"
+                kpi_recebido += valor_real
+                count_recebido += 1 # <--- SOMA CONTADOR
+            elif atrasada:
+                status = "Atrasada"
+                status_slug = "atrasada"
+                status_color = "danger"
+                kpi_atrasado += valor_real
+                count_atrasado += 1 # <--- SOMA CONTADOR
+            else:
+                status = "Em aberto"
+                status_slug = "em_aberto"
+                status_color = "warning"
+                kpi_em_aberto += valor_real
+                count_em_aberto += 1 # <--- SOMA CONTADOR
+
+            whatsapp_url = None
+            if aluno.telefone and not paga:
+                telefone = aluno.telefone
+                responsavel = (aluno.responsavel_nome or "").strip()
+                venc_str = (
+                    f'{vencimento.strftime("%d/%m/%Y")}'
+                    if vencimento
+                    else f"{mes:02d}/{ano}"
+                )
+                aluno_nome_norm = aluno.nome_completo.strip().lower()
+                responsavel_norm = responsavel.lower()
+                if not responsavel or responsavel_norm == aluno_nome_norm:
+                    msg = f"Olá, *{aluno.nome_completo}!* 👋\n\nEstamos entrando em contato sobre a mensalidade referente a {mes_extenso}, com vencimento em *{venc_str}*."
+                else:
+                    msg = f"Olá, {responsavel}! 👋\n\nEstamos entrando em contato sobre a mensalidade do aluno {aluno.nome_completo}, referente a {mes_extenso}, com vencimento em *{venc_str}*."
+                whatsapp_url = f"https://wa.me/55{telefone}?text={quote(msg)}"
+
+            item.update(
+                {
+                    "receita_id": receita.id,
+                    "valor": valor_real,
+                    "vencimento": vencimento,
+                    "status": status,
+                    "status_slug": status_slug,
+                    "status_color": status_color,
+                    "forma_pagamento": transacao.forma_pagamento if paga else "—",
+                    "data_pagamento": transacao.transaction_date if paga else None,
+                    "pode_receber": not paga,
+                    "whatsapp_url": whatsapp_url,
+                }
+            )
+            lista.append(item)
+
+    kpi_previsto = kpi_recebido + kpi_atrasado + kpi_em_aberto
+    count_previsto = count_recebido + count_atrasado + count_em_aberto # <--- SOMA TOTAL
+
+    if status_filter:
+        lista = [i for i in lista if i["status_slug"] == status_filter]
+
+    paginator = Paginator(lista, 50)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+        "mes": mes,
+        "ano": ano,
+        "meses_list": meses_list,
+        "anos": anos,
+        "search_query": search_query,
+        "status_filter": status_filter,
+        # KPIs Valores
+        "kpi_recebido": kpi_recebido,
+        "kpi_atrasado": kpi_atrasado,
+        "kpi_em_aberto": kpi_em_aberto,
+        "kpi_previsto": kpi_previsto,
+        # KPIs Contadores (NOVOS)
+        "count_recebido": count_recebido,
+        "count_atrasado": count_atrasado,
+        "count_em_aberto": count_em_aberto,
+        "count_previsto": count_previsto,
+    }
+
+    return render(request, "finances/mensalidades_list.html", context)
+
+
+def mensalidade_receber(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Método inválido"}, status=405)
+
+    if request.user.tipo == "professor":
+        return JsonResponse({"error": "Sem permissão"}, status=403)
+
+    unidade_id = request.session.get("unidade_ativa_id")
+    if not unidade_id:
+        return JsonResponse({"error": "Unidade não definida"}, status=400)
+
+    receita_id = request.POST.get("receita_id")
+    data_pagamento = request.POST.get("data_pagamento")
+    forma = request.POST.get("forma_pagamento")
+
+    receita = get_object_or_404(
+        Receita,
+        id=receita_id,
+        unidade_negocio_id=unidade_id,
+    )
+
+    # Receita já paga
+    if receita.transacao is not None:
+        return JsonResponse({"error": "Mensalidade já paga"}, status=400)
+
+    with transaction.atomic():
+        nova_transacao = Transaction.objects.create(
+            unidade_negocio_id=unidade_id,
+            description=f"Recebimento Mensalidade: {receita.descricao}",
+            amount=receita.valor,
+            category=receita.categoria,
+            transaction_date=data_pagamento or timezone.localdate(),
+            forma_pagamento=forma,
+            student=receita.aluno,
+            created_by=request.user,
+        )
+
+        receita.transacao = nova_transacao
+        receita.status = "recebido"
+        receita.data_recebimento = nova_transacao.transaction_date
+        receita.save()
+
+    return JsonResponse({"success": True})
+
+
+@login_required
+def configurar_aluno_modal(request, pk):
+    aluno = get_object_or_404(Aluno, pk=pk)
+
+    if request.method == "POST":
+        form = AlunoFinanceiroForm(request.POST, instance=aluno)
+        if form.is_valid():
+            form.save()
+            return JsonResponse(
+                {"status": "success", "message": "Configuração atualizada!"}
+            )
+        else:
+            html = render_to_string(
+                "finances/partials/_form_config_aluno.html",
+                {"form": form, "aluno": aluno},
+                request=request,
+            )
+            return JsonResponse({"status": "error", "html": html})
+
+    form = AlunoFinanceiroForm(instance=aluno)
+    html = render_to_string(
+        "finances/partials/_form_config_aluno.html",
+        {"form": form, "aluno": aluno},
+        request=request,
+    )
+    return HttpResponse(html)
+
+
+def link_callback(uri, rel):
+    """
+    Converte URIs HTML em caminhos absolutos do sistema para o xhtml2pdf.
+    Versão robusta para Windows/Django 4+.
+    """
+    sUrl = settings.STATIC_URL  # ex: /static/
+    sRoot = settings.STATIC_ROOT  # ex: /var/www/static/
+    mUrl = settings.MEDIA_URL  # ex: /media/
+    mRoot = settings.MEDIA_ROOT  # ex: /var/www/media/
+
+    # 1. Verifica se é MEDIA (Uploads)
+    if uri.startswith(mUrl):
+        path = os.path.join(mRoot, uri.replace(mUrl, ""))
+
+    # 2. Verifica se é STATIC (Assets)
+    elif uri.startswith(sUrl):
+        path_rel = uri.replace(sUrl, "")
+
+        # A) Tenta encontrar no STATIC_ROOT (Produção/Coletado)
+        if sRoot:
+            path = os.path.join(sRoot, path_rel)
+            if os.path.isfile(path):
+                return path
+
+        # B) Tenta encontrar nos STATICFILES_DIRS (Desenvolvimento customizado)
+        # settings.STATICFILES_DIRS pode ser uma lista de strings ou tuplas
+        for directory in settings.STATICFILES_DIRS:
+            if isinstance(directory, (tuple, list)):
+                directory = directory[1]  # Pega o caminho real da tupla
+
+            path_temp = os.path.join(directory, path_rel)
+            if os.path.isfile(path_temp):
+                return path_temp
+
+        # C) Tenta usar o finders do Django (App Directories)
+        # Envolvemos em try/except para evitar o SuspiciousFileOperation no Windows
+        try:
+            result = finders.find(path_rel)
+            if result:
+                if isinstance(result, (list, tuple)):
+                    result = result[0]
+                return result
+        except Exception:
+            pass
+
+        # D) Fallback final: Tenta montar relativo ao BASE_DIR se nada funcionar
+        # Útil se a imagem estiver dentro de um app específico não coletado
+        fallback_path = os.path.join(settings.BASE_DIR, "scheduler", "static", path_rel)
+        if os.path.isfile(fallback_path):
+            return fallback_path
+
+        return uri  # Retorna original se não achar nada
+
+    else:
+        return uri
+
+    # Garante que retorna o caminho apenas se existir
+    if not os.path.isfile(path):
+        return uri
+
+    return path
+
+
+@login_required
+def gerar_recibo_pdf(request, pk):
+    unidade_id = request.session.get("unidade_ativa_id")
+    receita = get_object_or_404(Receita, pk=pk, unidade_negocio_id=unidade_id)
+
+    if not receita.transacao:
+        messages.error(request, "Apenas mensalidades pagas podem gerar recibo.")
+        return redirect("finances:mensalidades_list")
+
+    # --- LÓGICA PARA CARREGAR A IMAGEM EM BASE64 ---
+    # Caminho absoluto do arquivo no disco
+    # Ajuste o caminho se sua pasta 'static' estiver em outro lugar
+    logo_path = os.path.join(
+        settings.BASE_DIR,
+        "scheduler",
+        "static",
+        "scheduler",
+        "img",
+        "logo_relatorio.png",
+    )
+
+    logo_data = None
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as image_file:
+            # Lê o arquivo e converte para string base64
+            logo_data = base64.b64encode(image_file.read()).decode("utf-8")
+    else:
+        print(f"ERRO: Logo não encontrado no caminho: {logo_path}")
+
+    template_path = "finances/pdf/recibo_pagamento.html"
+
+    context = {
+        "receita": receita,
+        "aluno": receita.aluno,
+        "transacao": receita.transacao,
+        "unidade": receita.unidade_negocio,
+        "usuario_logado": request.user,
+        "data_emissao": timezone.now(),
+        # Passamos a imagem convertida
+        "logo_base64": logo_data,
+    }
+
+    response = HttpResponse(content_type="application/pdf")
+    filename = f"Recibo_{receita.aluno.nome_completo}_{receita.id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+
+    template = get_template(template_path)
+    html = template.render(context)
+
+    # Não precisamos mais do link_callback complexo para a imagem principal
+    pisa_status = pisa.CreatePDF(html, dest=response)
+
+    if pisa_status.err:
+        return HttpResponse("Erro ao gerar PDF <pre>" + html + "</pre>")
+
+    return response

@@ -257,6 +257,9 @@
     </div>
 </div>
 
+{% if user.tipo in 'admin' %}
+    {% include "finances/partials/_modal_detalhes_mensalidade.html" %}
+{% endif %}
 
 {% endblock %}
 

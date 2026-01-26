@@ -1,0 +1,237 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo de Pagamento</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm; /* Margem reduzida para caber tudo */
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            color: #333;
+            line-height: 1.2; /* Linhas um pouco mais compactas */
+        }
+        
+        /* --- ESTILO DO CABEÇALHO --- */
+        .header-table {
+            width: 100%;
+            margin-bottom: 10px; /* Reduzido de 20px */
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .header-logo-img {
+            width: 70px; /* Levemente menor */
+            height: auto;
+        }
+        .header-text {
+            vertical-align: middle;
+            padding-left: 10px;
+        }
+        .header-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #222;
+            text-transform: uppercase;
+        }
+        .header-subtitle {
+            font-size: 9pt;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        /* --- ESTRUTURA TIPO NOTA FISCAL --- */
+        table.content-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px; /* Reduzido de 10px */
+        }
+        td.box {
+            border: 1px solid #444;
+            padding: 4px; /* Padding interno reduzido */
+            vertical-align: top;
+        }
+        .section-header {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 9px;
+            padding: 3px 5px;
+            border: 1px solid #444;
+            border-bottom: none; 
+            margin-top: 8px; /* Reduzido de 10px */
+            text-transform: uppercase;
+        }
+        
+        .label {
+            font-size: 7px;
+            font-weight: bold;
+            color: #555;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 1px;
+        }
+        .value {
+            font-size: 10px;
+            font-weight: normal;
+            color: #000;
+        }
+        .value-bold {
+            font-size: 11px;
+            font-weight: bold;
+            color: #000;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+
+        /* Destaque de Valor */
+        .total-box {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <table class="header-table">
+        <tr>
+            <td width="15%" style="vertical-align: middle;">
+                {% if logo_base64 %}
+                    <img src="data:image/png;base64,{{ logo_base64 }}" class="header-logo-img">
+                {% else %}
+                    <div style="font-size: 30px; font-weight: bold;">♫</div>
+                {% endif %}
+            </td>
+            <td class="header-text">
+                <div class="header-title">{{ unidade.nome_fantasia|default:"Studio Eliack Batucada" }}</div>
+                <div class="header-subtitle">
+                    RECIBO DE PAGAMENTO Nº {{ receita.id }}/{{ data_emissao|date:"Y" }}
+                </div>
+            </td>
+            <td width="25%" style="vertical-align: middle; text-align: right;">
+                <div class="label">EMISSÃO</div>
+                <div class="value">{{ data_emissao|date:"d/m/Y H:i" }}</div>
+                <br>
+                <div class="label">COMPETÊNCIA</div>
+                <div class="value-bold">{{ receita.data_competencia|date:"F/Y"|upper }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-header">Prestador de Serviços</div>
+    <table class="content-table">
+        <tr>
+            <td class="box">
+                <div class="label">RAZÃO SOCIAL / NOME</div>
+                <div class="value-bold">ELIACK DA SILVA SOUZA</div>
+                <br>
+                <table width="100%">
+                    <tr>
+                        <td width="50%" style="border:none; padding:0;">
+                            <div class="label">CNPJ</div>
+                            <div class="value">32.395.489/0001-34</div>
+                        </td>
+                        <td width="50%" style="border:none; padding:0;">
+                            <div class="label">TELEFONE</div>
+                            <div class="value">(73) 99936-0890</div>
+                        </td>
+                    </tr>
+                </table>
+                <br>
+                <div class="label">ENDEREÇO</div>
+                <div class="value">RUA HEITOR CONI, Nº 10, BAIRRO KAIKAN SUL – TEIXEIRA DE FREITAS/BA</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-header">Tomador de Serviços (Aluno)</div>
+    <table class="content-table">
+        <tr>
+            <td class="box">
+                <table width="100%">
+                    <tr>
+                        <td width="70%" style="border:none; padding:0;">
+                            <div class="label">NOME DO ALUNO</div>
+                            <div class="value-bold">{{ aluno.nome_completo|upper }}</div>
+                            {% if aluno.responsavel_nome %}
+                                <div style="font-size: 8px; color: #666; margin-top: 2px;">
+                                    RESPONSÁVEL: {{ aluno.responsavel_nome|upper }}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td width="30%" style="border:none; padding:0;">
+                            <div class="label">TELEFONE</div>
+                            <div class="value">{{ aluno.telefone|default:"--" }}</div>
+                        </td>
+                    </tr>
+                </table>
+                <br>
+                <div class="label">ENDEREÇO</div>
+                <div class="value">{{ aluno.endereco|default:"Endereço não informado"|upper }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-header">Discriminação dos Serviços</div>
+    <table class="content-table" style="height: 140px;">
+        <tr>
+            <td class="box" style="vertical-align: top; padding: 10px;">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px;">
+                    REFERENTE: {{ receita.descricao|upper }}
+                </div>
+                
+                <div style="font-size: 10px; line-height: 1.5; color: #333;">
+                    • Mensalidade Escolar - Competência {{ receita.data_competencia|date:"m/Y" }}<br>
+                    • Forma de Pagamento: <strong>{{ transacao.forma_pagamento|default:"Não Inf."|upper }}</strong><br>
+                    • Data da Quitação: <strong>{{ transacao.transaction_date|date:"d/m/Y" }}</strong><br>
+                    • Código de Controle: {{ receita.id }}{{ transacao.id }}STD
+                </div>
+
+                <br><br>
+                <div style="text-align: center; color: #777; font-size: 8px; border-top: 1px dashed #ccc; width: 80%; margin: 0 auto; padding-top: 5px;">
+                    Este documento comprova o pagamento dos serviços educacionais acima descritos.<br>
+                    Não possui valor de Nota Fiscal Tributária para fins de recolhimento de impostos.
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-header">Valores</div>
+    <table class="content-table">
+        <tr>
+            <td class="box text-center" width="25%">
+                <div class="label">VALOR BRUTO</div>
+                <div class="value">R$ {{ receita.valor|floatformat:2|intcomma }}</div>
+            </td>
+            <td class="box text-center" width="25%">
+                <div class="label">DESCONTOS</div>
+                <div class="value">R$ 0,00</div>
+            </td>
+            <td class="box text-center" width="25%">
+                <div class="label">MULTA/JUROS</div>
+                <div class="value">R$ 0,00</div>
+            </td>
+            <td class="box text-center total-box" width="25%">
+                <div class="label">VALOR PAGO</div>
+                <div class="value-bold" style="font-size: 13px;">R$ {{ receita.valor|floatformat:2|intcomma }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 20px; border-top: 1px solid #333; padding-top: 5px; font-size: 8px; color: #555;">
+        <table width="100%">
+            <tr>
+                <td style="border:none;">
+                    <strong>STUDIO BATUCADA</strong><br>
+                    Batucada Gestão
+                </td>
+                <td style="border:none; text-align: right;">
+                    Autenticação: {{ transacao.transaction_date|date:"Ymd" }}.{{ receita.id }}.{{ aluno.id }}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</body>
+</html>

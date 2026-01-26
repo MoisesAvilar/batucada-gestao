@@ -1,0 +1,84 @@
+<div class="modal fade" id="modalDetalhesMensalidade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      
+      <div class="modal-header border-bottom-0 pb-0">
+        <h5 class="modal-title fw-bold">Detalhes da Mensalidade</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-2">
+        
+        <div class="text-center mb-4 mt-2">
+            <div class="mb-2">
+                <span id="det-status-badge" class="badge-soft"></span>
+            </div>
+            <h4 id="det-aluno-nome" class="fw-bold mb-0 text-primary"></h4>
+            <small class="text-muted">Referência: <span id="det-competencia"></span></small>
+            <div class="mt-1">
+                <a href="#" id="det-aluno-url" class="text-decoration-none small" target="_blank">
+                    Ver perfil do aluno <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-6">
+                <div class="info-box text-center">
+                    <div class="info-label">Valor</div>
+                    <div class="info-value info-value-lg text-success" id="det-valor-text"></div>
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <div class="info-box text-center">
+                    <div class="info-label">Vencimento</div>
+                    <div class="info-value" id="det-vencimento-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-4 opacity-10">
+
+        <div id="det-pagamento-pago" class="d-none animate__animated animate__fadeIn">
+            <h6 class="fw-bold mb-3"><i class="bi bi-check-circle-fill text-success me-2"></i>Dados do Pagamento</h6>
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="p-2 border rounded bg-body-tertiary">
+                        <small class="text-muted d-block">Data</small>
+                        <strong id="det-data-pagamento-text"></strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2 border rounded bg-body-tertiary">
+                        <small class="text-muted d-block">Forma</small>
+                        <strong id="det-forma-pagamento-text"></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="det-pagamento-nao-pago" class="alert alert-warning border-0 bg-warning-subtle text-warning-emphasis d-flex align-items-center d-none" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+            <div>
+                <strong>Pagamento Pendente</strong><br>
+                Esta mensalidade ainda não foi quitada.
+            </div>
+        </div>
+
+        <div id="det-nao-configurado" class="alert alert-secondary border-0 d-flex align-items-center d-none" role="alert">
+            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+            <div>
+                <strong>Não Configurado</strong><br>
+                Aluno sem valor ou dia de vencimento definidos.
+            </div>
+        </div>
+
+      </div>
+      
+      <div class="modal-footer border-top-0">
+        <button type="button" class="btn btn-light w-100 fw-bold" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

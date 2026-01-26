@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 from decimal import Decimal
 
@@ -101,6 +102,9 @@ class Aluno(models.Model):
 
         # Se nenhuma das condições acima for atendida, o pagamento está em aberto mas não próximo do vencimento
         return {"status": "Aguardando Pag.", "cor": "info"}
+    
+    def get_absolute_url(self):
+        return reverse("scheduler:detalhe_aluno", kwargs={"pk": self.pk})
 
     def __str__(self):
         return self.nome_completo

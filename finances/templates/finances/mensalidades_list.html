@@ -1,0 +1,402 @@
+{% extends "scheduler/base.html" %}
+{% load static humanize lead_extras %}
+
+{% block content %}
+
+<style>
+  /* --- 1. Estilos KPI --- */
+  .kpi-card {
+      background-color: var(--bs-tertiary-bg);
+      border: 1px solid var(--bs-border-color-translucent);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      height: 100%;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex; 
+      flex-direction: column;
+      justify-content: center;
+  }
+  .kpi-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--bs-box-shadow);
+  }
+  .kpi-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--bs-emphasis-color);
+  }
+  .kpi-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--bs-secondary-color);
+      text-transform: uppercase;
+  }
+  a.text-decoration-none .kpi-card { color: inherit; }
+
+  /* --- 2. Container Geral --- */
+  .card-dashboard {
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.05);
+    padding: 0;
+    /* overflow: hidden;  <-- REMOVIDO para não quebrar o sticky */
+  }
+
+  /* --- 3. Badges --- */
+  .badge-soft { 
+      padding: 0.55em 0.9em; 
+      font-weight: 700; 
+      border-radius: 6px; 
+      font-size: 0.75rem;
+      letter-spacing: 0.3px;
+  }
+  .badge-soft-success { background-color: #d1e7dd; color: #0a3622; border: 1px solid #a3cfbb; }
+  .badge-soft-warning { background-color: #fff3cd; color: #664d03; border: 1px solid #ffe69c; }
+  .badge-soft-danger { background-color: #f8d7da; color: #58151c; border: 1px solid #f1aeb5; }
+  .badge-soft-secondary { background-color: #e2e3e5; color: #2b2f32; border: 1px solid #d3d6d8; }
+  .badge-soft-light { background-color: #f8f9fa; color: #495057; border: 1px solid #dee2e6; }
+
+  /* --- 4. Tabela Geral --- */
+  .table-modern { --bs-table-bg: transparent; margin-bottom: 0; }
+  
+  .table-modern tbody td {
+    padding: 1rem 1.5rem; vertical-align: middle; font-size: 0.95rem;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+  }
+  .table-modern tbody tr:last-child td { border-bottom: none; }
+  .table-modern tbody tr:hover td { background-color: rgba(var(--bs-primary-rgb), 0.02); }
+
+  /* Avatar */
+  .avatar-circle {
+      width: 42px; height: 42px; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; background-color: var(--bs-primary-bg-subtle);
+      color: var(--bs-primary); font-weight: 700; flex-shrink: 0;
+  }
+
+  /* ==============================================
+   AJUSTES ESPECÍFICOS PARA DESKTOP (STICKY HEADER)
+   ==============================================
+  */
+  @media (min-width: 992px) {
+      /* Libera o overflow para permitir que o sticky funcione em relação à janela */
+      .card-dashboard {
+          overflow: visible !important;
+      }
+      
+      /* IMPORTANTE: Desabilita a rolagem horizontal do container da tabela no desktop.
+         Sem isso, o cabeçalho fica preso dentro da div e não acompanha a rolagem da página. */
+      .table-responsive {
+          overflow: visible !important;
+      }
+
+      /* Estilo do Cabeçalho Fixo */
+      .table-modern thead th {
+        font-weight: 600; 
+        text-transform: uppercase; 
+        font-size: 0.75rem;
+        color: var(--bs-secondary-color); 
+        border-bottom: 1px solid var(--bs-border-color);
+        padding: 1rem 1.5rem; 
+        background-color: var(--bs-tertiary-bg); /* Cor de fundo opaca é essencial */
+        
+        position: sticky;
+        top: 0; 
+        z-index: 1020; /* Garante que fique acima do conteúdo */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* Sombra suave para destacar */
+      }
+  }
+
+  /* --- 5. Responsividade Mobile --- */
+  @media (max-width: 992px) {
+    .table-modern thead { display: none; }
+    .table-modern tbody, .table-modern tr, .table-modern td { display: block; width: 100%; }
+    
+    .table-modern tbody tr {
+      background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); 
+      border-radius: 12px; margin-bottom: 1rem; position: relative; overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .table-modern tbody td:first-child {
+      background-color: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color-translucent); padding: 1rem;
+    }
+    .table-modern tbody td:not(:first-child):not(:last-child) {
+      padding: 0.5rem 1rem; border: none; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;
+    }
+    
+    .table-modern tbody td:nth-child(2)::before { content: "Vencimento"; color: var(--bs-secondary); font-weight: 600; font-size: 0.8rem; }
+    .table-modern tbody td:nth-child(3)::before { content: "Valor"; color: var(--bs-secondary); font-weight: 600; font-size: 0.8rem; }
+    .table-modern tbody td:nth-child(4)::before { content: "Status"; color: var(--bs-secondary); font-weight: 600; font-size: 0.8rem; }
+
+    .table-modern tbody td:last-child {
+      padding: 1rem; border-top: 1px dashed var(--bs-border-color); margin-top: 0.5rem; background-color: var(--bs-body-bg);
+    }
+
+    .mobile-actions {
+        display: grid;
+        grid-template-columns: 1fr auto; 
+        gap: 0.5rem;
+    }
+    .mobile-actions .btn-main { grid-column: 1; }
+  }
+</style>
+
+<div class="container-fluid px-0">
+  {% include "finances/partials/_mensalidades_kpi.html" %}
+  {% include "finances/partials/_mensalidades_filters.html" %}
+  
+  <div class="card-dashboard mb-5">
+    
+    <div class="table-responsive">
+      <table class="table table-modern mb-0">
+        <thead>
+          <tr>
+            <th style="width: 35%;">Aluno / Responsável</th>
+            <th style="width: 15%;">Vencimento</th>
+            <th style="width: 15%;">Valor</th>
+            <th style="width: 15%;">Status</th>
+            <th style="width: 20%;" class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+            {% for m in page_obj %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center">
+                   <div class="avatar-circle me-3">
+                      {{ m.aluno.nome_completo.0 }}
+                   </div>
+                   <div>
+                      <a href="{% url 'scheduler:aluno_detalhe' m.aluno.pk %}" class="fw-bold text-decoration-none text-body d-block text-truncate" style="max-width: 200px;">
+                          {{ m.aluno.nome_completo.title }}
+                      </a>
+                      
+                      {% if m.aluno.responsavel_nome and m.aluno.responsavel_nome|lower != m.aluno.nome_completo|lower %}
+                          <div class="small text-muted d-flex align-items-center">
+                              <i class="bi bi-person-heart me-1" style="font-size: 0.7rem;"></i> 
+                              {{ m.aluno.responsavel_nome.title }}
+                          </div>
+                      {% endif %}
+
+                      {% if m.aluno.telefone %}
+                          <div class="mt-1" style="font-size: 0.85rem;">
+                              {{ m.aluno.telefone|format_contact:m.whatsapp_url }}
+                          </div>
+                      {% endif %}
+                   </div>
+                </div>
+              </td>
+
+              <td class="text-secondary font-monospace">
+                  {{ m.vencimento|default:"—"|date:"d/m/Y" }}
+              </td>
+
+              <td class="fw-bold text-body-emphasis">
+                  {% if m.valor != "—" %}R$ {{ m.valor|floatformat:2|intcomma }}{% else %}—{% endif %}
+              </td>
+
+              <td>
+                {% if m.status_color == 'light text-muted border' %}
+                   <span class="badge badge-soft-light w-100 w-lg-auto d-inline-block text-center">Não gerado</span>
+                {% else %}
+                   <span class="badge badge-soft-{{ m.status_color }} w-100 w-lg-auto d-inline-block text-center">{{ m.status }}</span>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                 <div class="mobile-actions d-md-flex justify-content-end gap-2">
+                     
+                     <div class="btn-main w-100 w-md-auto">
+                         {% if m.status == "Não gerado" %}
+                            <span class="text-muted small fst-italic d-none d-lg-block">Sem registro</span>
+                            <button class="btn btn-sm btn-light disabled w-100 d-lg-none">Sem registro</button>
+                         
+                         {% elif m.pode_receber %}
+                            <button class="btn btn-primary btn-sm w-100 btn-receber shadow-sm fw-bold" 
+                                    data-id="{{ m.receita_id|stringformat:'d' }}" 
+                                    data-aluno="{{ m.aluno.nome_completo }}" 
+                                    data-valor="{{ m.valor }}" 
+                                    data-vencimento="{{ m.vencimento|date:'d/m/Y' }}">
+                                <i class="bi bi-wallet2 me-1"></i> Receber
+                            </button>
+                         
+                         {% else %}
+                            {% if m.status == 'Não configurado' %}
+                                <button class="btn btn-outline-primary btn-sm w-100 btn-configurar" 
+                                        data-url="{% url 'finances:configurar_aluno_modal' m.aluno.id %}">
+                                    <i class="bi bi-gear-fill me-1"></i> Configurar
+                                </button>
+                            {% else %}
+                                <button class="btn btn-light border btn-sm w-100" onclick="abrirModalDetalhes(this)" 
+                                        data-aluno="{{ m.aluno.nome_completo }}" 
+                                        data-aluno-url="{% url 'scheduler:aluno_detalhe' m.aluno.pk %}" 
+                                        data-competencia="{{ m.competencia }}" 
+                                        data-valor="{{ m.valor }}" 
+                                        data-vencimento="{{ m.vencimento|date:'d/m/Y' }}" 
+                                        data-status="{{ m.status }}" 
+                                        data-status-color="{{ m.status_color }}" 
+                                        data-forma="{{ m.forma_pagamento|default:'—' }}" 
+                                        data-data-pagamento="{{ m.data_pagamento|date:'d/m/Y'|default:'—' }}">
+                                    Detalhes
+                                </button>
+                            {% endif %}
+                         {% endif %}
+                     </div>
+
+                     {% if m.status == "Paga" %}
+                     <a href="{% url 'finances:gerar_recibo_pdf' m.receita_id %}" target="_blank" class="btn btn-sm btn-outline-secondary border-0" title="Imprimir Recibo">
+                        <i class="bi bi-printer"></i>
+                     </a>
+                     {% endif %}
+                     
+                     </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center py-5">
+                    <div class="py-4">
+                        <i class="bi bi-search display-4 text-muted opacity-25 mb-3 d-block"></i>
+                        <h6 class="text-muted fw-normal">Nenhum aluno encontrado para este filtro.</h6>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-body-tertiary border-top py-3">
+        <nav>
+            <ul class="pagination justify-content-center mb-0 pagination-sm">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link border-0 text-primary" href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&status={{ status_filter }}&mes={{ mes }}&ano={{ ano|stringformat:'d' }}"><i class="bi bi-chevron-left me-1"></i>Anterior</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link border-0 text-dark fw-bold">Página {{ page_obj.number }}</span></li>
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link border-0 text-primary" href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&status={{ status_filter }}&mes={{ mes }}&ano={{ ano|stringformat:'d' }}">Próxima<i class="bi bi-chevron-right ms-1"></i></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% include "finances/partials/_modal_receber.html" %}
+{% include "finances/partials/_modal_detalhes_mensalidade.html" %}
+
+<div class="modal fade" id="modalConfigAluno" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" id="modalConfigAlunoContent"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // === 1. MODAL RECEBER ===
+  const modalReceberEl = document.getElementById("modalReceber");
+  const modalReceber = modalReceberEl ? new bootstrap.Modal(modalReceberEl) : null;
+  
+  if (modalReceberEl) {
+    modalReceberEl.addEventListener('shown.bs.modal', () => {
+        const inputValor = document.getElementById('valor');
+        if (inputValor) { inputValor.focus(); inputValor.select(); }
+    });
+  }
+
+  document.querySelectorAll(".btn-receber").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.getElementById("receita_id").value = btn.dataset.id;
+      document.getElementById("aluno_nome").innerText = btn.dataset.aluno;
+      document.getElementById("valor").value = "R$ " + btn.dataset.valor; 
+      document.getElementById("dia_vencimento").innerText = btn.dataset.vencimento;
+      modalReceber.show();
+    });
+  });
+
+  const formReceber = document.getElementById("formReceber");
+  if (formReceber) {
+    formReceber.addEventListener("submit", e => {
+      e.preventDefault();
+      fetch("{% url 'finances:mensalidade_receber' %}", {
+        method: "POST", headers: { "X-CSRFToken": "{{ csrf_token }}" }, body: new FormData(formReceber)
+      }).then(r => r.json()).then(data => {
+        if (data.success) location.reload(); else alert(data.error || "Erro ao registrar pagamento");
+      });
+    });
+  }
+
+  // === 2. MODAL CONFIGURAR ===
+  const modalConfigEl = document.getElementById('modalConfigAluno');
+  if (modalConfigEl) {
+      const modalConfigContent = document.getElementById('modalConfigAlunoContent');
+      const modalConfig = new bootstrap.Modal(modalConfigEl);
+      document.body.addEventListener('click', function(e) {
+          const btn = e.target.closest('.btn-configurar');
+          if (btn) {
+              const url = btn.dataset.url;
+              modalConfig.show();
+              modalConfigContent.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Carregando...</p></div>`;
+              fetch(url).then(r => r.text()).then(html => { modalConfigContent.innerHTML = html; bindConfigSubmit(); });
+          }
+      });
+      function bindConfigSubmit() {
+          const formConfig = document.getElementById('formConfigAluno');
+          if (formConfig) {
+              formConfig.addEventListener('submit', function(e) {
+                  e.preventDefault();
+                  const btnSubmit = formConfig.querySelector('button[type="submit"]');
+                  btnSubmit.disabled = true; btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+                  fetch(formConfig.action, { method: 'POST', body: new FormData(formConfig), headers: {'X-Requested-With': 'XMLHttpRequest'} })
+                  .then(r => r.json()).then(data => { if (data.status === 'success') location.reload(); else { modalConfigContent.innerHTML = data.html; bindConfigSubmit(); } });
+              });
+          }
+      }
+  }
+});
+
+// === 3. MODAL DETALHES ===
+function abrirModalDetalhes(btn) {
+  const modalEl = document.getElementById("modalDetalhesMensalidade");
+  const modal = new bootstrap.Modal(modalEl);
+  document.getElementById("det-aluno-nome").innerText = btn.dataset.aluno;
+  document.getElementById("det-aluno-url").href = btn.dataset.alunoUrl;
+  document.getElementById("det-competencia").innerText = btn.dataset.competencia;
+  
+  const badge = document.getElementById("det-status-badge");
+  badge.innerText = btn.dataset.status;
+  let colorClass = btn.dataset.statusColor;
+  if (colorClass.includes('text-muted')) badge.className = "badge-soft badge-soft-light border";
+  else badge.className = "badge-soft badge-soft-" + colorClass;
+
+  let valor = btn.dataset.valor;
+  if (valor && valor !== "—" && !valor.includes("R$")) valor = "R$ " + valor;
+  document.getElementById("det-valor-text").innerText = valor;
+  document.getElementById("det-vencimento-text").innerText = btn.dataset.vencimento || "—";
+
+  const divPago = document.getElementById("det-pagamento-pago");
+  const alertNaoPago = document.getElementById("det-pagamento-nao-pago");
+  const alertNaoConfig = document.getElementById("det-nao-configurado");
+  divPago.classList.add("d-none"); alertNaoPago.classList.add("d-none"); alertNaoConfig.classList.add("d-none");
+
+  const status = btn.dataset.status;
+  if (status === "Paga") {
+      divPago.classList.remove("d-none");
+      document.getElementById("det-data-pagamento-text").innerText = btn.dataset.dataPagamento;
+      let forma = btn.dataset.forma || "";
+      if(forma === 'pix') forma = 'PIX'; else if(forma === 'cartao') forma = 'Cartão'; else if(forma === 'dinheiro') forma = 'Dinheiro';
+      else if(forma.length > 0) forma = forma.charAt(0).toUpperCase() + forma.slice(1);
+      document.getElementById("det-forma-pagamento-text").innerText = forma;
+  } else if (status === "Não configurado") {
+      alertNaoConfig.classList.remove("d-none");
+  } else if (status !== "Não gerado") {
+      alertNaoPago.classList.remove("d-none");
+  }
+  modal.show();
+}
+</script>
+{% endblock %}

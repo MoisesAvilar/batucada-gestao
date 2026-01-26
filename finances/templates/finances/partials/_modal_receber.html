@@ -1,0 +1,59 @@
+<div class="modal fade" id="modalReceber" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered"> 
+    <div class="modal-content border-0 shadow-lg">
+      
+      <form id="formReceber">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fw-bold fs-6 text-uppercase text-muted ls-1">Registrar Pagamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body pt-2">
+          <input type="hidden" name="receita_id" id="receita_id">
+
+          <div class="text-center mb-4">
+            <h5 id="aluno_nome" class="fw-bold text-dark mb-1"></h5>
+            <span class="badge bg-light text-secondary border">
+              Vencimento: <span id="dia_vencimento"></span>
+            </span>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-muted text-uppercase mb-1">Valor a Receber</label>
+            <div class="input-group input-group-lg shadow-sm">
+                <input type="text" id="valor" name="valor" 
+                       class="form-control border-0 bg-success-subtle text-success fw-bold text-center" 
+                       placeholder="0,00">
+            </div>
+          </div>
+
+          <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1">Forma de Pagamento</label>
+                <select name="forma_pagamento" class="form-select border-0 bg-body-tertiary shadow-sm" required>
+                  <option value="" selected disabled>Selecione...</option>
+                  <option value="pix">PIX</option>
+                  <option value="cartao">Cartão</option>
+                  <option value="especie">Dinheiro</option>
+                  <option value="transferencia">Transferência</option>
+                  <option value="boleto">Boleto</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small fw-bold text-muted text-uppercase mb-1">Data do Pagamento</label>
+                <input type="date" name="data_pagamento" class="form-control border-0 bg-body-tertiary shadow-sm"
+                       value="{% now 'Y-m-d' %}">
+              </div>
+          </div>
+        </div>
+
+        <div class="modal-footer border-top-0 p-3 pt-0">
+          <button type="submit" class="btn btn-primary w-100 btn-lg shadow fw-bold">
+            <i class="bi bi-check-lg me-2"></i> Confirmar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

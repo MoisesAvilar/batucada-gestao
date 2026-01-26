@@ -1,0 +1,71 @@
+{% load humanize %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=&mes={{ mes }}&ano={{ ano|stringformat:'d' }}&search={{ search_query }}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-primary">Previsão Total</div>
+                        <div class="kpi-value">R$ {{ kpi_previsto|floatformat:2|intcomma }}</div>
+                        <div class="small text-primary opacity-75 fw-semibold mt-1">
+                            <i class="bi bi-people me-1"></i> {{ count_previsto }} mensalidades
+                        </div>
+                    </div>
+                    <i class="bi bi-calendar-check fs-2 text-primary opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=paga&mes={{ mes }}&ano={{ ano|stringformat:'d' }}&search={{ search_query }}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-success">Recebido</div>
+                        <div class="kpi-value">R$ {{ kpi_recebido|floatformat:2|intcomma }}</div>
+                        <div class="small text-success opacity-75 fw-semibold mt-1">
+                            <i class="bi bi-check-all me-1"></i> {{ count_recebido }} pagas
+                        </div>
+                    </div>
+                    <i class="bi bi-check2-circle fs-2 text-success opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=em_aberto&mes={{ mes }}&ano={{ ano|stringformat:'d' }}&search={{ search_query }}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-warning">Em Aberto</div>
+                        <div class="kpi-value">R$ {{ kpi_em_aberto|floatformat:2|intcomma }}</div>
+                        <div class="small text-warning opacity-75 fw-semibold mt-1">
+                            <i class="bi bi-hourglass me-1"></i> {{ count_em_aberto }} pendentes
+                        </div>
+                    </div>
+                    <i class="bi bi-hourglass-split fs-2 text-warning opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-xl-3">
+        <a href="?status=atrasada&mes={{ mes }}&ano={{ ano|stringformat:'d' }}&search={{ search_query }}" class="text-decoration-none">
+            <div class="kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label text-danger">Em Atraso</div>
+                        <div class="kpi-value">R$ {{ kpi_atrasado|floatformat:2|intcomma }}</div>
+                        <div class="small text-danger opacity-75 fw-semibold mt-1">
+                            <i class="bi bi-exclamation-circle me-1"></i> {{ count_atrasado }} atrasadas
+                        </div>
+                    </div>
+                    <i class="bi bi-exclamation-circle fs-2 text-danger opacity-50"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
