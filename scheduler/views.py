@@ -30,7 +30,7 @@ from .models import (
     ItemRudimento,
     TourVisto,
 )
-from finances.models import ReceitaRecorrente, Category
+from finances.models import ReceitaRecorrente, Category, Receita, Transaction
 from django.utils import timezone
 
 # --- IMPORTS ATUALIZADOS ---
@@ -62,6 +62,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 from django.http import JsonResponse, HttpResponse
 from django.template.loader import render_to_string
+from decimal import Decimal
 
 # --- NOVOS IMPORTS PARA O EXCEL ---
 from openpyxl import Workbook
@@ -166,14 +167,184 @@ def dashboard(request):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
+    # --- Lógica Específica por Tipo de Usuário ---
     if request.user.tipo in ["admin", "comercial"]:
+        # 1. Filtros de Aula
         aulas_qs = Aula.objects.all()
         professor_filtro_id = request.GET.get("professor_filtro_id")
         if professor_filtro_id:
             aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id)
+        
+        # 2. Stats Operacionais
+        aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
+        aulas_semana_count = Aula.objects.filter(
+            data_hora__date__range=[start_of_week, end_of_week]
+        ).count()
+        aulas_agendadas_total = Aula.objects.filter(
+            status="Agendada", data_hora__gte=now
+        ).count()
+        novos_alunos_mes = Aluno.objects.filter(
+            data_criacao__year=today.year, data_criacao__month=today.month
+        ).count()
+
+        # 3. Stats Financeiros (KPIs de Mensalidades)
+        # Inicializa variáveis
+        kpi_recebido = Decimal("0.00")
+        count_recebido = 0
+        kpi_atrasado = Decimal("0.00")
+        count_atrasado = 0
+        kpi_em_aberto = Decimal("0.00")
+        count_em_aberto = 0
+        kpi_previsto = Decimal("0.00")
+        count_previsto = 0
+        
+        # Define Mês/Ano de referência para os links dos cards
+        kpi_mes_ref = today.month
+        kpi_ano_ref = today.year
+        
+        unidade_id = request.session.get("unidade_ativa_id")
+        
+        if unidade_id:
+            cat_mensalidade = Category.objects.filter(
+                name__iexact="Mensalidade", 
+                unidade_negocio_id=unidade_id
+            ).first()
+
+            if cat_mensalidade:
+                # Otimização: Busca tudo em 2 queries (Receitas e Transações) em vez de N queries
+                receitas_dict = {
+                    r.aluno_id: r for r in Receita.objects.filter(
+                        unidade_negocio_id=unidade_id,
+                        categoria=cat_mensalidade,
+                        data_competencia__year=kpi_ano_ref,
+                        data_competencia__month=kpi_mes_ref
+                    ).select_related('transacao')
+                }
+                
+                transacoes_dict = {
+                    t.student_id: t for t in Transaction.objects.filter(
+                        unidade_negocio_id=unidade_id,
+                        category=cat_mensalidade,
+                        transaction_date__year=kpi_ano_ref,
+                        transaction_date__month=kpi_mes_ref,
+                        receita__isnull=True,
+                        student__isnull=False
+                    )
+                }
+
+                # Itera sobre alunos ativos para calcular status
+                alunos_ativos = Aluno.objects.filter(status="ativo")
+                
+                for aluno in alunos_ativos:
+                    valor = Decimal("0.00")
+                    status = ""
+
+                    # Prioridade 1: Receita já existe
+                    if aluno.id in receitas_dict:
+                        receita = receitas_dict[aluno.id]
+                        valor = receita.valor
+                        if receita.status == 'recebido' or receita.transacao:
+                            status = 'Paga'
+                        else:
+                            # Verifica atraso
+                            venc = receita.data_recebimento
+                            if not venc and aluno.dia_vencimento:
+                                try:
+                                    venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
+                                except ValueError:
+                                    venc = date(kpi_ano_ref, kpi_mes_ref, 28)
+                            
+                            if venc and today > venc:
+                                status = 'Atrasada'
+                            else:
+                                status = 'Em aberto'
+                    
+                    # Prioridade 2: Transação avulsa existe (pagou mas não gerou receita)
+                    elif aluno.id in transacoes_dict:
+                        transacao = transacoes_dict[aluno.id]
+                        valor = transacao.amount
+                        status = 'Paga'
+                    
+                    # Prioridade 3: Configuração do Aluno (Previsão)
+                    elif aluno.valor_mensalidade and aluno.dia_vencimento:
+                        valor = aluno.valor_mensalidade
+                        try:
+                            venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
+                        except ValueError:
+                            venc = date(kpi_ano_ref, kpi_mes_ref, 28)
+                            
+                        if today > venc:
+                            status = 'Atrasada'
+                        else:
+                            status = 'Em aberto'
+                    else:
+                        continue # Aluno não configurado ou sem mensalidade
+                    
+                    # Soma nos acumuladores
+                    if status == 'Paga':
+                        kpi_recebido += valor
+                        count_recebido += 1
+                    elif status == 'Atrasada':
+                        kpi_atrasado += valor
+                        count_atrasado += 1
+                    elif status == 'Em aberto':
+                        kpi_em_aberto += valor
+                        count_em_aberto += 1
+
+                # Totais
+                kpi_previsto = kpi_recebido + kpi_atrasado + kpi_em_aberto
+                count_previsto = count_recebido + count_atrasado + count_em_aberto
+
+        contexto = {
+            "titulo": f"Painel de Controle - {request.user.get_tipo_display()}",
+            "aulas_hoje_count": aulas_hoje_count,
+            "aulas_semana_count": aulas_semana_count,
+            "aulas_agendadas_total": aulas_agendadas_total,
+            "novos_alunos_mes": novos_alunos_mes,
+            "professores_list": CustomUser.objects.filter(
+                tipo__in=["professor", "admin"]
+            ).order_by("username"),
+            "primeiro_dia_mes": today.replace(day=1).strftime("%Y-%m-%d"),
+            "ultimo_dia_mes": today.replace(
+                day=calendar.monthrange(today.year, today.month)[1]
+            ).strftime("%Y-%m-%d"),
+            "aulas_pendentes_validacao": aulas_pendentes_validacao,
+            # KPIs Financeiros adicionados ao contexto
+            "kpi_recebido": kpi_recebido,
+            "count_recebido": count_recebido,
+            "kpi_atrasado": kpi_atrasado,
+            "count_atrasado": count_atrasado,
+            "kpi_em_aberto": kpi_em_aberto,
+            "count_em_aberto": count_em_aberto,
+            "kpi_previsto": kpi_previsto,
+            "count_previsto": count_previsto,
+            "kpi_mes_ref": kpi_mes_ref,
+            "kpi_ano_ref": kpi_ano_ref,
+        }
+        
+        # Tour Flag (Mantido original)
+        ja_viu_tour = request.user.tours_vistos.filter(tour_id="horarios_fixos_v1").exists()
+        contexto["mostrar_tour_horarios"] = not ja_viu_tour
+
     else:  # Professor
         aulas_qs = Aula.objects.filter(professores=request.user)
+        aulas_do_professor = aulas_qs.distinct()
+        
+        aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
+        aulas_semana_count = aulas_do_professor.filter(
+            data_hora__date__range=[start_of_week, end_of_week]
+        ).count()
+        
+        contexto = {
+            "titulo": "Painel de Controle",
+            "aulas_hoje_count": aulas_hoje_count,
+            "aulas_semana_count": aulas_semana_count,
+            "aulas_pendentes_count": aulas_pendentes_count,
+            "aulas_pendentes_validacao": aulas_pendentes_validacao,
+            "mostrar_tour_horarios": False,
+        }
 
+    # --- Lógica Comum (Calendário e Forms) ---
     aulas_do_mes = (
         aulas_qs.filter(data_hora__year=year, data_hora__month=month)
         .select_related("modalidade")
@@ -194,60 +365,7 @@ def dashboard(request):
         calendario_final.append(semana_com_aulas)
 
     AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
-    ProfessorFormSetModal = formset_factory(
-        ProfessorChoiceForm, extra=1, can_delete=False
-    )
-
-    mostrar_tour_horarios_flag = False
-    if request.user.tipo in ["admin", "comercial"]:
-        ja_viu_tour = request.user.tours_vistos.filter(
-            tour_id="horarios_fixos_v1"
-        ).exists()
-        mostrar_tour_horarios_flag = not ja_viu_tour
-
-    if request.user.tipo == "admin" or request.user.tipo == "comercial":
-        aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
-        aulas_semana_count = Aula.objects.filter(
-            data_hora__date__range=[start_of_week, end_of_week]
-        ).count()
-        aulas_agendadas_total = Aula.objects.filter(
-            status="Agendada", data_hora__gte=now
-        ).count()
-        novos_alunos_mes = Aluno.objects.filter(
-            data_criacao__year=today.year, data_criacao__month=today.month
-        ).count()
-
-        contexto = {
-            "titulo": f"Painel de Controle - {request.user.get_tipo_display()}",
-            "aulas_hoje_count": aulas_hoje_count,
-            "aulas_semana_count": aulas_semana_count,
-            "aulas_agendadas_total": aulas_agendadas_total,
-            "novos_alunos_mes": novos_alunos_mes,
-            "professores_list": CustomUser.objects.filter(
-                tipo__in=["professor", "admin"]
-            ).order_by("username"),
-            "primeiro_dia_mes": today.replace(day=1).strftime("%Y-%m-%d"),
-            "ultimo_dia_mes": today.replace(
-                day=calendar.monthrange(today.year, today.month)[1]
-            ).strftime("%Y-%m-%d"),
-            "aulas_pendentes_validacao": aulas_pendentes_validacao,
-            "mostrar_tour_horarios": mostrar_tour_horarios_flag,
-        }
-    
-    else:
-        aulas_do_professor = Aula.objects.filter(professores=request.user).distinct()
-        aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
-        aulas_semana_count = aulas_do_professor.filter(
-            data_hora__date__range=[start_of_week, end_of_week]
-        ).count()
-        contexto = {
-            "titulo": "Painel de Controle",
-            "aulas_hoje_count": aulas_hoje_count,
-            "aulas_semana_count": aulas_semana_count,
-            "aulas_pendentes_count": aulas_pendentes_count,
-            "aulas_pendentes_validacao": aulas_pendentes_validacao,
-            "mostrar_tour_horarios": False,
-        }
+    ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
 
     contexto.update(
         {

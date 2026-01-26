@@ -1,11 +1,73 @@
 {% extends "scheduler/base.html" %}
+{% load static humanize %}
 
 {% block content %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
 <div style="display:none;">{% csrf_token %}</div>
+
 <style>
+    /* --- Títulos das Seções --- */
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--bs-secondary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        margin-top: 1.5rem;
+    }
+    .section-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--bs-border-color);
+        margin-left: 1rem;
+        opacity: 0.5;
+    }
+
+    /* --- ESTILO PADRÃO DOS CARDS (Igual Mensalidades) --- */
+    .kpi-card {
+        background-color: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        height: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex; 
+        flex-direction: column;
+        justify-content: center;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--bs-box-shadow);
+    }
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--bs-emphasis-color);
+        line-height: 1.2;
+    }
+    .kpi-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+        text-transform: uppercase;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Remove sublinhado dos links */
+    a.text-decoration-none .kpi-card { color: inherit; }
+    
+    /* Ícones dentro dos cards (Ajuste para ficar harmonico) */
+    .kpi-card i.fs-2 {
+        font-size: 2rem !important; /* Força tamanho consistente */
+    }
+
+    /* --- Outros Componentes --- */
     .content-block {
         background-color: var(--bs-tertiary-bg);
         border: 1px solid var(--bs-border-color-translucent);
@@ -14,53 +76,22 @@
         height: 100%;
     }
     
-    .kpi-link {
-        display: block;
-        text-decoration: none;
-        color: inherit;
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .kpi-link:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--bs-box-shadow-lg);
-    }
-    
-    .kpi-card .kpi-value {
-        font-size: 2.25rem;
-        font-weight: 700;
-        line-height: 1;
-        color: var(--bs-emphasis-color);
-    }
-    .kpi-card .kpi-label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--bs-secondary-color);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .kpi-card .kpi-icon {
-        font-size: 2.75rem;
-        opacity: 0.5;
-    }
-    
+    /* Alertas */
     .alert-card .card-header {
         background-color: var(--bs-danger-bg-subtle);
         color: var(--bs-danger-text-emphasis);
         border-bottom: 1px solid var(--bs-danger-border-subtle);
     }
     #pending-card .card-body {
-        background-color: var(--bs-body-bg); /* se adapta ao modo claro/escuro */
+        background-color: var(--bs-body-bg);
         border-radius: 0.5rem;
         padding: 0.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* sombra leve */
-        border: 1px solid var(--bs-border-color-translucent); /* contorno suave */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 1px solid var(--bs-border-color-translucent);
     }
     #pending-card .list-group-item:hover {
-        background-color: var(--bs-secondary-bg); /* sutil contraste, se adapta ao dark mode */
+        background-color: var(--bs-secondary-bg);
     }
-
-    /* Badge de pendente com cores que respeitam dark mode */
     #pending-card .badge.bg-danger-subtle {
         background-color: var(--bs-danger-bg-subtle);
         color: var(--bs-danger-emphasis);
@@ -72,19 +103,23 @@
 
 {# O botão de filtro para admin permanece como está #}
 {% if user.tipo in 'admin, comercial' %}
-    <div class="btn-group">
-        </div>
+    <div class="btn-group"></div>
 {% endif %}
 
-
-<div class="mb-4">
-    <h1 class="h3 mb-1">{{ titulo }}</h1>
-    <p class="text-muted mb-0">{% if user.tipo in 'admin, comercial' %}Visão geral do sistema e atalhos rápidos.{% else %}Resumo das suas atividades e agenda.{% endif %}</p>
-</div>
-
-<div class="vstack gap-4">
+<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+    <div>
+        <h1 class="h3 mb-1">{{ titulo }}</h1>
+        <p class="text-muted mb-0">
+            {% if user.tipo in 'admin, comercial' %}
+                Visão geral e performance de <strong>{{ today|date:"F/Y"|title }}</strong>.
+            {% else %}
+                Resumo das suas atividades e agenda.
+            {% endif %}
+        </p>
+    </div>
+    
     {% if user.tipo in 'admin,comercial' %}
-       <div class="d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-end gap-2">
+       <div class="d-flex flex-column flex-md-row align-items-center gap-2">
             <a id="btnVerHorariosFixos" href="{% url 'scheduler:get_horario_fixo_data' %}" class="btn btn-outline-info w-100 w-md-auto">
                 <i class="bi bi-eye-fill me-1"></i> Grade de Horários
             </a>
@@ -92,50 +127,144 @@
                 <i class="bi bi-plus-circle me-1"></i> Agendar Aula
             </button>
         </div>
-        <div class="row g-4">
-            <div class="col-xl-3 col-md-6">
-                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="kpi-link">
-                    <div class="content-block kpi-card">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Aulas Hoje</div><div class="kpi-value mt-1">{{ aulas_hoje_count }}</div></div>
-                            <i class="bi bi-calendar-day kpi-icon text-info"></i>
+    {% endif %}
+</div>
+
+<div class="vstack gap-4">
+    
+    {# --- BLOCO ADMIN/COMERCIAL --- #}
+    {% if user.tipo in 'admin,comercial' %}
+        
+        <div>
+            <div class="section-title"><i class="bi bi-graph-up-arrow me-2"></i> Financeiro (Mês Atual)</div>
+            <div class="row g-3">
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <a href="{% url 'finances:mensalidades_list' %}?mes={{ kpi_mes_ref }}&ano={{ kpi_ano_ref }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="kpi-label text-primary">Previsão Total</div>
+                                    <div class="kpi-value">R$ {{ kpi_previsto|floatformat:2|intcomma }}</div>
+                                    <div class="small text-primary opacity-75 fw-semibold mt-1">
+                                        <i class="bi bi-people-fill me-1"></i> {{ count_previsto }} mensalidades
+                                    </div>
+                                </div>
+                                <i class="bi bi-calendar-check fs-2 text-primary opacity-50"></i>
+                            </div>
                         </div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-xl-3 col-md-6">
-                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="kpi-link">
-                    <div class="content-block kpi-card">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Aulas na Semana</div><div class="kpi-value mt-1">{{ aulas_semana_count }}</div></div>
-                            <i class="bi bi-calendar-week kpi-icon text-primary"></i>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <a href="{% url 'finances:mensalidades_list' %}?status=paga&mes={{ kpi_mes_ref }}&ano={{ kpi_ano_ref }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="kpi-label text-success">Recebido</div>
+                                    <div class="kpi-value">R$ {{ kpi_recebido|floatformat:2|intcomma }}</div>
+                                    <div class="small text-success opacity-75 fw-semibold mt-1">
+                                        <i class="bi bi-check-circle-fill me-1"></i> {{ count_recebido }} pagas
+                                    </div>
+                                </div>
+                                <i class="bi bi-check-circle fs-2 text-success opacity-50"></i>
+                            </div>
                         </div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-xl-3 col-md-6">
-                <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada" class="kpi-link">
-                    <div class="content-block kpi-card">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Total Agendadas</div><div class="kpi-value mt-1">{{ aulas_agendadas_total }}</div></div>
-                            <i class="bi bi-clock-history kpi-icon text-secondary"></i>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <a href="{% url 'finances:mensalidades_list' %}?status=em_aberto&mes={{ kpi_mes_ref }}&ano={{ kpi_ano_ref }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="kpi-label text-warning">A Receber</div>
+                                    <div class="kpi-value">R$ {{ kpi_em_aberto|floatformat:2|intcomma }}</div>
+                                    <div class="small text-warning opacity-75 fw-semibold mt-1">
+                                        <i class="bi bi-hourglass-split me-1"></i> {{ count_em_aberto }} pendentes
+                                    </div>
+                                </div>
+                                <i class="bi bi-hourglass-split fs-2 text-warning opacity-50"></i>
+                            </div>
                         </div>
-                    </div>
-                </a>
-            </div>
-            <div class="col-xl-3 col-md-6">
-                 <a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="kpi-link">
-                    <div class="content-block kpi-card">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Novos Alunos (Mês)</div><div class="kpi-value mt-1">{{ novos_alunos_mes }}</div></div>
-                            <i class="bi bi-person-plus-fill kpi-icon text-success"></i>
+                    </a>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <a href="{% url 'finances:mensalidades_list' %}?status=atrasada&mes={{ kpi_mes_ref }}&ano={{ kpi_ano_ref }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="kpi-label text-danger">Em Atraso</div>
+                                    <div class="kpi-value">R$ {{ kpi_atrasado|floatformat:2|intcomma }}</div>
+                                    <div class="small text-danger opacity-75 fw-semibold mt-1">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ count_atrasado }} atrasadas
+                                    </div>
+                                </div>
+                                <i class="bi bi-exclamation-circle fs-2 text-danger opacity-50"></i>
+                            </div>
                         </div>
-                    </div>
-                </a>
+                    </a>
+                </div>
             </div>
         </div>
+
+        <div>
+            <div class="section-title"><i class="bi bi-activity me-2"></i> Operacional</div>
+            <div class="row g-4">
+                <div class="col-xl-3 col-md-6">
+                    <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="kpi-label">Aulas Hoje</div>
+                                    <div class="kpi-value mt-1">{{ aulas_hoje_count }}</div>
+                                </div>
+                                <i class="bi bi-calendar-day fs-2 text-info opacity-50"></i>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="kpi-label">Aulas na Semana</div>
+                                    <div class="kpi-value mt-1">{{ aulas_semana_count }}</div>
+                                </div>
+                                <i class="bi bi-calendar-week fs-2 text-primary opacity-50"></i>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <a href="{% url 'scheduler:aula_listar' %}?status_filtro=Agendada" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="kpi-label">Total Agendadas</div>
+                                    <div class="kpi-value mt-1">{{ aulas_agendadas_total }}</div>
+                                </div>
+                                <i class="bi bi-clock-history fs-2 text-secondary opacity-50"></i>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                     <a href="{% url 'scheduler:aluno_listar' %}?data_inicial={{ primeiro_dia_mes }}&data_final={{ ultimo_dia_mes }}" class="text-decoration-none">
+                        <div class="kpi-card">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="kpi-label">Novos Alunos (Mês)</div>
+                                    <div class="kpi-value mt-1">{{ novos_alunos_mes }}</div>
+                                </div>
+                                <i class="bi bi-person-plus-fill fs-2 text-success opacity-50"></i>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
     {% else %}
-        {# --- PROFESSOR: STATS --- #}
+        {# --- BLOCO PROFESSOR --- #}
         <div class="d-flex justify-content-end align-items-center gap-2">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendamentoModal">
                 <i class="bi bi-plus-circle me-1"></i> Agendar Aula
@@ -143,31 +272,40 @@
         </div>
         <div class="row g-4">
             <div class="col-lg-4 col-md-6">
-                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="kpi-link">
-                    <div class="content-block kpi-card">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="text-decoration-none">
+                    <div class="kpi-card">
                         <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Minhas Aulas Hoje</div><div class="kpi-value mt-1">{{ aulas_hoje_count }}</div></div>
-                            <i class="bi bi-calendar-day kpi-icon text-info"></i>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Minhas Aulas Hoje</div>
+                                <div class="kpi-value mt-1">{{ aulas_hoje_count }}</div>
+                            </div>
+                            <i class="bi bi-calendar-day fs-2 text-info opacity-50"></i>
                         </div>
                     </div>
                 </a>
             </div>
             <div class="col-lg-4 col-md-6">
-                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="kpi-link">
-                    <div class="content-block kpi-card">
+                <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ week_start_iso }}&data_final={{ week_end_iso }}" class="text-decoration-none">
+                    <div class="kpi-card">
                         <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Minhas Aulas na Semana</div><div class="kpi-value mt-1">{{ aulas_semana_count }}</div></div>
-                            <i class="bi bi-calendar-week kpi-icon text-primary"></i>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Minhas Aulas na Semana</div>
+                                <div class="kpi-value mt-1">{{ aulas_semana_count }}</div>
+                            </div>
+                            <i class="bi bi-calendar-week fs-2 text-primary opacity-50"></i>
                         </div>
                     </div>
                 </a>
             </div>
             <div class="col-lg-4 col-md-12">
-                 <a href="#pending-card" class="kpi-link">
-                    <div class="content-block kpi-card">
+                 <a href="#pending-card" class="text-decoration-none">
+                    <div class="kpi-card">
                         <div class="d-flex align-items-center">
-                            <div class="flex-grow-1"><div class="kpi-label">Pendentes de Validação</div><div class="kpi-value mt-1">{{ aulas_pendentes_count }}</div></div>
-                            <i class="bi bi-exclamation-triangle-fill kpi-icon text-danger"></i>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Pendentes de Validação</div>
+                                <div class="kpi-value mt-1">{{ aulas_pendentes_count }}</div>
+                            </div>
+                            <i class="bi bi-exclamation-triangle-fill fs-2 text-danger opacity-50"></i>
                         </div>
                     </div>
                 </a>
@@ -175,6 +313,7 @@
         </div>
     {% endif %}
 
+    {# --- ALERTAS DE AULAS PENDENTES (COMUM) --- #}
     {% if aulas_pendentes_validacao %}
         <div class="card alert-card shadow-sm border-0" id="pending-card">
             <div class="card-header d-flex align-items-center gap-2">
@@ -200,52 +339,48 @@
         </div>
     {% endif %}
 
+    {# --- CALENDÁRIO / AGENDA (COMUM) --- #}
     <div class="content-block shadow-sm p-0">
-    <!-- Desktop -->
-    <div class="d-none d-md-flex position-relative align-items-center p-3 border-bottom">
-        <!-- Título centralizado -->
-        <h5 class="position-absolute top-50 start-50 translate-middle text-center mb-0">
-            {% if user.tipo in 'admin, comercial' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
-        </h5>
+        <div class="section-title px-3 pt-3 mb-0" style="border: none; margin-top: 0;"><i class="bi bi-calendar3 me-2"></i> Agenda</div>
+        
+        <div class="d-none d-md-flex position-relative align-items-center p-3 border-bottom">
+            <h5 class="position-absolute top-50 start-50 translate-middle text-center mb-0">
+                {% if user.tipo in 'admin, comercial' %}Visão Geral{% else %}Minha Agenda{% endif %}
+            </h5>
+            {% if user.tipo in 'admin, comercial' %}
+            <div class="ms-auto">
+                <select id="professor_calendario_filtro_desktop" class="form-select form-select-sm" style="max-width: 200px;">
+                    <option value="">Todos os Professores</option>
+                    {% for prof in professores_list %}
+                    <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
 
-        <!-- Filtro de professores à direita -->
-        {% if user.tipo in 'admin, comercial' %}
-        <div class="ms-auto">
-            <select id="professor_calendario_filtro_desktop" class="form-select form-select-sm" style="max-width: 200px;">
+        <div class="d-flex d-md-none flex-column align-items-center p-3 border-bottom">
+            <h5 class="text-center mb-2">
+                {% if user.tipo in 'admin, comercial' %}Visão Geral{% else %}Minha Agenda{% endif %}
+            </h5>
+            {% if user.tipo in 'admin, comercial' %}
+            <select id="professor_calendario_filtro_mobile" class="form-select form-select-sm w-75 mx-auto" style="max-width: 200px;">
                 <option value="">Todos os Professores</option>
                 {% for prof in professores_list %}
                 <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
                 {% endfor %}
             </select>
+            {% endif %}
         </div>
-        {% endif %}
-    </div>
 
-    <!-- Mobile -->
-    <div class="d-flex d-md-none flex-column align-items-center p-3 border-bottom">
-        <!-- Título -->
-        <h5 class="text-center mb-2">
-            {% if user.tipo in 'admin, comercial' %}Visão Geral da Agenda{% else %}Minha Agenda{% endif %}
-        </h5>
-
-        <!-- Filtro de professores abaixo -->
-        {% if user.tipo in 'admin, comercial' %}
-        <select id="professor_calendario_filtro_mobile" class="form-select form-select-sm w-75 mx-auto" style="max-width: 200px;">
-            <option value="">Todos os Professores</option>
-            {% for prof in professores_list %}
-            <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
-            {% endfor %}
-        </select>
-        {% endif %}
+        <div class="p-3" id="calendario-wrapper">
+            {% include 'scheduler/partials/calendario_content.html' %}
+        </div>
     </div>
-
-    <div class="p-3" id="calendario-wrapper">
-        {% include 'scheduler/partials/calendario_content.html' %}
-    </div>
-</div>
 
 </div>
 
+{# --- MODAIS (AGENDAMENTO E DETALHES) --- #}
 <div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -263,9 +398,7 @@
 
 {% endblock %}
 
-
 {% block extra_js %}
-{# O seu bloco de javascript permanece aqui, sem alterações #}
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <style>
@@ -276,254 +409,48 @@
 	.status-cancelada { background-color: var(--bs-danger); }
 	.status-aluno-ausente { background-color: var(--bs-warning); color: #000 !important; }
 
-	/*
-	==============================================
-	ESTILOS MOBILE-FIRST (PADRÃO PARA TODAS AS TELAS)
-	==============================================
-	*/
-
-	/* Layout principal com padding reduzido como padrão */
-	.main-content main {
-		padding-left: 1rem;
-		padding-right: 1rem;
-	}
-
-	#calendario-wrapper {
-		padding: 0.75rem !important;
-	}
-
-	/* Estilos do Mini Calendário */
-	.calendario-dias-semana-mini, .calendario-grid-mini {
-        display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-        text-align: center;
-        margin-bottom: 1rem;
-    }
+    /* Estilos do Calendário (Mantidos do Original) */
+	.main-content main { padding-left: 1rem; padding-right: 1rem; }
+	#calendario-wrapper { padding: 0.75rem !important; }
+	.calendario-dias-semana-mini, .calendario-grid-mini { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; margin-bottom: 1rem; }
 	.calendario-dias-semana-mini div { font-size: 0.8rem; font-weight: bold; color: #6c757d; }
-
-	/* Célula do Dia (padrão mobile) */
-	.dia-celula-mini {
-		padding: 3px; /* Padding menor para mobile */
-		border-radius: .5rem;
-		transition: background-color 0.2s, border-color 0.2s;
-		aspect-ratio: 1 / 1; /* Células quadradas para mobile */
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		cursor: pointer;
-		border: 1px solid var(--bs-border-color-translucent);
-	}
-
-	.dia-celula-mini:hover {
-		background-color: var(--bs-tertiary-bg);
-	}
-
-	.dia-celula-mini.hoje .numero-dia-mini {
-		background-color: var(--bs-primary);
-		color: white;
-	}
-
-	.dia-celula-mini.dia-ativo {
-		background-color: var(--bs-info-bg-subtle) !important;
-		border-color: var(--bs-info) !important;
-		border-width: 2px;
-	}
-
-	.dia-celula-mini.fora-do-mes {
-		visibility: hidden;
-	}
-
-	/* Número do Dia (padrão mobile) */
-	.numero-dia-mini {
-		font-size: 0.85rem;
-		font-weight: 500;
-		border-radius: 50%;
-		width: 26px;
-		height: 26px;
-		display: inline-flex;
-		justify-content: center;
-		align-items: center;
-	}
-
-	/* Contador de Eventos */
-	.eventos-contador {
-		font-size: 0.75rem;
-		font-weight: 600;
-		line-height: 1;
-		min-width: 20px;
-		padding: 4px 5px;
-		border-radius: 0.375rem;
-		background-color: var(--bs-primary-bg-subtle);
-		color: var(--bs-primary-text-emphasis);
-		border: 1px solid var(--bs-primary-border-subtle);
-	}
-
-	.eventos-dia-mini {
-		display: flex;
-		justify-content: center;
-		gap: 3px;
-		height: auto;
-		min-height: 24px;
-		margin-top: 4px;
-	}
-
-	/* Agenda Rolável (padrão mobile) */
-	.agenda-scroll-container {
-		border: 1px solid var(--bs-border-color);
-		border-radius: 0.375rem;
-		position: relative;
-		height: 65vh; /* Altura padrão para mobile */
-		overflow-y: auto;
-	}
+	.dia-celula-mini { padding: 3px; border-radius: .5rem; transition: background-color 0.2s, border-color 0.2s; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; border: 1px solid var(--bs-border-color-translucent); }
+	.dia-celula-mini:hover { background-color: var(--bs-tertiary-bg); }
+	.dia-celula-mini.hoje .numero-dia-mini { background-color: var(--bs-primary); color: white; }
+	.dia-celula-mini.dia-ativo { background-color: var(--bs-info-bg-subtle) !important; border-color: var(--bs-info) !important; border-width: 2px; }
+	.dia-celula-mini.fora-do-mes { visibility: hidden; }
+	.numero-dia-mini { font-size: 0.85rem; font-weight: 500; border-radius: 50%; width: 26px; height: 26px; display: inline-flex; justify-content: center; align-items: center; }
+	.eventos-contador { font-size: 0.75rem; font-weight: 600; line-height: 1; min-width: 20px; padding: 4px 5px; border-radius: 0.375rem; background-color: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); border: 1px solid var(--bs-primary-border-subtle); }
+	.eventos-dia-mini { display: flex; justify-content: center; gap: 3px; height: auto; min-height: 24px; margin-top: 4px; }
+	.agenda-scroll-container { border: 1px solid var(--bs-border-color); border-radius: 0.375rem; position: relative; height: 65vh; overflow-y: auto; }
 	.agenda-data-header { background-color: var(--bs-tertiary-bg); font-weight: bold; color: var(--bs-emphasis-color); position: sticky; top: 0; z-index: 10; }
 	.agenda-item { padding-left: 15px; border-left: 5px solid transparent; }
 	.hora-badge { color: var(--bs-secondary-color); padding: 0.25rem 0.5rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: bold; min-width: 55px; text-align: center; }
-
-	/* Popover e Overlay */
 	.popover-header { font-weight: bold; }
 	.popover-body ul { padding-left: 0; list-style: none; margin-bottom: 0; }
 	.popover-body li { display: flex; align-items: center; margin-bottom: 4px; }
 	.popover-event-link:hover { background-color: var(--bs-tertiary-bg); border-radius: 0.3rem; }
 	#page-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 1060; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-in-out; }
 	#page-overlay.is-visible { opacity: 1; }
+    
+    /* Tour & Badges Styles */
+    shepherd-element { background-color: var(--bs-body-bg); color: var(--bs-body-color); border-radius: 0.5rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); }
+    .shepherd-element .shepherd-title { font-weight: bold; }
+    .shepherd-element .shepherd-text { color: var(--bs-body-color); }
+    .badge-filter { cursor: pointer; display: inline-block; vertical-align: middle; transition: all 0.2s ease-in-out; width: 120px; text-align: center; transform-origin: center center; }
+    .badge-filter.active { box-shadow: 0 0 0.4rem rgba(0,0,0,0.3); transform: scale(1.1); border: 1px solid rgba(0,0,0,0.2); z-index: 1; }
+    .highlight-badge-tour { animation: pulse 1s infinite alternate; position: relative; z-index: 10001; box-shadow: 0 0 0.6rem rgba(0,0,0,0.5); }
+    @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); } 100% { transform: scale(1.1); box-shadow: 0 0 0.5rem rgba(0,0,0,0.3); } }
 
-    .slot-fixo {
-        background-color: var(--bs-success-bg-subtle) !important;
-        color: var(--bs-success-text-emphasis);
-        vertical-align: middle;
-    }
-    .slot-variavel {
-        background-color: var(--bs-warning-bg-subtle) !important;
-        color: var(--bs-warning-text-emphasis);
-        vertical-align: middle;
-    }
-    .slot-livre {
-        background-color: var(--bs-tertiary-bg) !important;
-        color: var(--bs-secondary-color);
-        font-style: italic;
-        vertical-align: middle;
-    }
-    #horarios-grid-container table {
-        border-collapse: separate;
-        border-spacing: 2px;
-    }
-    #horarios-grid-container th, #horarios-grid-container td {
-        text-align: center;
-        padding: 0.75rem 0.25rem;
-        border: 1px solid var(--bs-border-color-translucent);
-        border-radius: 0.3rem;
-    }
-
-    #horarios-grid-cards-mobile .card-header {
-        background-color: var(--bs-secondary-bg);
-        color: var(--bs-emphasis-color);
-        font-size: 0.9rem;
-    }
-
-    #horarios-grid-cards-mobile .list-group-item {
-        font-size: 0.8rem;
-        padding: 0.35rem 0.5rem;
-    }
-
-    #horarios-grid-cards-mobile .slot-fixo {
-        background-color: var(--bs-success-bg-subtle) !important;
-    }
-    #horarios-grid-cards-mobile .slot-variavel {
-        background-color: var(--bs-warning-bg-subtle) !important;
-    }
-    #horarios-grid-cards-mobile .slot-livre {
-        background-color: var(--bs-tertiary-bg) !important;
-    }
-    shepherd-element {
-        background-color: var(--bs-body-bg);
-        color: var(--bs-body-color);
-        border-radius: 0.5rem;
-        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
-    }
-    .shepherd-element .shepherd-title {
-        font-weight: bold;
-    }
-    .shepherd-element .shepherd-text {
-        color: var(--bs-body-color);
-    }
-
-    .badge-filter {
-        cursor: pointer;
-        display: inline-block;
-        vertical-align: middle;
-        transition: all 0.2s ease-in-out;
-        width: 120px;
-        text-align: center;
-        transform-origin: center center;
-    }
-
-    .badge-filter.active {
-        box-shadow: 0 0 0.4rem rgba(0,0,0,0.3);
-        transform: scale(1.1);
-        border: 1px solid rgba(0,0,0,0.2);
-        z-index: 1;
-    }
-    .highlight-badge-tour {
-        animation: pulse 1s infinite alternate;
-        position: relative;
-        /* ★★★ Z-INDEX AUMENTADO ★★★ */
-        /* Garante que o efeito de pulso fique ACIMA da camada escura do tour */
-        z-index: 10001; 
-        box-shadow: 0 0 0.6rem rgba(0,0,0,0.5);
-    }
-
-    @keyframes pulse {
-        0% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); }
-        100% { transform: scale(1.1); box-shadow: 0 0 0.5rem rgba(0,0,0,0.3); }
-    }
-
-    /* Mobile: 2 badges por linha, mesma largura, centralizados */
-    @media (max-width: 768px) {
-        .badge-container {
-            gap: 0.5rem; /* espaço entre badges */
-        }
-        .badge-filter {
-            flex: 0 0 48%; /* cada badge ocupa ~50% */
-            text-align: center;
-        }
-    }
-
-	/*
-	==============================================
-	AJUSTES PARA DESKTOP (TELAS MAIORES)
-	Telas com 992px ou mais de largura
-	==============================================
-	*/
 	@media (min-width: 992px) {
-		/* Retorna o padding original para telas maiores */
-		.main-content main {
-			padding-left: 1.5rem;
-			padding-right: 1.5rem;
-		}
-
-		#calendario-wrapper {
-			padding: 1rem !important; /* Restaura o padding original (p-3) */
-		}
-
-		/* Aumenta o tamanho dos elementos do calendário no desktop */
-		.numero-dia-mini {
-			width: 28px;
-			height: 28px;
-			font-size: 1rem;
-		}
-
-		.dia-celula-mini {
-			padding: 4px;
-			aspect-ratio: initial; /* Células retangulares no desktop */
-			min-height: 90px;
-		}
-
-		.agenda-scroll-container {
-			height: 590px; /* Altura fixa para o layout de desktop */
-		}
+		.main-content main { padding-left: 1.5rem; padding-right: 1.5rem; }
+		#calendario-wrapper { padding: 1rem !important; }
+		.numero-dia-mini { width: 28px; height: 28px; font-size: 1rem; }
+		.dia-celula-mini { padding: 4px; aspect-ratio: initial; min-height: 90px; }
+		.agenda-scroll-container { height: 590px; }
 	}
 </style>
+
 {{ request.user.tipo|json_script:"user-type-data" }}
 {{ mostrar_tour_horarios|json_script:"mostrar-tour-data" }}
 {{ user.tipo|json_script:"user-tipo-data" }}
@@ -542,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let dataAtual = new Date("{{ mes_atual|date:'Y-m-d' }}T00:00:00");
 
-    // --- 2. FUNÇÕES DO CALENDÁRIO (inalteradas) ---
+    // --- 2. FUNÇÕES DO CALENDÁRIO ---
     function handleDateClick(e) {
         const diaClicado = e.target.closest('.js-day-cell');
         if (!diaClicado || e.target.closest('a') || diaClicado.classList.contains('fora-do-mes')) return;
@@ -600,9 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
         calendarioWrapper.querySelector('#cal-next-mobile')?.addEventListener('click', () => acaoNavegacao(1));
     }
 
-    // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO (ATUALIZADAS) ---
-
-    // ★ NOVA FUNÇÃO: Atualiza as opções dos selects para desabilitar itens já escolhidos
+    // --- 3. FUNÇÕES DO MODAL DE AGENDAMENTO ---
     function updateSelectOptionsInModal() {
         const processSelects = (selector, selectedSet) => {
             document.querySelectorAll(`#agendamentoModal ${selector}`).forEach(select => {
@@ -621,7 +546,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         option.text = option.dataset.originalText;
                     }
                 });
-                // Atualiza o Select2 para refletir as mudanças
                 $(select).trigger('change.select2');
             });
         };
@@ -644,7 +568,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = modalEl.querySelector('form');
         if (!form) return;
 
-        // ★ ATUALIZADO: Evento 'shown.bs.modal' para inicializar Select2 nos campos existentes
         modalEl.addEventListener('shown.bs.modal', function() {
             $(modalEl).find('select:not(.select2-hidden-accessible)').each(function() {
                 $(this).select2({
@@ -672,7 +595,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // ★ ATUALIZADO: Lógica de remoção de linha para chamar updateSelectOptionsInModal
         form.addEventListener('click', function(e) {
             const removeButton = e.target.closest('.btn-remove-row-modal');
             if (!removeButton) return;
@@ -682,18 +604,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const deleteCheckbox = row.querySelector('input[type="checkbox"][id$="-DELETE"]');
                 if (deleteCheckbox) deleteCheckbox.checked = true;
                 row.style.display = 'none';
-                updateSelectOptionsInModal(); // Atualiza as opções
+                updateSelectOptionsInModal();
             }
         });
 
-        // ★ NOVO: Event listener para 'change' nos selects para atualizar as opções
         form.addEventListener('change', function(e) {
             if (e.target.matches('[id$="-aluno"], [id$="-professor"]')) {
                 updateSelectOptionsInModal();
             }
         });
 
-        // ★ ATUALIZADO: setupFormset para aplicar Select2 na nova linha
         function setupFormset(buttonId, containerId, templateId, prefix) {
             const addButton = modalEl.querySelector(`#${buttonId}`);
             addButton?.addEventListener('click', function() {
@@ -716,13 +636,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         dropdownParent: $('#agendamentoModal .modal-body')
                     });
                 }
-                updateSelectOptionsInModal(); // Atualiza as opções
+                updateSelectOptionsInModal(); 
             });
         }
         setupFormset('add-aluno-form-modal', 'aluno-forms-modal', 'empty-form-alunos-modal', 'alunos');
         setupFormset('add-professor-form-modal', 'professor-forms-modal', 'empty-form-professores-modal', 'professores');
 
-        // Lógica de submit (inalterada)
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
@@ -762,7 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modalEl.addEventListener('hidden.bs.modal', () => form.reset());
     }
 
-    // --- 4. INICIALIZAÇÃO GERAL (inalterada) ---
+    // --- 4. INICIALIZAÇÃO GERAL ---
     associarEventosNavegacao();
     setupCalendarInteractions();
     if (userType === 'admin' || userType === 'comercial' || userType === 'professor') {
@@ -791,6 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, true);
 
+    // --- TOUR ---
     const mostrarTourHorarios = JSON.parse(document.getElementById('mostrar-tour-data').textContent);
     const userTipo = JSON.parse(document.getElementById('user-tipo-data').textContent);
 
