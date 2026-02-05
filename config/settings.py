@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'logs.middleware.RequestMiddleware',
     'logs.middleware.AuditMiddleware',
 ]
 

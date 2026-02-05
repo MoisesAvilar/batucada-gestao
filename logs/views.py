@@ -7,13 +7,16 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from django.db.models import (
+    Q,
+)  # <--- IMPORTANTE: Importação necessária para a busca avançada
 
 from .models import AuditLog
 
 
 @login_required
 def logs_page(request):
-    """Página de logs com filtros e paginação."""
+    """Página de logs com filtros avançados e paginação."""
     actions_info = [
         {"action": "criou", "label": "Criou", "color": "success"},
         {"action": "atualizou", "label": "Atualizou", "color": "warning"},
@@ -33,31 +36,33 @@ def logs_page(request):
 
     if username_filter:
         logs_qs = logs_qs.filter(username__icontains=username_filter)
+
+    # --- ALTERAÇÃO AQUI: Busca Profunda (Deep Search) ---
     if resource_filter:
-        logs_qs = logs_qs.filter(resource_name__icontains=resource_filter)
+        logs_qs = logs_qs.filter(
+            Q(resource_name__icontains=resource_filter)
+            | Q(detail__icontains=resource_filter)  # Procura dentro do JSON
+            | Q(resource_id__icontains=resource_filter)
+        )
+
     if tags_filter:
         logs_qs = logs_qs.filter(tags__icontains=tags_filter)
 
-    # --- CORREÇÃO 1: Preparar dados para o gráfico ANTES da paginação ---
-    # Usamos o queryset filtrado completo (logs_qs) para gerar o JSON do gráfico.
-    # Isso garante que os KPIs e o gráfico reflitam todos os dados, não apenas a página atual.
+    # Preparar dados para o gráfico (KPIs globais do filtro)
     logs_for_chart = list(logs_qs.values("action", "timestamp"))
     for log_chart in logs_for_chart:
         log_chart["action"] = log_chart["action"].lower()
-        # O timestamp já está no formato correto para o JS, não precisa de formatação extra aqui.
 
     logs_json_for_chart = json.dumps(logs_for_chart, cls=DjangoJSONEncoder)
 
-    # --- CORREÇÃO 2: Aplicar paginação APENAS para a exibição da tabela ---
+    # Paginação
     paginator = Paginator(logs_qs, 100)
     page_obj = paginator.get_page(page)
-
-    # Adiciona o start_index para a contagem na versão mobile
     start_index = page_obj.start_index()
 
     context = {
         "actions_info": actions_info,
-        "logs": page_obj,  # Passa o objeto da página diretamente para o template
+        "logs": page_obj,
         "page_obj": page_obj,
         "start_index": start_index,
         "filters": {
@@ -66,7 +71,7 @@ def logs_page(request):
             "resource": resource_filter,
             "tags": tags_filter,
         },
-        "logs_json": logs_json_for_chart,  # Usa o JSON com todos os dados
+        "logs_json": logs_json_for_chart,
     }
     return render(request, "logs/logs_page.html", context)
 
@@ -87,8 +92,15 @@ def logs_api(request):
 
     if username_filter:
         logs_qs = logs_qs.filter(username__icontains=username_filter)
+
+    # Aplica a mesma lógica de busca profunda na API também
     if resource_filter:
-        logs_qs = logs_qs.filter(resource_name__icontains=resource_filter)
+        logs_qs = logs_qs.filter(
+            Q(resource_name__icontains=resource_filter)
+            | Q(detail__icontains=resource_filter)
+            | Q(resource_id__icontains=resource_filter)
+        )
+
     if tags_filter:
         logs_qs = logs_qs.filter(tags__icontains=tags_filter)
 
@@ -107,9 +119,11 @@ def logs_api(request):
         logs.append(
             {
                 "id": log.pk,
-                "timestamp": local_timestamp.strftime("%d/%m/%Y %H:%M")
-                if local_timestamp
-                else "",
+                "timestamp": (
+                    local_timestamp.strftime("%d/%m/%Y %H:%M")
+                    if local_timestamp
+                    else ""
+                ),
                 "username": log.username
                 or (log.user.get_full_name() if log.user else "anon"),
                 "action": log.action.lower(),

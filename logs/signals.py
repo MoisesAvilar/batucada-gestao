@@ -109,6 +109,8 @@ for model in apps.get_models():
         else:
             old_data = _pre_save_snapshots.pop((sender, instance.pk), None)
             new_data = safe_model_to_dict(instance)
+            print(f"DEBUG LOGS: {sender.__name__} ID {instance.pk}")
+            print(f"DEBUG OLD: {old_data is not None}")
             if old_data:
                 changes = {}
                 for field, old_val in old_data.items():

@@ -4,229 +4,261 @@
 {% block extra_css %}
 {{ block.super }}
 <style>
-    /*
-      ============================================
-      ESTILOS DA TABELA (DESKTOP)
-      ============================================
+    /* =========================================================
+       1. VARIÁVEIS E TEMAS (DARK/LIGHT AUTOMÁTICO)
+       =========================================================
     */
-    .table-container {
-        max-height: 65vh;
-        overflow-y: auto;
+    :root {
+        --log-card-bg: var(--bs-body-bg);
+        --log-header-bg: rgba(var(--bs-body-bg-rgb), 0.95); /* Efeito translúcido */
+        --log-border-color: var(--bs-border-color);
+        --log-hover-bg: var(--bs-tertiary-bg);
     }
 
-    .table-container thead {
+    /* Ajustes finos para o Dark Mode se necessário */
+    [data-bs-theme="dark"] {
+        --log-hover-bg: rgba(255, 255, 255, 0.05);
+    }
+
+    /* =========================================================
+       2. HEADER E FILTROS (STICKY)
+       =========================================================
+    */
+    .logs-header {
+        background-color: var(--log-header-bg);
+        backdrop-filter: blur(10px); /* Efeito Glass */
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 1020;
+        padding-top: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--log-border-color);
     }
 
-    .table-logs> :not(caption)>*>* {
-        border-bottom-width: 0;
+    /* Scroll Horizontal dos Chips (Esconde a barra de rolagem feia) */
+    .filter-chips-container {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 0.5rem;
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+        mask-image: linear-gradient(to right, black 95%, transparent 100%); /* Fade out no canto */
+    }
+    .filter-chips-container::-webkit-scrollbar {
+        display: none;
     }
 
-    .table-logs .log-row {
-        border-top: 1px solid var(--bs-table-border-color);
-    }
-
-    .table-logs .log-row {
-        cursor: pointer;
-        transition: background-color 0.15s ease-in-out;
-    }
-
-    .table-logs .log-detail-row {
-        background-color: var(--bs-tertiary-bg);
-    }
-
-    .table-logs .log-detail-row>td {
-        padding: 0;
-    }
-
-    .table-logs .log-detail-content {
-        padding: 1rem 1.5rem;
-    }
-
-    .table-logs .log-row .chevron-icon {
-        transition: transform 0.2s ease-in-out;
-    }
-
-    .table-logs .log-row[aria-expanded="true"] .chevron-icon {
-        transform: rotate(180deg);
-    }
-
-    .hover-card {
-        transition: background-color 0.2s ease;
-        border-radius: 5px;
-        padding: 1rem 0.5rem;
-    }
-
-    .hover-card:hover {
-        background-color: var(--bs-light);
-        text-decoration: none;
-    }
-
-    .chart-container {
-        display: none; /* Esconde o gráfico inicialmente */
-    }
-
-    /*
-      ============================================
-      NOVOS ESTILOS PARA OS CARDS (MOBILE)
-      ============================================
-    */
-    .log-card {
-        transform: translateZ(0);
-    }
-
-    .log-card .log-card-header {
-        cursor: pointer;
-        transition: background-color 0.15s ease-in-out;
-    }
-
-    .log-card .log-card-header:hover {
-        background-color: var(--bs-secondary-bg);
-    }
-
-    .log-card .chevron-icon {
-        transition: transform 0.2s ease-in-out;
-    }
-
-    .log-card .log-card-header[aria-expanded="true"] .chevron-icon {
-        transform: rotate(180deg);
-    }
-
-    .log-card .log-detail-mobile {
-        border-top: 1px solid var(--bs-border-color-translucent);
-    }
-
-
-    /* ESTILOS GERAIS (compartilhados) */
-    .action-badge {
+    .filter-chip {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        padding: 0.4rem 1rem;
+        border-radius: 50rem;
+        font-size: 0.85rem;
         font-weight: 500;
-    }
-
-    .action-badge::before {
-        content: '';
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-    }
-
-    .action-badge.criou::before {
-        background-color: var(--bs-success);
-    }
-
-    .action-badge.atualizou::before {
-        background-color: var(--bs-warning);
-    }
-
-    .action-badge.deletou::before {
-        background-color: var(--bs-danger);
-    }
-
-    .action-badge.visualizou::before {
-        background-color: var(--bs-primary);
-    }
-
-    .action-badge.custom::before {
-        background-color: var(--bs-secondary);
-    }
-
-    .action-badge.post::before {
-        background-color: var(--bs-info);
-    }
-
-    .log-detail-content pre code {
+        text-decoration: none;
+        color: var(--bs-secondary-color);
         background-color: var(--bs-tertiary-bg);
-        color: var(--bs-emphasis-color);
-        border: 1px solid var(--bs-border-color-translucent);
+        border: 1px solid var(--bs-border-color);
+        margin-right: 0.5rem;
+        transition: all 0.2s ease;
+    }
+    .filter-chip:hover {
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+        transform: translateY(-1px);
+    }
+    .filter-chip.active {
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+        color: var(--bs-primary);
+        border-color: rgba(var(--bs-primary-rgb), 0.3);
+        font-weight: 600;
+    }
+    .filter-chip.active-danger {
+        background-color: rgba(var(--bs-danger-rgb), 0.1);
+        color: var(--bs-danger);
+        border-color: rgba(var(--bs-danger-rgb), 0.3);
+    }
+
+    /* =========================================================
+       3. CARDS MOBILE (TIMELINE)
+       =========================================================
+    */
+    .log-card {
+        border: 1px solid var(--log-border-color);
+        border-radius: 12px;
+        background: var(--log-card-bg);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02); /* Sombra super suave */
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        border-left: 4px solid transparent; 
+        transition: transform 0.1s ease, background-color 0.2s;
+    }
+    
+    /* Cores das Bordas Laterais - Usando variáveis do Bootstrap para consistência */
+    .border-l-success { border-left-color: var(--bs-success) !important; }
+    .border-l-warning { border-left-color: var(--bs-warning) !important; }
+    .border-l-danger { border-left-color: var(--bs-danger) !important; }
+    .border-l-primary { border-left-color: var(--bs-primary) !important; }
+    .border-l-secondary { border-left-color: var(--bs-secondary) !important; }
+
+    .log-card-header {
+        padding: 1rem;
+        cursor: pointer;
+    }
+    .log-card-header:active {
+        background-color: var(--bs-tertiary-bg);
+    }
+
+    /* =========================================================
+       4. TABELA DESKTOP
+       =========================================================
+    */
+    .table-container {
+        max-height: 70vh;
+        overflow-y: auto;
+        border-radius: 12px;
+        border: 1px solid var(--bs-border-color);
+        background-color: var(--bs-body-bg);
+    }
+    
+    .table-logs thead th {
+        background-color: var(--bs-tertiary-bg); /* Fundo sutilmente diferente */
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        color: var(--bs-secondary-color);
+        border-bottom: 1px solid var(--bs-border-color);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .table-logs tbody tr {
+        transition: background-color 0.15s;
+        border-bottom: 1px solid var(--bs-border-color-translucent);
+    }
+    
+    .table-logs tbody tr:hover {
+        background-color: var(--log-hover-bg);
+    }
+
+    /* Área de detalhes expandida */
+    .log-detail-wrapper {
+        background-color: var(--bs-tertiary-bg); 
+        border-top: 1px dashed var(--bs-border-color);
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+    /* Avatar Inicial do Usuário */
+    .user-avatar {
+        width: 32px; 
+        height: 32px; 
+        border-radius: 50%;
+        background-color: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+        margin-right: 0.75rem;
+        text-transform: uppercase;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid container-lg px-0 px-md-3">
 
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <h3 class="mb-0"><i class="bi bi-layout-text-sidebar-reverse me-2"></i>Logs do Sistema</h3>
-        <a href="{{ request.path }}" class="btn btn-sm btn-primary"><i class="bi bi-arrow-clockwise me-1"></i>
-            Atualizar</a>
-    </div>
-
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-2 align-items-end">
-                <div class="col-lg-5 col-12"><label for="usernameFilter" class="form-label small">Usuário</label><input
-                        type="text" id="usernameFilter" name="username" class="form-control form-control-sm"
-                        placeholder="Filtrar por nome de usuário..." value="{{ filters.username }}"></div>
-                <div class="col-lg-3 col-12"><label for="resourceFilter" class="form-label small">Recurso</label><input
-                        type="text" id="resourceFilter" name="resource" class="form-control form-control-sm"
-                        placeholder="Ex: Aluno, Aula..." value="{{ filters.resource }}"></div>
-                <div class="col-lg-2 col-md-6 col-12"><label for="tagsFilter"
-                        class="form-label small">Tags</label><input type="text" id="tagsFilter" name="tags"
-                        class="form-control form-control-sm" placeholder="Ex: criou, finanças..."
-                        value="{{ filters.tags }}"></div>
-                <div class="col-lg-2 col-md-6 col-12"><button class="btn btn-sm btn-secondary w-100"><i
-                            class="bi bi-search me-2"></i>Filtrar</button></div>
-            </form>
-            <hr class="my-2">
-            <div class="d-flex justify-content-center">
-                <div class="btn-group" role="group"><a href="?days=7"
-                        class="btn btn-sm btn-outline-secondary {% if filters.days == 7 %}active{% endif %}">7
-                        Dias</a><a href="?days=30"
-                        class="btn btn-sm btn-outline-secondary {% if filters.days == 30 %}active{% endif %}">30
-                        Dias</a><a href="?days=90"
-                        class="btn btn-sm btn-outline-secondary {% if filters.days == 90 %}active{% endif %}">90
-                        Dias</a></div>
+    <div class="logs-header mb-4 px-3 px-md-0">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0 fw-bold d-flex align-items-center">
+                <span class="bg-primary-subtle text-primary rounded p-2 me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="bi bi-activity fs-5"></i>
+                </span>
+                Logs de Auditoria
+            </h4>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasFilters">
+                    <i class="bi bi-funnel"></i> <span class="d-none d-sm-inline">Filtros</span>
+                    {% if filters.username or filters.resource or filters.tags %}
+                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
+                    {% endif %}
+                </button>
+                <a href="{{ request.path }}" class="btn btn-primary btn-sm" title="Atualizar">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </a>
             </div>
+        </div>
+
+        <div class="filter-chips-container">
+            <a href="javascript:alterarPeriodo(7)" class="filter-chip {% if filters.days == 7 %}active{% endif %}">7 Dias</a>
+            <a href="javascript:alterarPeriodo(30)" class="filter-chip {% if filters.days == 30 %}active{% endif %}">30 Dias</a>
+            
+            <span class="mx-1 border-end border-secondary opacity-25" style="height: 20px; display: inline-block; vertical-align: middle;"></span>
+
+            <a href="javascript:alterarFiltroTag('atualizou')" class="filter-chip {% if 'atualizou' in filters.tags %}active{% endif %}">
+                <i class="bi bi-pencil-square me-1 text-warning"></i>Edições
+            </a>
+            <a href="javascript:alterarFiltroTag('deletou')" class="filter-chip {% if 'deletou' in filters.tags %}active{% endif %}">
+                <i class="bi bi-trash me-1 text-danger"></i>Exclusões
+            </a>
+            <a href="javascript:alterarFiltroTag('visualizou')" class="filter-chip {% if 'visualizou' in filters.tags %}active{% endif %}">
+                <i class="bi bi-eye me-1 text-primary"></i>Acessos
+            </a>
+            
+            {% if filters.username or filters.resource or filters.tags %}
+                <a href="?" class="filter-chip active-danger">
+                    <i class="bi bi-x-circle me-1"></i>Limpar
+                </a>
+            {% endif %}
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body">
+    <div class="accordion mb-4 shadow-sm" id="accordionChart" style="border-radius: 12px; overflow: hidden; border: 1px solid var(--bs-border-color);">
+        <div class="accordion-item border-0 bg-body">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-body-tertiary py-2 text-secondary fw-semibold small text-uppercase" type="button" data-bs-toggle="collapse" data-bs-target="#collapseChart">
+                    <i class="bi bi-bar-chart-line me-2"></i> Estatísticas do Período
+                </button>
+            </h2>
+            <div id="collapseChart" class="accordion-collapse collapse" data-bs-parent="#accordionChart">
+                <div class="accordion-body">
                     <div class="row">
-                        <!-- Loader ocupa 100% antes do gráfico aparecer -->
-                        <div class="col-12" id="chartLoader">
-                            <div class="d-flex justify-content-center align-items-center" style="min-height: 200px;">
-                                <div class="text-center">
-                                    <div class="spinner-border text-primary" role="status"></div>
-                                    <p class="mt-2 text-muted small">Carregando gráfico...</p>
+                        <div class="col-lg-8" style="height: 250px;">
+                            <canvas id="actionsChart"></canvas>
+                        </div>
+                        <div class="col-lg-4 d-flex align-items-center justify-content-center mt-3 mt-lg-0">
+                            <div class="text-center w-100">
+                                <h6 class="text-muted text-uppercase small fw-bold mb-3">Resumo da Atividade</h6>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="p-3 border rounded bg-body-tertiary h-100">
+                                            <div class="h3 mb-0 text-success fw-bold" id="totalCriou">0</div>
+                                            <small class="text-muted">Criou</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 border rounded bg-body-tertiary h-100">
+                                            <div class="h3 mb-0 text-warning fw-bold" id="totalAtualizou">0</div>
+                                            <small class="text-muted">Editou</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 border rounded bg-body-tertiary h-100">
+                                            <div class="h3 mb-0 text-danger fw-bold" id="totalDeletou">0</div>
+                                            <small class="text-muted">Apagou</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="p-3 border rounded bg-body-tertiary h-100">
+                                            <div class="h3 mb-0 text-primary fw-bold" id="totalVisualizou">0</div>
+                                            <small class="text-muted">Viu</small>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Gráfico -->
-                        <div class="col-lg-7 chart-container" style="display: none;">
-                            <canvas id="actionsChart" style="min-height: 200px;"></canvas>
-                        </div>
-
-                        <!-- KPIs -->
-                        <div class="col-lg-5 d-flex align-items-center" style="display: none;">
-                            <div class="row w-100 text-center">
-                                <a href="?" class="col-6 col-md-3 mb-2 mb-md-0 border-end text-decoration-none text-secondary-emphasis hover-card">
-                                    <h6 class="text-muted small">Total</h6>
-                                    <p class="h4 mb-0" id="totalLogs">0</p>
-                                </a>
-                                <a href="?tags=criou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
-                                class="col-6 col-md-3 mb-2 mb-md-0 border-end text-decoration-none text-dark hover-card">
-                                    <h6 class="text-muted small">Criações</h6>
-                                    <p class="h4 text-success mb-0" id="totalCriou">0</p>
-                                </a>
-                                <a href="?tags=atualizou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
-                                class="col-6 col-md-3 border-end text-decoration-none text-dark hover-card">
-                                    <h6 class="text-muted small">Updates</h6>
-                                    <p class="h4 text-warning mb-0" id="totalAtualizou">0</p>
-                                </a>
-                                <a href="?tags=deletou&days={{ filters.days }}&username={{ filters.username }}&resource={{ filters.resource }}"
-                                class="col-6 col-md-3 text-decoration-none text-dark hover-card">
-                                    <h6 class="text-muted small">Deleções</h6>
-                                    <p class="h4 text-danger mb-0" id="totalDeletou">0</p>
-                                </a>
                             </div>
                         </div>
                     </div>
@@ -235,214 +267,320 @@
         </div>
     </div>
 
-    <div class="d-none d-md-block">
-        <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Resultados</span>
-                <small class="text-muted">Total de registros: {{ page_obj.paginator.count }}</small>
-            </div>
-            <div class="table-responsive table-container">
-                <table class="table table-hover table-logs mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 5%;">ID</th>
-                            <th style="width: 15%;">Data/Hora</th>
-                            <th style="width: 15%;">Usuário</th>
-                            <th style="width: 15%;">Ação</th>
-                            <th>Recurso</th>
-                            <th style="width: 5%;" class="text-end"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for log in logs %}
-                        <tr class="log-row" data-bs-toggle="collapse" data-bs-target="#detail-{{ log.id }}"
-                            aria-expanded="false" aria-controls="detail-{{ log.id }}">
-                            <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
-                            <td>{{ log.timestamp|date:"d/m/Y H:i" }}</td>
-                            <td>{{ log.username }}</td>
-                            <td>
-                                {% with action_class=log.action|default:"custom" %}
-                                <span class="action-badge {{ action_class }}">
+    <div class="d-md-none px-3">
+        {% for log in logs %}
+            {% with action=log.action|lower %}
+            <div class="log-card 
+                {% if action == 'criou' %}border-l-success
+                {% elif action == 'atualizou' %}border-l-warning
+                {% elif action == 'deletou' %}border-l-danger
+                {% elif action == 'visualizou' %}border-l-primary
+                {% else %}border-l-secondary{% endif %}">
+                
+                <div class="log-card-header" data-bs-toggle="collapse" data-bs-target="#mobile-det-{{ log.id }}">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="user-avatar text-secondary" style="width: 24px; height: 24px; font-size: 0.65rem;">
+                                {{ log.username|make_list|first|default:"?"|upper }}
+                            </div>
+                            <span class="fw-semibold text-body text-truncate" style="max-width: 140px;">
+                                {{ log.username|default:"Sistema" }}
+                            </span>
+                        </div>
+                        <small class="text-secondary opacity-75" style="font-size: 0.75rem;">
+                            {{ log.timestamp|date:"d/m H:i" }}
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div style="flex: 1; min-width: 0;"> <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge rounded-pill
+                                    {% if action == 'criou' %}text-bg-success
+                                    {% elif action == 'atualizou' %}text-bg-warning
+                                    {% elif action == 'deletou' %}text-bg-danger
+                                    {% else %}bg-secondary-subtle text-secondary border border-secondary-subtle{% endif %}">
                                     {{ log.action|capfirst }}
                                 </span>
-                                {% endwith %}
-                            </td>
-                            <td>
-                                <span class="fw-bold">{{ log.resource_name }}</span>{% if log.resource_id %} <small
-                                    class="text-muted">#{{ log.resource_id }}</small>{% endif %}
-                                <span
-                                    class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal ms-2">ID:
-                                    {{ log.id }}</span>
-                            </td>
-                            <td class="text-end"><i class="bi bi-chevron-down chevron-icon"></i></td>
-                        </tr>
-                        <tr class="log-detail-row">
-                            <td colspan="6">
-                                <div class="collapse" id="detail-{{ log.id }}">
-                                    {% include "logs/partials/log_detail_content.html" with log=log %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div class="d-block d-md-none">
-        {% for log in logs %}
-        <div class="card shadow-sm log-card mb-2">
-            <div class="card-body p-0">
-                <div class="log-card-header p-3" data-bs-toggle="collapse" data-bs-target="#detail-mobile-{{ log.id }}"
-                    aria-expanded="false" aria-controls="detail-mobile-{{ log.id }}">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="d-flex align-items-start gap-3">
-                            <span class="h5 mb-0 text-muted fw-light">{{ start_index|add:forloop.counter0 }}</span>
-
-                            <div>
-                                <span class="fw-bold d-block">
-                                    {{ log.resource_name }}
-                                    <span
-                                        class="badge bg-secondary-subtle text-secondary-emphasis rounded-pill fw-normal">ID:
-                                        {{ log.id }}</span>
-                                </span>
-                                <small class="text-muted">{{ log.username }} &bull; {{ log.timestamp|date:"d/m/Y H:i"
-                                    }}</small>
+                                <small class="text-muted font-monospace" style="font-size: 0.7rem;">#{{ log.id }}</small>
+                            </div>
+                            <div class="text-body small text-truncate fw-medium">
+                                {{ log.resource_name }} 
                             </div>
                         </div>
-
-                        <div class="text-end">
-                            {% with action_class=log.action|default:"custom" %}<span
-                                class="action-badge {{ action_class }}">{{ log.action|capfirst }}</span>{% endwith %}
-                            <i class="bi bi-chevron-down chevron-icon d-block mt-2"></i>
-                        </div>
+                        <i class="bi bi-chevron-down text-secondary opacity-50 ms-2"></i>
                     </div>
                 </div>
-                <div class="collapse" id="detail-mobile-{{ log.id }}">
-                    <div class="log-detail-mobile p-3">
+
+                <div class="collapse" id="mobile-det-{{ log.id }}">
+                    <div class="log-detail-wrapper p-3">
                         {% include "logs/partials/log_detail_content.html" with log=log %}
                     </div>
                 </div>
             </div>
-        </div>
-        {% endfor %}
+            {% endwith %}
+            {% empty %}
+                <div class="text-center py-5">
+                    <div class="bg-body-tertiary rounded-circle p-4 d-inline-block mb-3">
+                        <i class="bi bi-search display-6 text-secondary opacity-50"></i>
+                    </div>
+                    <p class="text-muted">Nenhum registro encontrado.</p>
+                </div>
+            {% endfor %}
     </div>
 
-    {% if not logs %}
-    <div class="card shadow-sm">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-journal-x fs-1 text-muted"></i>
-            <h5 class="mt-3">Nenhum log encontrado</h5>
-            <p class="text-muted">Tente ajustar os filtros ou selecionar um período diferente.</p>
+    <div class="d-none d-md-block">
+        <div class="table-responsive table-container shadow-sm">
+            <table class="table table-logs mb-0 align-middle w-100">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 150px;">Data/Hora</th>
+                        <th style="width: 200px;">Usuário</th>
+                        <th style="width: 110px;">Ação</th>
+                        <th>Recurso / Objeto</th>
+                        <th style="width: 120px;">IP</th>
+                        <th style="width: 40px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr class="log-row" data-bs-toggle="collapse" data-bs-target="#desktop-det-{{ log.id }}" aria-expanded="false">
+                        <td class="text-secondary small font-monospace">{{ log.id }}</td>
+                        <td class="small text-secondary">{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar shadow-sm">
+                                    {{ log.username|make_list|first|default:"?"|upper }}
+                                </div>
+                                <span class="fw-medium text-body">{{ log.username }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% with action=log.action|lower %}
+                            <span class="badge rounded-pill w-100 fw-normal
+                                {% if action == 'criou' %}bg-success-subtle text-success-emphasis border border-success-subtle
+                                {% elif action == 'atualizou' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle
+                                {% elif action == 'deletou' %}bg-danger-subtle text-danger-emphasis border border-danger-subtle
+                                {% else %}bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle{% endif %}">
+                                {{ log.action|capfirst }}
+                            </span>
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold text-body text-break">{{ log.resource_name|truncatechars:60 }}</span>
+                                <small class="text-secondary" style="font-size: 0.75rem;">ID: {{ log.resource_id }}</small>
+                            </div>
+                        </td>
+                        <td class="small text-secondary font-monospace">{{ log.ip_address }}</td>
+                        <td class="text-end pe-3"><i class="bi bi-chevron-down text-secondary"></i></td>
+                    </tr>
+                    <tr class="log-detail-row">
+                        <td colspan="7" class="p-0 border-0">
+                            <div class="collapse" id="desktop-det-{{ log.id }}">
+                                <div class="log-detail-wrapper p-4">
+                                    {% include "logs/partials/log_detail_content.html" with log=log %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <h5 class="text-muted">Nenhum log encontrado.</h5>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    {% endif %}
 
     {% if page_obj.has_other_pages %}
-    <div class="card shadow-sm mt-4">
-        <div class="card-footer">
-            {% include "scheduler/partials/pagination.html" with page_obj=page_obj %}
-        </div>
+    <div class="py-3 d-flex justify-content-center">
+        {% include "scheduler/partials/pagination.html" with page_obj=page_obj %}
     </div>
     {% endif %}
 
 </div>
-{% endblock %}
 
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasFilters">
+    <div class="offcanvas-header border-bottom bg-body-tertiary">
+        <h5 class="offcanvas-title fw-bold"><i class="bi bi-funnel-fill me-2 text-primary"></i>Filtros Avançados</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body bg-body">
+        <form method="get">
+            <input type="hidden" name="days" value="{{ filters.days }}">
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Usuário</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-body-secondary"><i class="bi bi-person"></i></span>
+                    <input type="text" name="username" class="form-control" placeholder="Ex: Maria" value="{{ filters.username }}">
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Recurso</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-body-secondary"><i class="bi bi-box-seam"></i></span>
+                    <input type="text" name="resource" class="form-control" placeholder="ID ou Nome (ex: 11)" value="{{ filters.resource }}">
+                </div>
+                <div class="form-text small opacity-75">Pesquise por ID do aluno para ver histórico completo.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-uppercase text-secondary">Ação</label>
+                <select name="tags" class="form-select">
+                    <option value="" {% if not filters.tags %}selected{% endif %}>Todas as Ações</option>
+                    <option value="criou" {% if 'criou' in filters.tags %}selected{% endif %}>Criou (Novo registro)</option>
+                    <option value="atualizou" {% if 'atualizou' in filters.tags %}selected{% endif %}>Atualizou (Edição)</option>
+                    <option value="deletou" {% if 'deletou' in filters.tags %}selected{% endif %}>Deletou (Exclusão)</option>
+                    <option value="visualizou" {% if 'visualizou' in filters.tags %}selected{% endif %}>Visualizou (Acesso)</option>
+                </select>
+            </div>
+
+            <div class="d-grid gap-2 mt-5">
+                <button type="submit" class="btn btn-primary fw-bold shadow-sm">Aplicar Filtros</button>
+                <a href="?" class="btn btn-outline-secondary">Limpar Tudo</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
-<script id="logs-data" type="application/json">
-  {{ logs_json|safe }}
-</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<script id="logs-data" type="application/json">{{ logs_json|safe }}</script>
+
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-    const logsDataElement = document.getElementById("logs-data");
-    const chartLoader = document.getElementById("chartLoader");
-    const chartContainer = document.querySelector(".chart-container");
-
-    let logs = [];
-
-    try {
-        logs = JSON.parse(logsDataElement.textContent || '[]');
-    } catch (e) {
-        console.error("Erro ao parsear os dados JSON dos logs:", e);
+    // --- Lógica de Filtros ---
+    function getParams() {
+        return new URLSearchParams(window.location.search);
     }
 
-    function updateKPIs() {
-        document.getElementById("totalLogs").textContent = logs.length;
+    function reloadWithParams(params) {
+        window.location.search = params.toString();
+    }
+
+    function alterarPeriodo(dias) {
+        const params = getParams();
+        params.set('days', dias);
+        params.set('page', 1);
+        reloadWithParams(params);
+    }
+
+    function alterarFiltroTag(tag) {
+        const params = getParams();
+        if (params.get('tags') === tag) {
+            params.delete('tags');
+        } else {
+            params.set('tags', tag);
+        }
+        params.set('page', 1);
+        reloadWithParams(params);
+    }
+
+    // --- Lógica do Gráfico com Suporte a Dark Mode ---
+    document.addEventListener("DOMContentLoaded", () => {
+        const logsDataElement = document.getElementById("logs-data");
+        let logs = [];
+
+        try {
+            logs = JSON.parse(logsDataElement.textContent || '[]');
+        } catch (e) { console.error("Erro JSON:", e); }
+
+        // Atualiza KPIs (Números acima dos cards)
         document.getElementById("totalCriou").textContent = logs.filter(l => l.action === "criou").length;
         document.getElementById("totalAtualizou").textContent = logs.filter(l => l.action === "atualizou").length;
         document.getElementById("totalDeletou").textContent = logs.filter(l => l.action === "deletou").length;
-    }
+        document.getElementById("totalVisualizou").textContent = logs.filter(l => l.action === "visualizou").length;
 
-    function renderChart() {
-        const ctx = document.getElementById("actionsChart");
-        if (!ctx) return;
-        if (window.actionsChart instanceof Chart) {
-            window.actionsChart.destroy();
+        // Renderiza Gráfico somente se o Accordion for aberto
+        const accordionBtn = document.querySelector('[data-bs-target="#collapseChart"]');
+        let chartInstance = null;
+
+        accordionBtn.addEventListener('click', () => {
+            // Pequeno timeout para garantir que a animação do accordion não quebre o tamanho do chart
+            setTimeout(() => {
+                if (!chartInstance) {
+                    renderChart(logs);
+                }
+            }, 200);
+        });
+
+        function getThemeColors() {
+            // Verifica se o tema atual é dark (Bootstrap 5.3+)
+            const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            return {
+                textColor: isDark ? '#adb5bd' : '#495057',
+                gridColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
+            };
         }
 
-        const formatDateBR = (isoString) => {
-            const date = new Date(isoString);
-            return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-        };
+        function renderChart(logs) {
+            const ctx = document.getElementById("actionsChart");
+            if (!ctx) return;
 
-        const grouped = logs.reduce((acc, log) => {
-            const date = formatDateBR(log.timestamp);
-            if (!acc[date]) acc[date] = { criou: 0, atualizou: 0, deletou: 0, visualizou: 0 };
-            if (acc[date][log.action] !== undefined) acc[date][log.action]++;
-            return acc;
-        }, {});
+            const formatDateBR = (isoString) => {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            };
 
-        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+            // Agrupamento por data
+            const grouped = logs.reduce((acc, log) => {
+                const date = formatDateBR(log.timestamp);
+                if (!acc[date]) acc[date] = { criou: 0, atualizou: 0, deletou: 0, visualizou: 0 };
+                if (acc[date][log.action] !== undefined) acc[date][log.action]++;
+                return acc;
+            }, {});
 
-        // Simula carregamento (300ms para UX melhor)
-        setTimeout(() => {
-            chartLoader.style.display = "none";
-            chartContainer.style.display = "block";
-            document.querySelector('.col-lg-5.d-flex').style.display = "block";
+            const sortedDates = Object.keys(grouped).sort((a, b) => 
+                new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-'))
+            );
 
-            window.actionsChart = new Chart(ctx, {
+            const theme = getThemeColors();
+
+            chartInstance = new Chart(ctx, {
                 type: "bar",
                 data: {
                     labels: sortedDates,
                     datasets: [
-                        { label: "Criações", data: sortedDates.map(d => grouped[d].criou), backgroundColor: "rgba(25, 135, 84, 0.7)" },
-                        { label: "Atualizações", data: sortedDates.map(d => grouped[d].atualizou), backgroundColor: "rgba(255, 193, 7, 0.7)" },
-                        { label: "Deleções", data: sortedDates.map(d => grouped[d].deletou), backgroundColor: "rgba(220, 53, 69, 0.7)" },
-                        { label: "Visualizações", data: sortedDates.map(d => grouped[d].visualizou), backgroundColor: "rgba(13, 110, 253, 0.7)" },
+                        { label: "Criações", data: sortedDates.map(d => grouped[d].criou), backgroundColor: "#198754", borderRadius: 4 },
+                        { label: "Edições", data: sortedDates.map(d => grouped[d].atualizou), backgroundColor: "#ffc107", borderRadius: 4 },
+                        { label: "Exclusões", data: sortedDates.map(d => grouped[d].deletou), backgroundColor: "#dc3545", borderRadius: 4 },
+                        { label: "Visualizações", data: sortedDates.map(d => grouped[d].visualizou), backgroundColor: "#0d6efd" },
                     ],
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        title: { display: true, text: "Atividade de Logs por Dia" },
-                        tooltip: {
-                            callbacks: {
-                                title: function (tooltipItems) {
-                                    return tooltipItems[0].label;
-                                }
-                            }
-                        }
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom',
+                            labels: { color: theme.textColor }
+                        } 
                     },
-                    scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, beginAtZero: true }
+                    scales: { 
+                        x: { 
+                            stacked: true,
+                            ticks: { color: theme.textColor },
+                            grid: { display: false }
+                        }, 
+                        y: { 
+                            stacked: true, 
+                            beginAtZero: true,
+                            ticks: { color: theme.textColor },
+                            grid: { color: theme.gridColor }
+                        } 
                     }
                 },
             });
-        }, 300);
-    }
-
-    updateKPIs();
-    renderChart();
-});
-
+        }
+    });
 </script>
 {% endblock %}

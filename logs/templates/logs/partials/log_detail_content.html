@@ -1,23 +1,81 @@
 <div class="log-detail-content">
     <div class="row g-3">
-        <div class="col-lg-6">
-            <h6>Informações da Requisição</h6>
-            <ul class="list-unstyled small mb-0">
-                <li><strong>IP:</strong> {{ log.ip_address }}</li>
-                <li><strong>Método:</strong> {{ log.method }}</li>
-                <li><strong>Path:</strong> {{ log.path }}</li>
-                <li><strong>User Agent:</strong> <span class="text-muted">{{ log.user_agent }}</span></li>
+        <div class="col-lg-4 border-end">
+            <h6 class="fw-bold text-secondary mb-3">
+                <i class="bi bi-cpu me-2"></i>Rastreabilidade
+            </h6>
+            <ul class="list-unstyled small text-muted">
+                <li class="mb-2">
+                    <strong class="d-block text-dark">IP de Origem:</strong>
+                    {{ log.ip_address|default:"Não registrado" }}
+                </li>
+                <li class="mb-2">
+                    <strong class="d-block text-dark">Método HTTP:</strong>
+                    <span class="badge bg-light text-dark border">{{ log.method }}</span>
+                </li>
+                <li class="mb-2">
+                    <strong class="d-block text-dark">Caminho (Path):</strong>
+                    <span class="font-monospace text-break">{{ log.path }}</span>
+                </li>
+                <li class="mb-2">
+                    <strong class="d-block text-dark">Navegador/Dispositivo:</strong>
+                    <span title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:80|default:"-" }}</span>
+                </li>
             </ul>
         </div>
-        <div class="col-lg-6">
-            <h6>Detalhes</h6>
-            <pre class="mb-0">
-                {% if log.detail_json and log.detail_json != '{}' and log.detail_json != 'null' %}
-                    <code class="p-2 rounded d-block" style="white-space: pre-wrap; word-break: break-all;">{{ log.detail_json }}</code>
-                {% else %}
-                    <code class="p-2 rounded d-block text-muted fst-italic" style="background-color: transparent !important;">Nenhum detalhe adicional.</code>
-                {% endif %}
-            </pre>
+        
+        <div class="col-lg-8">
+            <h6 class="fw-bold text-primary mb-3">
+                <i class="bi bi-clock-history me-2"></i>Registro de Alterações
+            </h6>
+
+            {% if log.action == 'atualizou' and log.detail %}
+                <div class="table-responsive border rounded">
+                    <table class="table table-sm table-striped mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 30%;">Campo Alterado</th>
+                                <th class="text-danger" style="width: 35%;">Valor Anterior</th>
+                                <th class="text-success" style="width: 35%;">Novo Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for campo, valores in log.detail.items %}
+                                {% if valores.old != valores.new %}
+                                <tr>
+                                    <td class="fw-bold font-monospace">{{ campo }}</td>
+                                    <td class="text-danger bg-danger-subtle text-break">
+                                        {{ valores.old|default:'<em class="opacity-50">Vazio</em>' }}
+                                    </td>
+                                    <td class="text-success bg-success-subtle text-break">
+                                        {{ valores.new|default:'<em class="opacity-50">Vazio</em>' }}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-2 text-end">
+                    <small class="text-muted fst-italic">Apenas campos modificados são exibidos.</small>
+                </div>
+
+            {% elif log.detail %}
+                <div class="bg-body-tertiary p-3 rounded border">
+                    <pre class="mb-0 text-break" style="max-height: 300px; overflow-y: auto;">
+                        {% if log.detail_json and log.detail_json != '{}' and log.detail_json != 'null' %}
+                            <code class="small">{{ log.detail_json }}</code>
+                        {% else %}
+                            <code class="text-muted fst-italic">Nenhum detalhe adicional.</code>
+                        {% endif %}
+                    </pre>
+                </div>
+            {% else %}
+                <div class="alert alert-light border text-center text-muted">
+                    Nenhum detalhe adicional registrado para esta ação.
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
