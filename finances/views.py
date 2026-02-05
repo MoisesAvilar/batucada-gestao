@@ -1993,16 +1993,15 @@ def mensalidades_list(request):
                     transacao=transacao_avulsa,
                 )
             elif not receita and tem_valor and tem_vencimento:
-                if data_competencia_base >= primeiro_dia_mes_atual:
-                    receita = Receita.objects.create(
-                        unidade_negocio_id=unidade_ativa_id,
-                        categoria=categoria_mensalidade,
-                        aluno=aluno,
-                        descricao=f"{aluno.nome_completo}",
-                        valor=aluno.valor_mensalidade,
-                        data_competencia=data_competencia_base,
-                        status="a_receber",
-                    )
+                receita = Receita.objects.create(
+                    unidade_negocio_id=unidade_ativa_id,
+                    categoria=categoria_mensalidade,
+                    aluno=aluno,
+                    descricao=f"{aluno.nome_completo}",
+                    valor=aluno.valor_mensalidade,
+                    data_competencia=data_competencia_base,
+                    status="a_receber",
+                )
 
             item = {
                 "aluno": aluno,
