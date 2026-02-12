@@ -376,7 +376,7 @@
                     <i class="bi bi-list fs-4"></i>
                 </button>
 
-                {% if user.is_staff and unidades_de_negocio and request.resolver_match.url_name == 'dashboard' or request.resolver_match.app_name == 'finances' or request.resolver_match.app_name == 'store'%}
+                {% if user.is_staff and user.tipo == 'admin' and unidades_de_negocio and request.resolver_match.url_name == 'dashboard' or request.resolver_match.app_name == 'finances' or request.resolver_match.app_name == 'store'%}
                     <div class="dropdown me-2">
                         <!-- Botão Desktop -->
                         <button class="btn btn-primary d-none d-sm-flex align-items-center px-3 py-2 rounded-pill shadow-sm" 
@@ -468,8 +468,18 @@
                     {% if user.is_authenticated %}
                         <div class="dropdown">
                             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
-                                <div class="user-avatar me-2">
-                                    {{ user.username|first|upper }}
+                                <div class="user-avatar-wrapper">
+                                    {% if user.profile_picture_url %}
+                                        <img src="{{ user.profile_picture_url }}" 
+                                            alt="{{ user.username }}" 
+                                            class="rounded-circle shadow-sm" 
+                                            style="width: 35px; height: 35px; object-fit: cover; border: 2px solid var(--bs-primary-bg-subtle);">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center shadow-sm" 
+                                            style="width: 35px; height: 35px; font-weight: bold; font-size: 0.9rem;">
+                                            {{ user.username|slice:":1"|upper }}
+                                        </div>
+                                    {% endif %}
                                 </div>
                                 <span class="d-none d-sm-inline">{{ user.first_name|default:user.username|title }}</span>
                             </a>

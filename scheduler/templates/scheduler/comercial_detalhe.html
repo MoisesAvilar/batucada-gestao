@@ -2,6 +2,9 @@
 
 {% block content %}
 <style>
+    .nav-pills .nav-link { color: var(--bs-secondary-color); font-weight: 600; padding: 0.75rem 1.5rem; }
+    .nav-pills .nav-link.active { background-color: var(--bs-primary); color: white; }
+    .tab-icon { font-size: 1.1rem; margin-right: 0.5rem; }
     .initials-avatar {
         width: 60px; height: 60px; border-radius: 50%;
         background-color: var(--bs-primary-bg-subtle);
@@ -128,6 +131,9 @@
     {# --- COLUNA DA ESQUERDA (GRÁFICOS E LISTAS) --- #}
     <div class="col-lg-8">
         <div class="vstack gap-4">
+            <button type="button" class="btn btn-warning w-100 mt-3" data-bs-toggle="modal" data-bs-target="#modalRecadoAdmin">
+                <i class="bi bi-chat-heart-fill me-2"></i> Recado pra Chefe
+            </button>
 
             <div class="row g-4">
                 <div class="col-md-6">
@@ -199,15 +205,36 @@
         <div class="sticky-lg-top">
             <div class="vstack gap-4">
 
-                {# Card de Informações do Usuário (igual) #}
+                {# Card de Informações do Usuário (ATUALIZADO) #}
                 <div class="content-block text-center">
-                    <div class="initials-avatar mx-auto mb-3">{{ comercial_user.username|first|upper }}</div>
+                    {# Lógica da Foto de Perfil / Iniciais #}
+                    <div class="mx-auto mb-3 d-flex justify-content-center align-items-center" style="width: 80px; height: 80px;">
+                        {% if professor.profile_picture_url %}
+                            <img src="{{ professor.profile_picture_url }}" 
+                                alt="{{ professor.username }}" 
+                                class="rounded-circle shadow-sm" 
+                                style="width: 80px; height: 80px; object-fit: cover; border: 3px solid var(--bs-primary-bg-subtle);">
+                        {% else %}
+                            <div class="initials-avatar mx-auto" style="width: 80px; height: 80px; font-size: 2rem;">
+                                {{ professor.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+                    </div>
+
                     <h2 class="h4 mb-1">{{ titulo|title }}</h2>
-                    <p class="text-muted">{{ comercial_user.email }}</p>
+                    <p class="text-muted">{{ professor.email }}</p>
+                    
                     {% if user.tipo == 'admin' %}
                         <div class="d-flex gap-2 justify-content-center mt-3">
-                            <a href="{% url 'scheduler:professor_editar' comercial_user.pk %}" class="btn btn-sm btn-primary"><i class="bi bi-pencil-square me-1"></i> Editar</a>
-                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' comercial_user.pk %}">Excluir</button>
+                            {# Aqui usamos 'professor.pk' em vez de 'comercial_user.pk' #}
+                            <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-pencil-square me-1"></i> Editar
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" 
+                                    data-bs-target="#confirmDeleteModal" 
+                                    data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">
+                                Excluir
+                            </button>
                         </div>
                     {% endif %}
                 </div>
@@ -271,6 +298,51 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalRecadoAdmin" tabindex="-1" aria-labelledby="modalRecadoAdminLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning-subtle">
+                <h5 class="modal-title text-warning-emphasis" id="modalRecadoAdminLabel">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>Atenção!
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <div class="mb-3">
+                    <i class="bi bi-emoji-dizzy fs-1 text-warning"></i>
+                </div>
+                <h4 class="mb-3">Ops! Os gráficos acadêmicos fugiram! 🏃💨</h4>
+                <p class="lead mb-4">
+                    Segura a emoção! 🤚 Por enquanto, deixei só a <strong>parte de Vendas</strong> brilhando aqui pra você focar no dinheiro. 💸
+                    <br><br>
+                    A visualização acadêmica ficou com vergonha e se escondeu, mas já estou arrastando ela de volta pro código. Jajá tá tudo completo! 🚀
+                </p>
+                <div class="alert alert-light border border-warning-subtle rounded-3">
+                    <small class="text-muted">Ass: O Dev (que não dorme enquanto não resolver isso)</small>
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pb-4">
+                <button type="button" class="btn btn-warning px-4 rounded-pill fw-bold" data-bs-dismiss="modal">
+                    Entendido, vamos vender!
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Seleciona o modal pelo ID
+        const modalElement = document.getElementById('modalRecadoAdmin');
+        
+        // Cria a instância do Bootstrap e manda mostrar
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    });
+</script>
 
 {# Adiciona os dados JSON para os scripts dos gráficos #}
 {{ fonte_labels|json_script:"fonte-labels" }}

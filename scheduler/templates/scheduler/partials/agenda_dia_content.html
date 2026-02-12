@@ -8,17 +8,40 @@
                 <button type="button" class="btn btn-sm btn-danger h-100" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:excluir_aula' aula.pk %}">Excluir</button>
         </div>
         <div class="swipe-foreground status-{{ aula.status|slugify }}">
-            {% if user.tipo in 'admin, professor' %}
+            {# LIBERADO: Admin, Professor e Comercial agora podem clicar para acessar o relatório #}
+            {% if user.tipo in 'admin, professor, comercial' %}
                 <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="text-decoration-none text-body">
             {% else %}
                 <div class="d-flex align-items-center popover-event-link">
             {% endif %}
+                
                 <div class="d-flex justify-content-between">
-                    <span class="agenda-card-title">{% if aula.alunos.all|length == 1 %} {{ aula.alunos.first.nome_completo|title }} {% elif aula.alunos.all|length > 1 %} Grupo: {{ aula.modalidade.nome|title }} {% else %} {{ aula.modalidade.nome|title }} {% endif %}</span>
+                    <span class="agenda-card-title">
+                        {% if aula.alunos.all|length == 1 %} 
+                            {{ aula.alunos.first.nome_completo|title }} 
+                        {% elif aula.alunos.all|length > 1 %} 
+                            Grupo: {{ aula.modalidade.nome|title }} 
+                        {% else %} 
+                            {{ aula.modalidade.nome|title }} 
+                        {% endif %}
+                    </span>
                     <span class="agenda-card-time">{{ aula.data_hora|time:"H:i" }}</span>
                 </div>
-                <div class="small text-muted mt-1"><i class="bi bi-person-video3 me-1"></i>{% for prof in aula.professores.all %}{{ prof.username|title }}{% if not forloop.last %}, {% endif %}{% empty %}N/A{% endfor %}</div>
-            </a>
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-person-video3 me-1"></i>
+                    {% for prof in aula.professores.all %}
+                        {{ prof.username|title }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        N/A
+                    {% endfor %}
+                </div>
+
+            {# Fecha a tag corretamente de acordo com a abertura acima #}
+            {% if user.tipo in 'admin, professor, comercial' %}
+                </a>
+            {% else %}
+                </div>
+            {% endif %}
         </div>
     </div>
 {% empty %}

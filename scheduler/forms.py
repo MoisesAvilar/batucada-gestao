@@ -52,6 +52,12 @@ class AulaForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
+        if 'professores' in self.fields:
+            self.fields['professores'].queryset = CustomUser.objects.filter(
+                is_active=True,
+                tipo__in=['professor', 'admin', 'comercial']
+            ).order_by('first_name')
+
         if 'status' in self.fields:
             if user and user.tipo == "professor":
                 self.fields.pop("status", None)
@@ -61,6 +67,7 @@ class AulaForm(forms.ModelForm):
                 self.fields["status"].choices = [
                     choice for choice in choices if choice[0] not in status_finais
                 ]
+    
 
 
 class AlunoChoiceForm(forms.Form):
@@ -74,9 +81,10 @@ class AlunoChoiceForm(forms.Form):
 
 class ProfessorChoiceForm(forms.Form):
     professor = TitlecaseModelChoiceField(
-        queryset=CustomUser.objects.filter(tipo__in=["professor", "admin"]).order_by(
-            "username"
-        ),
+        queryset=CustomUser.objects.filter(
+            tipo__in=["professor", "admin", "comercial"],
+            is_active=True,
+        ).order_by("first_name"),
         label="Professor",
         widget=forms.Select(attrs={"class": "form-select"}),
         empty_label="Selecione...",

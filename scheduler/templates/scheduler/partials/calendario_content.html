@@ -287,67 +287,70 @@
 
                                         <div class="popover-content d-none">
     {% if aulas %}
-        <ul class="list-unstyled mb-0">
-            {% for aula in aulas %}
-                <li class="popover-aula-item">
-                    {% if user.tipo in 'admin, professor' %}
-                        <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset popover-event-link">
-                    {% else %}
-                        <div class="d-flex align-items-center popover-event-link">
-                    {% endif %}
-                        <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
-                        <span class="ms-2 small">
-                            {% if aula.alunos.all|length == 1 %}
-                                {{ aula.alunos.first.nome_completo|truncatewords:2|title }}
-                            {% elif aula.alunos.all|length > 1 %}
-                                Grupo: {{ aula.modalidade.nome|title }}
-                            {% else %}
-                                {{ aula.modalidade.nome|title }}
-                            {% endif %}
-                        </span>
-                    </>
-                    <!-- Desktop: mostra lápis e lixeira -->
-                    <div class="popover-actions d-none d-lg-flex">
-                        <!-- Editar: disponível para admin e professor -->
-                        <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm bg-body-tertiary border text-body" title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </a>
+    <ul class="list-unstyled mb-0">
+        {% for aula in aulas %}
+            <li class="popover-aula-item">
+                {# LÓGICA DE CLIQUE: Admin e Professor acessam tudo. Comercial só acessa se a aula for dele. #}
+                {% if user.tipo == 'admin' or user.tipo == 'professor' or user.tipo == 'comercial' and user in aula.professores.all %}
+                    <a href="{% url 'scheduler:aula_validar' aula.pk %}" class="d-flex align-items-center text-decoration-none text-reset popover-event-link">
+                {% else %}
+                    <div class="d-flex align-items-center popover-event-link">
+                {% endif %}
+                    <span class="hora-badge status-{{ aula.status|slugify }}">{{ aula.data_hora|time:"H:i" }}</span>
+                    <span class="ms-2 small">
+                        {% if aula.alunos.all|length == 1 %}
+                            {{ aula.alunos.first.nome_completo|truncatewords:2|title }}
+                        {% elif aula.alunos.all|length > 1 %}
+                            Grupo: {{ aula.modalidade.nome|title }}
+                        {% else %}
+                            {{ aula.modalidade.nome|title }}
+                        {% endif %}
+                    </span>
 
-                        <button type="button" class="btn btn-sm bg-body-tertiary border text-body" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
-                            <i class="bi bi-trash"></i>
+                {# Fechamento dinâmico da tag #}
+                {% if user.tipo == 'admin' or user.tipo == 'professor' or user.tipo == 'comercial' and user in aula.professores.all %}
+                    </a>
+                {% else %}
+                    </div>
+                {% endif %}
+
+                <div class="popover-actions d-none d-lg-flex">
+                    <a href="{% url 'scheduler:aula_editar' aula.pk %}" class="btn btn-sm bg-body-tertiary border text-body" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm bg-body-tertiary border text-body" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+
+                <div class="popover-actions d-flex d-lg-none">
+                    <div class="dropdown">
+                        <button class="btn btn-sm border-0 py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Ações">
+                            <i class="bi bi-three-dots-vertical"></i>
                         </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
+                                    <i class="bi bi-pencil-square me-2"></i>Editar
+                                </a>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
+                                    <i class="bi bi-trash me-2"></i>Excluir
+                                </button>
+                            </li>
+                        </ul>
                     </div>
-
-                    <!-- Mobile: mostra dropdown de 3 pontinhos -->
-                    <div class="popover-actions d-flex d-lg-none">
-                        <div class="dropdown">
-                            <button class="btn btn-sm border-0 py-0 px-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Ações">
-                                <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
-                                        <i class="bi bi-pencil-square me-2"></i>Editar
-                                    </a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
-                                        <i class="bi bi-trash me-2"></i>Excluir
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <div class="text-muted d-flex flex-column justify-content-center align-items-center py-3">
-            <i class="bi bi-calendar-x fs-3 mb-1"></i>
-            <small>Sem aulas agendadas</small>
-        </div>
-    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <div class="text-muted d-flex flex-column justify-content-center align-items-center py-3">
+        <i class="bi bi-calendar-x fs-3 mb-1"></i>
+        <small>Sem aulas agendadas</small>
+    </div>
+{% endif %}
 </div>
 
                                     {% endif %}
@@ -406,7 +409,7 @@
                             {# CORPO: Título (Aluno/Atividade) e Subtítulo (Modalidade) #}
                             <div>
                                 <h6 class="card-title-agenda">
-                                    {% if user.tipo in 'admin, professor' %}
+                                    {% if user.tipo in 'admin, professor, comercial' %}
                                         <a href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}">
                                     {% else %}
                                         <div class="d-flex align-items-center">
@@ -448,29 +451,15 @@
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end">
-                                            {% if user.tipo in 'admin,professor' %}
+                                            {# Todos podem acessar o link. O backend decidirá se abre em modo View ou Edit #}
                                             <li>
                                                 <a class="dropdown-item" href="{% if aula.status == 'Agendada' %}{% url 'scheduler:aula_editar' aula.pk %}{% else %}{% url 'scheduler:aula_validar' aula.pk %}{% endif %}">
                                                     <i class="bi bi-pencil me-2"></i>
-                                                    {% if aula.status == 'Agendada' %}
-                                                        Editar
-                                                    {% else %}
-                                                        Ver Relatório
-                                                    {% endif %}
+                                                    {% if aula.status == 'Agendada' %} Editar {% else %} Ver Relatório {% endif %}
                                                 </a>
                                             </li>
-
-                                        {% elif user.tipo == 'comercial' %}
-                                            {% if aula.status == 'Agendada' %}
-                                                <li>
-                                                    <a class="dropdown-item" href="{% url 'scheduler:aula_editar' aula.pk %}">
-                                                        <i class="bi bi-pencil me-2"></i>
-                                                        Editar
-                                                    </a>
-                                                </li>
-                                            {% endif %}
-
-                                        {% endif %}
+                                            
+                                            {# Excluir permanece liberado conforme sua lógica #}
                                             <li>
                                                 <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:aula_excluir' aula.pk %}">
                                                     <i class="bi bi-trash me-2"></i>Excluir

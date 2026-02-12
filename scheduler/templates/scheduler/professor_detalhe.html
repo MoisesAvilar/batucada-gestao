@@ -78,8 +78,18 @@
         <div class="sticky-lg-top">
             <div class="vstack gap-4">
                 <div class="content-block text-center">
-                    <div class="initials-avatar mx-auto mb-3">{{ professor.username|first|upper }}</div>
-                    <h2 class="h4 mb-1">{{ titulo|title }}</h2>
+                    <div class="mx-auto mb-3 d-flex justify-content-center align-items-center" style="width: 80px; height: 80px;">
+                        {% if professor.profile_picture_url %}
+                            <img src="{{ professor.profile_picture_url }}" 
+                                alt="{{ professor.username }}" 
+                                class="rounded-circle shadow-sm" 
+                                style="width: 80px; height: 80px; object-fit: cover; border: 3px solid var(--bs-primary-bg-subtle);">
+                        {% else %}
+                            <div class="initials-avatar mx-auto" style="width: 80px; height: 80px; font-size: 2rem;">
+                                {{ professor.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+                    </div>
                     <p class="text-muted">{{ professor.email }}</p>
                      {% if user.tipo == 'admin' %}
                         <div class="d-flex gap-2 justify-content-center mt-3">

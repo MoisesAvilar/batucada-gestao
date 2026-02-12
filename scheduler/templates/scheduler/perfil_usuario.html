@@ -21,20 +21,20 @@
     <div class="card-body text-center"> {# Centraliza o avatar #}
         {# Avatar do usuário (foto ou iniciais) - REUTILIZA A LÓGICA DO BASE.HTML #}
         <div class="text-center mb-4">
-                {% if user.profile_picture_url %}
-                <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" 
-                     class="rounded-circle shadow-sm" style="width: 100px; height: 100px; object-fit: cover;">
-                {% else %}
-                <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center mb-3"
-                     style="width: 100px; height: 100px; font-size: 2rem;">
-                    {% if user.first_name and user.last_name %}
-                        {{ user.first_name|slice:"0:1"|upper }}{{ user.last_name|slice:"0:1"|upper }}
-                    {% else %}
-                        {{ user.username|slice:"0:1"|upper }}
-                    {% endif %}
+            {% if user.profile_picture_url %}
+                <div class="position-relative d-inline-block">
+                    <img src="{{ user.profile_picture_url }}" alt="Foto de {{ user.username }}" 
+                        class="rounded-circle shadow" style="width: 120px; height: 120px; object-fit: cover; border: 4px solid var(--bs-tertiary-bg);">
                 </div>
-                {% endif %}
-            </div>
+            {% else %}
+                <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center shadow"
+                    style="width: 120px; height: 120px; font-size: 3rem; font-weight: bold;">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+            {% endif %}
+            <h3 class="mt-3 mb-0">{{ user.get_full_name|default:user.username|title }}</h3>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ user.get_tipo_display }}</span>
+        </div>
 
         <form method="post">
             {% csrf_token %}

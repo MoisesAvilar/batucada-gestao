@@ -26,96 +26,78 @@
     </div>
 </div>
 
-<form method="GET" action="{% url 'scheduler:professor_listar' %}" class="mb-4">
-    <div class="input-group">
-        <input type="text" id="id_q" name="q" class="form-control" placeholder="Buscar por nome de usuário, nome ou email..." value="{{ search_query }}">
-        <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
-        {% if search_query %}<a href="{% url 'scheduler:professor_listar' %}" class="btn btn-outline-danger" title="Limpar Busca"><i class="bi bi-x-lg"></i></a>{% endif %}
+<div class="content-block shadow-sm">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <form method="GET" action="{% url 'scheduler:professor_listar' %}" class="d-flex gap-2 flex-grow-1" style="max-width: 600px;">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar colaborador..." value="{{ search_query }}">
+            </div>
+
+            <select name="status" class="form-select w-auto" onchange="this.form.submit()">
+                <option value="ativos" {% if status_filter == 'ativos' %}selected{% endif %}>Ativos</option>
+                <option value="inativos" {% if status_filter == 'inativos' %}selected{% endif %}>Inativos</option>
+                <option value="todos" {% if status_filter == 'todos' %}selected{% endif %}>Todos</option>
+            </select>
+        </form>
     </div>
-</form>
 
-<div class="content-block">
-    <h5 class="px-3 pt-3 pb-2 mb-0">Lista de Colaboradores</h5>
-    {% if not professores %}
-        <div class="text-center text-muted p-5">
-            <i class="bi bi-people display-4"></i>
-            <p class="mt-3 mb-0">Nenhum professor encontrado.</p>
-        </div>
-    {% else %}
-        {# --- VISÃO DE DESKTOP (TABELA) --- #}
-        <div class="table-responsive d-none d-lg-block">
-            <table class="table table-hover table-borderless align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th scope="col" class="ps-3">Professor</th>
-                        <th scope="col" class="text-center">Aulas Realizadas</th>
-                        <th scope="col">Próxima Aula</th>
-                        <th scope="col" class="text-center">Alunos Únicos</th>
-                        <th scope="col" class="text-end pe-3">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for professor in professores %}
-                    <tr>
-                        <td class="ps-3">
-                            <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="text-decoration-none text-body">
-                                <strong class="d-block">{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary-subtle text-primary-emphasis ms-2">Admin</span>{% endif %}</strong>
-                                <small class="text-muted">{{ professor.first_name|title }} {{ professor.last_name|title }}</small>
-                            </a>
-                        </td>
-                        {% if professor.tipo == 'professor' or professor.tipo == 'admin' %}
-                            <td class="text-center"><span class="badge fs-6 text-bg-success">{{ professor.total_aulas_realizadas }}</span></td>
-                            <td>{% if professor.proxima_aula %}{{ professor.proxima_aula|date:"d/m/Y, H:i" }}{% else %}<span class="text-muted small">Nenhuma</span>{% endif %}</td>
-                            <td class="text-center"><span class="badge fs-6 text-bg-secondary">{{ professor.total_alunos_atendidos }}</span></td>
-                        {% elif professor.tipo == 'comercial' %}
-                            <td class="text-center text-muted" colspan="3">
-                                <span class="badge bg-info-subtle text-info-emphasis">Usuário Comercial</span>
-                            </td>
-                        {% endif %}
-                            <td class="text-end pe-3">
-                            <div class="d-flex justify-content-end gap-2">
-                                <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil-square"></i></a>
-                                <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}"><i class="bi bi-trash"></i></button>
-                                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="btn btn-sm btn-primary">Ver Perfil</a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {# --- VISÃO DE MOBILE (LISTA DE CARDS) --- #}
-        <div class="d-lg-none p-2">
-            {% for professor in professores %}
-            <div class="mobile-card">
-                <a href="{% url 'scheduler:professor_detalhe' professor.pk %}" class="text-decoration-none text-body">
-                    <h6 class="mb-1">{{ professor.username|title }}{% if professor.tipo == 'admin' %}<span class="badge bg-primary-subtle text-primary-emphasis ms-2 small">Admin</span>{% endif %}</h6>
-                    <p class="text-muted small mb-2">{{ professor.first_name|title }} {{ professor.last_name|title }}</p>
-                </a>
-                {% if professor.tipo == 'professor' or professor.tipo == 'admin' %}
-                <div class="row text-center small g-2 border-top border-bottom py-2 my-2">
-                    <div class="col">
-                        <div class="text-muted">Realizadas</div>
-                        <strong>{{ professor.total_aulas_realizadas }}</strong>
-                    </div>
-                    <div class="col">
-                        <div class="text-muted">Próxima Aula</div>
-                        <strong>{{ professor.proxima_aula|date:"d/m H:i"|default:"N/A" }}</strong>
-                    </div>
-                    <div class="col">
-                        <div class="text-muted">Alunos</div>
-                        <strong>{{ professor.total_alunos_atendidos }}</strong>
-                    </div>
-                </div>
+    <div class="row g-4">
+        {% for prof in professores %}
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card h-100 border-0 shadow-sm position-relative {% if not prof.is_active %}opacity-75{% endif %}">
+                
+                {% if not prof.is_active %}
+                <span class="position-absolute top-0 end-0 m-2 badge bg-danger">Inativo</span>
                 {% endif %}
-                <div class="d-flex justify-content-end gap-2 mt-2">
-                    <a href="{% url 'scheduler:professor_editar' professor.pk %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-delete-url="{% url 'scheduler:professor_excluir' professor.pk %}">Excluir</button>
+
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        {% if prof.profile_picture_url %}
+                            <img src="{{ prof.profile_picture_url }}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover; border: 2px solid var(--bs-primary-bg-subtle);">
+                        {% else %}
+                            <div class="rounded-circle bg-secondary-subtle text-secondary d-flex align-items-center justify-content-center" style="width: 60px; height: 60px; font-weight: bold; font-size: 1.2rem;">
+                                {{ prof.username|slice:":1"|upper }}
+                            </div>
+                        {% endif %}
+
+                        <div>
+                            <h5 class="card-title mb-0">{{ prof.get_full_name|default:prof.username|title }}</h5>
+                            <small class="text-muted">{{ prof.get_tipo_display }}</small>
+                        </div>
+                    </div>
+
+                    <div class="vstack gap-2 small mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Aulas Realizadas:</span>
+                            <span class="fw-bold">{{ prof.total_aulas_realizadas }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Alunos Atendidos:</span>
+                            <span class="fw-bold">{{ prof.total_alunos_atendidos }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Próxima Aula:</span>
+                            <span class="fw-bold">{{ prof.proxima_aula|date:"d/m H:i"|default:"---" }}</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'scheduler:professor_detalhe' prof.pk %}" class="btn btn-outline-primary btn-sm">
+                            Visualizar Perfil
+                        </a>
+                    </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
-    {% endif %}
+        {% empty %}
+        <div class="text-center py-5">
+            <i class="bi bi-people fs-1 text-muted"></i>
+            <p class="mt-2 text-muted">Nenhum colaborador encontrado.</p>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}

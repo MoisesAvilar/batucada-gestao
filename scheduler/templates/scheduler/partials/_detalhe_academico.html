@@ -1,0 +1,48 @@
+{# scheduler/partials/_detalhe_academico.html #}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="vstack gap-4">
+            <div class="content-block">
+                <h5 class="mb-3">Distribuição de Status das Aulas</h5>
+                <div style="height: 300px;"><canvas id="statusChart"></canvas></div>
+            </div>
+
+            <h3 class="mt-5 mb-3">Histórico de Aulas Recentes</h3>
+            <div id="tabela-aulas-container">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        {% include 'scheduler/partials/aula_table.html' with aulas=aulas_do_professor professor_context=professor %}
+                    </div>
+                </div>
+                <div class="mt-4">
+                    {% include 'scheduler/partials/pagination.html' with page_obj=aulas_do_professor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="vstack gap-4">
+            <div class="content-block">
+                <h6 class="mb-3">Estatísticas no Período</h6>
+                <div class="vstack gap-3">
+                    <div class="d-flex align-items-center kpi-item">
+                        <div class="icon bg-success-subtle text-success-emphasis"><i class="bi bi-check2-all"></i></div>
+                        <div class="ms-3 flex-grow-1 small">Realizadas</div>
+                        <div class="value text-success-emphasis">{{ total_realizadas }}</div>
+                    </div>
+                    <div class="d-flex align-items-center kpi-item">
+                        <div class="icon bg-primary-subtle text-primary-emphasis"><i class="bi bi-people"></i></div>
+                        <div class="ms-3 flex-grow-1 small">Alunos Atendidos</div>
+                        <div class="value text-primary-emphasis">{{ alunos_atendidos }}</div>
+                    </div>
+                    <div class="d-flex align-items-center kpi-item">
+                        <div class="icon bg-info-subtle text-info-emphasis"><i class="bi bi-calendar-event"></i></div>
+                        <div class="ms-3 flex-grow-1 small">Agendadas</div>
+                        <div class="value text-info-emphasis">{{ total_agendadas }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

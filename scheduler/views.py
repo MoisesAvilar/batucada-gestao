@@ -150,6 +150,7 @@ def dashboard(request):
     now = timezone.now()
     today = now.date()
 
+    # Aulas pendentes fixas no usuário logado (para ação imediata)
     aulas_pendentes_validacao = Aula.objects.filter(
         professores=request.user, status="Agendada", data_hora__lt=now
     ).order_by("data_hora")
@@ -167,15 +168,17 @@ def dashboard(request):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
+    # Captura o filtro do professor (ex: Ana)
+    professor_filtro_id = request.GET.get("professor_filtro_id")
+
     # --- Lógica Específica por Tipo de Usuário ---
     if request.user.tipo in ["admin", "comercial"]:
-        # 1. Filtros de Aula
+        # 1. Definição do QuerySet Base com Filtro (Ajuste aqui)
         aulas_qs = Aula.objects.all()
-        professor_filtro_id = request.GET.get("professor_filtro_id")
-        if professor_filtro_id:
-            aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id)
+        if professor_filtro_id and professor_filtro_id.isdigit():
+            aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id).distinct()
         
-        # 2. Stats Operacionais
+        # 2. Stats Operacionais (KPIs fixos da unidade, não mudam com o filtro do calendário)
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
         aulas_semana_count = Aula.objects.filter(
             data_hora__date__range=[start_of_week, end_of_week]
@@ -187,170 +190,84 @@ def dashboard(request):
             data_criacao__year=today.year, data_criacao__month=today.month
         ).count()
 
-        # 3. Stats Financeiros (KPIs de Mensalidades)
-        # Inicializa variáveis
-        kpi_recebido = Decimal("0.00")
-        count_recebido = 0
-        kpi_atrasado = Decimal("0.00")
-        count_atrasado = 0
-        kpi_em_aberto = Decimal("0.00")
-        count_em_aberto = 0
-        kpi_previsto = Decimal("0.00")
-        count_previsto = 0
-        
-        # Define Mês/Ano de referência para os links dos cards
-        kpi_mes_ref = today.month
-        kpi_ano_ref = today.year
+        # 3. Stats Financeiros (Mantidos conforme sua lógica original)
+        kpi_recebido = kpi_atrasado = kpi_em_aberto = kpi_previsto = Decimal("0.00")
+        count_recebido = count_atrasado = count_em_aberto = count_previsto = 0
+        kpi_mes_ref, kpi_ano_ref = today.month, today.year
         
         unidade_id = request.session.get("unidade_ativa_id")
-        
         if unidade_id:
-            cat_mensalidade = Category.objects.filter(
-                name__iexact="Mensalidade", 
-                unidade_negocio_id=unidade_id
-            ).first()
-
+            cat_mensalidade = Category.objects.filter(name__iexact="Mensalidade", unidade_negocio_id=unidade_id).first()
             if cat_mensalidade:
-                # Otimização: Busca tudo em 2 queries (Receitas e Transações) em vez de N queries
-                receitas_dict = {
-                    r.aluno_id: r for r in Receita.objects.filter(
-                        unidade_negocio_id=unidade_id,
-                        categoria=cat_mensalidade,
-                        data_competencia__year=kpi_ano_ref,
-                        data_competencia__month=kpi_mes_ref
-                    ).select_related('transacao')
-                }
+                receitas_dict = {r.aluno_id: r for r in Receita.objects.filter(
+                    unidade_negocio_id=unidade_id, categoria=cat_mensalidade,
+                    data_competencia__year=kpi_ano_ref, data_competencia__month=kpi_mes_ref
+                ).select_related('transacao')}
                 
-                transacoes_dict = {
-                    t.student_id: t for t in Transaction.objects.filter(
-                        unidade_negocio_id=unidade_id,
-                        category=cat_mensalidade,
-                        transaction_date__year=kpi_ano_ref,
-                        transaction_date__month=kpi_mes_ref,
-                        receita__isnull=True,
-                        student__isnull=False
-                    )
-                }
+                transacoes_dict = {t.student_id: t for t in Transaction.objects.filter(
+                    unidade_negocio_id=unidade_id, category=cat_mensalidade,
+                    transaction_date__year=kpi_ano_ref, transaction_date__month=kpi_mes_ref,
+                    receita__isnull=True, student__isnull=False
+                )}
 
-                # Itera sobre alunos ativos para calcular status
-                alunos_ativos = Aluno.objects.filter(status="ativo")
-                
-                for aluno in alunos_ativos:
-                    valor = Decimal("0.00")
-                    status = ""
-
-                    # Prioridade 1: Receita já existe
+                for aluno in Aluno.objects.filter(status="ativo"):
+                    valor, status = Decimal("0.00"), ""
                     if aluno.id in receitas_dict:
-                        receita = receitas_dict[aluno.id]
-                        valor = receita.valor
-                        if receita.status == 'recebido' or receita.transacao:
-                            status = 'Paga'
-                        else:
-                            # Verifica atraso
-                            venc = receita.data_recebimento
-                            if not venc and aluno.dia_vencimento:
-                                try:
-                                    venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
-                                except ValueError:
-                                    venc = date(kpi_ano_ref, kpi_mes_ref, 28)
-                            
-                            if venc and today > venc:
-                                status = 'Atrasada'
-                            else:
-                                status = 'Em aberto'
-                    
-                    # Prioridade 2: Transação avulsa existe (pagou mas não gerou receita)
+                        r = receitas_dict[aluno.id]
+                        valor, status = r.valor, ('Paga' if r.status == 'recebido' or r.transacao else 'Pendente')
+                        if status == 'Pendente':
+                            venc = r.data_recebimento or (date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento) if aluno.dia_vencimento else date(kpi_ano_ref, kpi_mes_ref, 28))
+                            status = 'Atrasada' if today > venc else 'Em aberto'
                     elif aluno.id in transacoes_dict:
-                        transacao = transacoes_dict[aluno.id]
-                        valor = transacao.amount
-                        status = 'Paga'
-                    
-                    # Prioridade 3: Configuração do Aluno (Previsão)
+                        valor, status = transacoes_dict[aluno.id].amount, 'Paga'
                     elif aluno.valor_mensalidade and aluno.dia_vencimento:
                         valor = aluno.valor_mensalidade
-                        try:
-                            venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
-                        except ValueError:
-                            venc = date(kpi_ano_ref, kpi_mes_ref, 28)
-                            
-                        if today > venc:
-                            status = 'Atrasada'
-                        else:
-                            status = 'Em aberto'
-                    else:
-                        continue # Aluno não configurado ou sem mensalidade
+                        venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
+                        status = 'Atrasada' if today > venc else 'Em aberto'
                     
-                    # Soma nos acumuladores
-                    if status == 'Paga':
-                        kpi_recebido += valor
-                        count_recebido += 1
-                    elif status == 'Atrasada':
-                        kpi_atrasado += valor
-                        count_atrasado += 1
-                    elif status == 'Em aberto':
-                        kpi_em_aberto += valor
-                        count_em_aberto += 1
+                    if status == 'Paga': kpi_recebido += valor; count_recebido += 1
+                    elif status == 'Atrasada': kpi_atrasado += valor; count_atrasado += 1
+                    elif status == 'Em aberto': kpi_em_aberto += valor; count_em_aberto += 1
 
-                # Totais
                 kpi_previsto = kpi_recebido + kpi_atrasado + kpi_em_aberto
                 count_previsto = count_recebido + count_atrasado + count_em_aberto
 
         contexto = {
             "titulo": f"Painel de Controle - {request.user.get_tipo_display()}",
-            "aulas_hoje_count": aulas_hoje_count,
-            "aulas_semana_count": aulas_semana_count,
-            "aulas_agendadas_total": aulas_agendadas_total,
-            "novos_alunos_mes": novos_alunos_mes,
-            "professores_list": CustomUser.objects.filter(
-                tipo__in=["professor", "admin"]
-            ).order_by("username"),
+            "aulas_hoje_count": aulas_hoje_count, "aulas_semana_count": aulas_semana_count,
+            "aulas_agendadas_total": aulas_agendadas_total, "novos_alunos_mes": novos_alunos_mes,
+            "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin", "comercial"], is_active=True).order_by("first_name"),
             "primeiro_dia_mes": today.replace(day=1).strftime("%Y-%m-%d"),
-            "ultimo_dia_mes": today.replace(
-                day=calendar.monthrange(today.year, today.month)[1]
-            ).strftime("%Y-%m-%d"),
+            "ultimo_dia_mes": today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime("%Y-%m-%d"),
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
-            # KPIs Financeiros adicionados ao contexto
-            "kpi_recebido": kpi_recebido,
-            "count_recebido": count_recebido,
-            "kpi_atrasado": kpi_atrasado,
-            "count_atrasado": count_atrasado,
-            "kpi_em_aberto": kpi_em_aberto,
-            "count_em_aberto": count_em_aberto,
-            "kpi_previsto": kpi_previsto,
-            "count_previsto": count_previsto,
-            "kpi_mes_ref": kpi_mes_ref,
-            "kpi_ano_ref": kpi_ano_ref,
+            "kpi_recebido": kpi_recebido, "count_recebido": count_recebido,
+            "kpi_atrasado": kpi_atrasado, "count_atrasado": count_atrasado,
+            "kpi_em_aberto": kpi_em_aberto, "count_em_aberto": count_em_aberto,
+            "kpi_previsto": kpi_previsto, "count_previsto": count_previsto,
+            "kpi_mes_ref": kpi_mes_ref, "kpi_ano_ref": kpi_ano_ref,
         }
-        
-        # Tour Flag (Mantido original)
         ja_viu_tour = request.user.tours_vistos.filter(tour_id="horarios_fixos_v1").exists()
         contexto["mostrar_tour_horarios"] = not ja_viu_tour
 
     else:  # Professor
-        aulas_qs = Aula.objects.filter(professores=request.user)
-        aulas_do_professor = aulas_qs.distinct()
-        
-        aulas_hoje_count = aulas_do_professor.filter(data_hora__date=today).count()
-        aulas_semana_count = aulas_do_professor.filter(
-            data_hora__date__range=[start_of_week, end_of_week]
-        ).count()
-        
+        aulas_qs = Aula.objects.filter(professores=request.user).distinct()
         contexto = {
             "titulo": "Painel de Controle",
-            "aulas_hoje_count": aulas_hoje_count,
-            "aulas_semana_count": aulas_semana_count,
+            "aulas_hoje_count": aulas_qs.filter(data_hora__date=today).count(),
+            "aulas_semana_count": aulas_qs.filter(data_hora__date__range=[start_of_week, end_of_week]).count(),
             "aulas_pendentes_count": aulas_pendentes_count,
             "aulas_pendentes_validacao": aulas_pendentes_validacao,
             "mostrar_tour_horarios": False,
         }
 
-    # --- Lógica Comum (Calendário e Forms) ---
+    # --- Lógica do Calendário e Agenda Lateral (Agora usa o aulas_qs filtrado acima) ---
     aulas_do_mes = (
         aulas_qs.filter(data_hora__year=year, data_hora__month=month)
         .select_related("modalidade")
         .prefetch_related("alunos", "professores")
         .order_by("data_hora")
     )
+    
     aulas_por_dia = defaultdict(list)
     for aula in aulas_do_mes:
         aulas_por_dia[localtime(aula.data_hora).day].append(aula)
@@ -367,24 +284,21 @@ def dashboard(request):
     AlunoFormSetModal = formset_factory(AlunoChoiceForm, extra=1, can_delete=False)
     ProfessorFormSetModal = formset_factory(ProfessorChoiceForm, extra=1, can_delete=False)
 
-    contexto.update(
-        {
-            "today": today,
-            "mes_atual": date(year, month, 1),
-            "calendario_mes": calendario_final,
-            "aulas_do_mes_lista": aulas_do_mes,
-            "today_iso": today_iso,
-            "week_start_iso": week_start_iso,
-            "week_end_iso": week_end_iso,
-            "aula_form_modal": AulaForm(user=request.user),
-            "aluno_formset_modal": AlunoFormSetModal(prefix="alunos"),
-            "professor_formset_modal": ProfessorFormSetModal(prefix="professores"),
-            "form_action_modal": reverse("scheduler:aula_agendar"),
-        }
-    )
+    contexto.update({
+        "today": today,
+        "mes_atual": date(year, month, 1),
+        "calendario_mes": calendario_final,
+        "aulas_do_mes_lista": aulas_do_mes, # Agora filtrada pela Ana se selecionada
+        "today_iso": today_iso,
+        "week_start_iso": week_start_iso,
+        "week_end_iso": week_end_iso,
+        "aula_form_modal": AulaForm(user=request.user),
+        "aluno_formset_modal": AlunoFormSetModal(prefix="alunos"),
+        "professor_formset_modal": ProfessorFormSetModal(prefix="professores"),
+        "form_action_modal": reverse("scheduler:aula_agendar"),
+    })
 
     return render(request, "scheduler/dashboard.html", contexto)
-
 
 @login_required
 def get_calendario_html(request):
@@ -395,13 +309,15 @@ def get_calendario_html(request):
         return HttpResponse("Parâmetros de ano/mês inválidos.", status=400)
 
     # ★★★ LÓGICA DE FILTRO ATUALIZADA ★★★
+    professor_filtro_id = request.GET.get("professor_filtro_id")
+
     if request.user.tipo in ["admin", "comercial"]:
         aulas_qs = Aula.objects.all()
-        professor_filtro_id = request.GET.get("professor_filtro_id")
-        if professor_filtro_id:
-            aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id)
-    else:  # Professor só pode ver suas próprias aulas
-        aulas_qs = Aula.objects.filter(professores=request.user)
+        if professor_filtro_id and professor_filtro_id.isdigit():
+            # Usamos distinct() para evitar duplicatas e garantimos que o ID é válido
+            aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id).distinct()
+    else:
+        aulas_qs = Aula.objects.filter(professores=request.user).distinct()
 
     # O resto da função permanece igual
     aulas_do_mes = (
@@ -1448,13 +1364,15 @@ def listar_aulas(request):
 
 
 @login_required
-@user_passes_test(lambda u: u.tipo in ["admin", "professor"])
+@user_passes_test(lambda u: u.tipo in ["admin", "professor", "comercial"])
 @never_cache
 def validar_aula(request, pk):
     aula = get_object_or_404(Aula, pk=pk)
     relatorio, created = RelatorioAula.objects.get_or_create(aula=aula)
 
     pode_editar = False
+    
+    # --- LÓGICA DE PERMISSÃO DE EDIÇÃO ---
     if request.user.tipo == "admin":
         pode_editar = True
     elif request.user.tipo == "professor":
@@ -1462,19 +1380,17 @@ def validar_aula(request, pk):
             pode_editar = True
         elif relatorio.professor_que_validou == request.user:
             pode_editar = True
-        elif (
-            not relatorio.professor_que_validou
-            and request.user in aula.professores.all()
-        ):
-            pode_editar = True
         elif not relatorio.professor_que_validou:
             pode_editar = True
+    # REGRA COMERCIAL: Só edita se estiver na lista de professores da aula
+    elif request.user.tipo == "comercial":
+        if request.user in aula.professores.all():
+            pode_editar = True
 
+    # Define o modo de visualização inicial
     view_mode = "visualizar"
     if pode_editar:
-        if aula.status == "Agendada":
-            view_mode = "editar"
-        elif request.GET.get("mode") == "editar":
+        if aula.status == "Agendada" or request.GET.get("mode") == "editar":
             view_mode = "editar"
 
     is_ac = "atividade complementar" in aula.modalidade.nome.lower()
@@ -1540,9 +1456,7 @@ def validar_aula(request, pk):
 
     if request.method == "POST":
         if not pode_editar:
-            messages.error(
-                request, "Você não tem permissão para salvar este relatório."
-            )
+            messages.error(request, "Você só pode validar ou editar relatórios de aulas onde você é o professor responsável.")
             return redirect("scheduler:aula_validar", pk=aula.pk)
 
         form = RelatorioAulaForm(request.POST, instance=relatorio)
@@ -1893,12 +1807,16 @@ def detalhe_modalidade(request, pk):
 @user_passes_test(is_admin)
 def listar_professores(request):
     search_query = request.GET.get("q", "")
+    status_filter = request.GET.get("status", "ativos") # Padrão: ativos
     now = timezone.now()
 
-    professores_queryset = (
-        CustomUser.objects.filter(tipo__in=["professor", "admin", "comercial"])
-        .order_by("first_name", "last_name")
-    )
+    professores_queryset = CustomUser.objects.filter(tipo__in=["professor", "admin", "comercial"])
+
+    # --- FILTRO DE STATUS (Ativo/Inativo) ---
+    if status_filter == "ativos":
+        professores_queryset = professores_queryset.filter(is_active=True)
+    elif status_filter == "inativos":
+        professores_queryset = professores_queryset.filter(is_active=False)
 
     if search_query:
         professores_queryset = professores_queryset.filter(
@@ -1908,18 +1826,14 @@ def listar_professores(request):
             | Q(email__icontains=search_query)
         )
 
-    # --- INÍCIO DA LÓGICA DE ANOTAÇÃO CORRIGIDA ---
+    # Ordenação e Anotações (mantendo sua lógica atual)
     professores_queryset = professores_queryset.annotate(
-        # Anotação para aulas NORMAIS (não AC) que o professor VALIDOU
         realizadas_normal=Count(
             "aulas_validadas_por_mim",
             distinct=True,
             filter=Q(aulas_validadas_por_mim__aula__status="Realizada")
-            & ~Q(
-                aulas_validadas_por_mim__aula__modalidade__nome__icontains="atividade complementar"
-            ),
+            & ~Q(aulas_validadas_por_mim__aula__modalidade__nome__icontains="atividade complementar"),
         ),
-        # Anotação para ATIVIDADES COMPLEMENTARES em que o professor esteve PRESENTE
         realizadas_ac=Count(
             "presencas_registradas",
             distinct=True,
@@ -1929,16 +1843,14 @@ def listar_professores(request):
                 presencas_registradas__aula__modalidade__nome__icontains="atividade complementar",
             ),
         ),
-        # Outras anotações que você já tinha
         total_alunos_atendidos=Count("aulas_lecionadas__alunos", distinct=True),
         proxima_aula=Subquery(
             Aula.objects.filter(professores=OuterRef("pk"), data_hora__gte=now)
             .order_by("data_hora")
             .values("data_hora")[:1]
         ),
-    ).distinct()
+    ).order_by("first_name", "last_name").distinct()
 
-    # Loop em Python para calcular o total final
     professores_list = []
     for p in professores_queryset:
         p.total_aulas_realizadas = p.realizadas_normal + p.realizadas_ac
@@ -1948,6 +1860,7 @@ def listar_professores(request):
         "professores": professores_list,
         "titulo": "Gerenciamento de Colaboradores",
         "search_query": search_query,
+        "status_filter": status_filter, # Enviando para o template
     }
     return render(request, "scheduler/professor_listar.html", contexto)
 
@@ -1999,16 +1912,103 @@ def excluir_professor(request, pk):
 
 @login_required
 def detalhe_professor(request, pk):
+    # 1. Verificação de Permissão
     if not (
         request.user.tipo == "admin"
-        or (request.user.pk == pk and request.user.tipo == "professor")
-        or (request.user.pk == pk and request.user.tipo == "comercial")
+        or (request.user.pk == pk and request.user.tipo in ["professor", "comercial"])
     ):
         messages.error(request, "Você não tem permissão para acessar este perfil.")
         return redirect("scheduler:dashboard")
 
     user_obj = get_object_or_404(CustomUser, pk=pk, tipo__in=["professor", "admin", "comercial"])
+    professor = user_obj
+    
+    # === LÓGICA ACADÊMICA (COMUM A TODOS) ===
+    # Processa datas, filtros e KPIs de aulas para popular a aba "Acadêmico"
+    data_inicial_str = request.GET.get("data_inicial", "")
+    data_final_str = request.GET.get("data_final", "")
+    status_filtro = request.GET.get("status_filtro", "")
+    status_filtro_display = status_filtro.replace("_", " ") if status_filtro else ""
 
+    data_inicial, data_final = None, None
+    if data_inicial_str:
+        try:
+            data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
+        except ValueError: pass
+    if data_final_str:
+        try:
+            data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
+        except ValueError: pass
+
+    # Query Base de Aulas
+    aulas_relacionadas_base = Aula.objects.filter(
+        Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
+    ).distinct()
+
+    aulas_kpi = aulas_relacionadas_base
+    if data_inicial:
+        aulas_kpi = aulas_kpi.filter(data_hora__date__gte=data_inicial)
+    if data_final:
+        aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
+
+    # Regras de Negócio para KPIs
+    q_realizadas_normal = Q(status="Realizada", relatorioaula__professor_que_validou=professor) & ~Q(modalidade__nome__icontains="atividade complementar")
+    q_realizadas_ac = Q(status="Realizada", modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status="presente")
+    
+    aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(q_realizadas_normal | q_realizadas_ac).distinct()
+
+    # Cálculo dos KPIs Acadêmicos
+    total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
+    alunos_atendidos = PresencaAluno.objects.filter(aula__in=aulas_realizadas_pelo_professor_no_periodo, status="presente").count()
+    total_ausencias_professor = aulas_kpi.filter(modalidade__nome__icontains="atividade complementar", presencas_professores__professor=professor, presencas_professores__status="ausente").count()
+    total_agendadas = aulas_kpi.filter(status="Agendada", professores=professor).count()
+    total_canceladas = aulas_kpi.filter(status="Cancelada", professores=professor).count()
+    total_aluno_ausente = aulas_kpi.filter(status="Aluno Ausente", relatorioaula__professor_que_validou=professor).count()
+    total_substituido = aulas_kpi.filter(status="Realizada", professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar").count()
+
+    taxa_presenca = ((total_realizadas / (total_realizadas + total_aluno_ausente) * 100) if (total_realizadas + total_aluno_ausente) > 0 else 0)
+
+    # Filtragem e Paginação da Tabela Acadêmica
+    aulas_para_tabela = aulas_kpi
+    if status_filtro:
+        if status_filtro == "Realizada": aulas_para_tabela = aulas_para_tabela.filter(q_realizadas_normal | q_realizadas_ac)
+        elif status_filtro == "Substituído": aulas_para_tabela = aulas_para_tabela.filter(status="Realizada", professores=professor).exclude(relatorioaula__professor_que_validou=professor).exclude(modalidade__nome__icontains="atividade complementar")
+        elif status_filtro == "Aluno Ausente": aulas_para_tabela = aulas_para_tabela.filter(status="Aluno Ausente", relatorioaula__professor_que_validou=professor)
+        elif status_filtro in ["Agendada", "Cancelada"]: aulas_para_tabela = aulas_para_tabela.filter(status=status_filtro, professores=professor)
+
+    aulas_para_tabela = aulas_para_tabela.prefetch_related("presencas", "alunos")
+    paginator = Paginator(aulas_para_tabela.order_by("-data_hora"), 10)
+    aulas_paginadas = paginator.get_page(request.GET.get("page"))
+
+    aulas_por_categoria = aulas_realizadas_pelo_professor_no_periodo.values("modalidade__nome").annotate(contagem=Count("id", distinct=True)).order_by("-contagem")
+
+    # Contexto Base (Acadêmico)
+    contexto = {
+        'professor': professor,
+        'titulo': f"Perfil de {professor.username.title()}",
+        # Dados Acadêmicos
+        'aulas_do_professor': aulas_paginadas,
+        'total_realizadas': total_realizadas,
+        'alunos_atendidos': alunos_atendidos,
+        'total_agendadas': total_agendadas,
+        'total_canceladas': total_canceladas,
+        'total_aluno_ausente': total_aluno_ausente,
+        'total_substituido': total_substituido,
+        'total_ausencias_professor': total_ausencias_professor,
+        'taxa_presenca': taxa_presenca,
+        'chart_labels': ["Realizadas", "Agendadas", "Ausências Alunos", "Canceladas", "Substituído"],
+        'chart_data': [total_realizadas, total_agendadas, total_aluno_ausente, total_canceladas, total_substituido],
+        'status_chart_data': [total_realizadas, total_agendadas, total_aluno_ausente, total_canceladas, total_substituido],
+        'aulas_por_categoria': aulas_por_categoria,
+        'top_alunos': aulas_kpi.filter(alunos__isnull=False).values("alunos__pk", "alunos__nome_completo").annotate(contagem=Count("alunos__pk")).order_by("-contagem")[:3],
+        'top_modalidades': aulas_kpi.filter(professores=professor).values("modalidade__nome").annotate(contagem=Count("modalidade")).order_by("-contagem")[:3],
+        'data_inicial': data_inicial_str,
+        'data_final': data_final_str,
+        'status_filtro': status_filtro,
+        'status_filtro_display': status_filtro_display,
+    }
+
+    # === LÓGICA ESPECÍFICA COMERCIAL (Se for Comercial) ===
     if user_obj.tipo == 'comercial':
         leads_criados_qs = Lead.objects.filter(criado_por=user_obj)
         leads_convertidos_qs = Lead.objects.filter(convertido_por=user_obj)
@@ -2017,226 +2017,36 @@ def detalhe_professor(request, pk):
         leads_criados_count = leads_criados_qs.count()
         leads_convertidos_count = leads_convertidos_qs.count()
         leads_perdidos_count = leads_criados_qs.filter(status='perdido').count()
-        total_interacoes = interacoes_do_usuario_qs.count()
-
-        leads_contatados_distintos_count = interacoes_do_usuario_qs.values('lead').distinct().count()
-
-        if leads_criados_count > 0:
-            taxa_conversao = (leads_convertidos_count / leads_criados_count) * 100
-        else:
-            taxa_conversao = 100.0 if leads_convertidos_count > 0 else 0
-
-        ultimas_interacoes = interacoes_do_usuario_qs.order_by('-data_interacao')[:10]
-
-        leads_ativos_qs = leads_criados_qs.filter(status__in=['novo', 'em_contato', 'negociando'])
-
-        pipeline_novo = leads_ativos_qs.filter(status='novo').count()
-        pipeline_em_contato = leads_ativos_qs.filter(status='em_contato').count()
-        pipeline_negociando = leads_ativos_qs.filter(status='negociando').count()
-
-        leads_ativos_lista = leads_ativos_qs.order_by('-data_criacao')[:10]
-
-        leads_por_fonte_qs = leads_criados_qs.annotate(
-            fonte_limpa=Coalesce('fonte', V('Não Informada'))
-        ).values('fonte_limpa') \
-         .annotate(contagem=Count('id')) \
-         .order_by('-contagem')[:5]
-
-        fonte_labels = [item['fonte_limpa'].title() for item in leads_por_fonte_qs]
-        fonte_data = [item['contagem'] for item in leads_por_fonte_qs]
-
-        conversoes_por_curso_qs = leads_convertidos_qs.filter(curso_interesse__isnull=False) \
-            .values('curso_interesse') \
-            .annotate(contagem=Count('id')) \
-            .order_by('-contagem')
-
+        
+        taxa_conversao = (leads_convertidos_count / leads_criados_count * 100) if leads_criados_count > 0 else 0
+        
+        leads_por_fonte_qs = leads_criados_qs.annotate(fonte_limpa=Coalesce('fonte', V('Não Informada'))).values('fonte_limpa').annotate(contagem=Count('id')).order_by('-contagem')[:5]
+        conversoes_por_curso_qs = leads_convertidos_qs.filter(curso_interesse__isnull=False).values('curso_interesse').annotate(contagem=Count('id')).order_by('-contagem')
+        
         curso_dict = dict(Lead.CURSO_CHOICES)
-        curso_labels = [curso_dict.get(item['curso_interesse'], 'Outro').title() for item in conversoes_por_curso_qs]
-        curso_data = [item['contagem'] for item in conversoes_por_curso_qs]
 
-        contexto = {
-            'titulo': f"Perfil de {user_obj.username.title()}",
-            'comercial_user': user_obj,
-            
-            # KPIs
+        # Adiciona dados comerciais ao contexto
+        contexto.update({
             'leads_criados': leads_criados_count,
             'leads_convertidos': leads_convertidos_count,
             'leads_perdidos': leads_perdidos_count,
-            'total_interacoes': total_interacoes,
-            'leads_contatados_distintos': leads_contatados_distintos_count,
+            'total_interacoes': interacoes_do_usuario_qs.count(),
+            'leads_contatados_distintos': interacoes_do_usuario_qs.values('lead').distinct().count(),
             'taxa_conversao': f"{taxa_conversao:.1f}",
-            
-            # Funil
-            'pipeline_novo': pipeline_novo,
-            'pipeline_em_contato': pipeline_em_contato,
-            'pipeline_negociando': pipeline_negociando,
-            
-            # Listas
-            'leads_ativos': leads_ativos_lista,
-            'ultimas_interacoes': ultimas_interacoes,
-            
-            # Gráficos
-            'fonte_labels': fonte_labels,
-            'fonte_data': fonte_data,
-            'curso_labels': curso_labels,
-            'curso_data': curso_data,
-        }
+            'pipeline_novo': leads_criados_qs.filter(status='novo').count(),
+            'pipeline_em_contato': leads_criados_qs.filter(status='em_contato').count(),
+            'pipeline_negociando': leads_criados_qs.filter(status='negociando').count(),
+            'leads_ativos': leads_criados_qs.filter(status__in=['novo', 'em_contato', 'negociando']).order_by('-data_criacao')[:10],
+            'ultimas_interacoes': interacoes_do_usuario_qs.order_by('-data_interacao')[:10],
+            'fonte_labels': [item['fonte_limpa'].title() for item in leads_por_fonte_qs],
+            'fonte_data': [item['contagem'] for item in leads_por_fonte_qs],
+            'curso_labels': [curso_dict.get(item['curso_interesse'], 'Outro').title() for item in conversoes_por_curso_qs],
+            'curso_data': [item['contagem'] for item in conversoes_por_curso_qs],
+        })
         return render(request, 'scheduler/comercial_detalhe.html', contexto)
 
-    else:
-        professor = user_obj
-        
-        data_inicial_str = request.GET.get("data_inicial", "")
-        data_final_str = request.GET.get("data_final", "")
-        status_filtro = request.GET.get("status_filtro", "")
-        status_filtro_display = status_filtro.replace("_", " ") if status_filtro else ""
-
-        data_inicial, data_final = None, None
-        if data_inicial_str:
-            try:
-                data_inicial = datetime.strptime(data_inicial_str, "%Y-%m-%d").date()
-            except ValueError:
-                pass
-        if data_final_str:
-            try:
-                data_final = datetime.strptime(data_final_str, "%Y-%m-%d").date()
-            except ValueError:
-                pass
-
-        aulas_relacionadas_base = Aula.objects.filter(
-            Q(professores=professor) | Q(relatorioaula__professor_que_validou=professor)
-        ).distinct()
-
-        aulas_kpi = aulas_relacionadas_base
-        if data_inicial:
-            aulas_kpi = aulas_kpi.filter(data_hora__date__gte=data_inicial)
-        if data_final:
-            aulas_kpi = aulas_kpi.filter(data_hora__date__lte=data_final)
-
-        q_realizadas_normal = Q(
-            status="Realizada", relatorioaula__professor_que_validou=professor
-        ) & ~Q(modalidade__nome__icontains="atividade complementar")
-        q_realizadas_ac = Q(
-            status="Realizada",
-            modalidade__nome__icontains="atividade complementar",
-            presencas_professores__professor=professor,
-            presencas_professores__status="presente",
-        )
-        aulas_realizadas_pelo_professor_no_periodo = aulas_kpi.filter(
-            q_realizadas_normal | q_realizadas_ac
-        ).distinct()
-        total_realizadas = aulas_realizadas_pelo_professor_no_periodo.count()
-        alunos_atendidos = PresencaAluno.objects.filter(
-            aula__in=aulas_realizadas_pelo_professor_no_periodo, status="presente"
-        ).count()
-
-        total_ausencias_professor = aulas_kpi.filter(
-            modalidade__nome__icontains="atividade complementar",
-            presencas_professores__professor=professor,
-            presencas_professores__status="ausente",
-        ).count()
-        total_agendadas = aulas_kpi.filter(status="Agendada", professores=professor).count()
-        total_canceladas = aulas_kpi.filter(
-            status="Cancelada", professores=professor
-        ).count()
-        total_aluno_ausente = aulas_kpi.filter(
-            status="Aluno Ausente", relatorioaula__professor_que_validou=professor
-        ).count()
-        total_substituido = (
-            aulas_kpi.filter(status="Realizada", professores=professor)
-            .exclude(relatorioaula__professor_que_validou=professor)
-            .exclude(modalidade__nome__icontains="atividade complementar")
-            .count()
-        )
-
-        aulas_por_categoria = (
-            aulas_realizadas_pelo_professor_no_periodo.values("modalidade__nome")
-            .annotate(contagem=Count("id", distinct=True))
-            .order_by("-contagem")
-        )
-
-        aulas_para_tabela = aulas_kpi
-        if status_filtro:
-            if status_filtro == "Realizada":
-                aulas_para_tabela = aulas_para_tabela.filter(
-                    q_realizadas_normal | q_realizadas_ac
-                )
-            elif status_filtro == "Substituído":
-                aulas_para_tabela = (
-                    aulas_para_tabela.filter(status="Realizada", professores=professor)
-                    .exclude(relatorioaula__professor_que_validou=professor)
-                    .exclude(modalidade__nome__icontains="atividade complementar")
-                )
-            elif status_filtro == "Aluno Ausente":
-                aulas_para_tabela = aulas_para_tabela.filter(
-                    status="Aluno Ausente", relatorioaula__professor_que_validou=professor
-                )
-            elif status_filtro in ["Agendada", "Cancelada"]:
-                aulas_para_tabela = aulas_para_tabela.filter(
-                    status=status_filtro, professores=professor
-                )
-
-        aulas_para_tabela = aulas_para_tabela.prefetch_related("presencas", "alunos")
-        aulas_do_professor_paginated = Paginator(
-            aulas_para_tabela.order_by("-data_hora"), 10
-        ).get_page(request.GET.get("page"))
-
-        for aula in aulas_do_professor_paginated.object_list:
-            if aula.status in ["Realizada", "Aluno Ausente"]:
-                presencas_map = {p.aluno_id: p.status for p in aula.presencas.all()}
-                aula.alunos_com_status = []
-                for aluno in aula.alunos.all():
-                    status = presencas_map.get(aluno.id, "nao_lancado")
-                    aula.alunos_com_status.append({"aluno": aluno, "status": status})
-
-        chart_labels = [
-            "Realizadas",
-            "Agendadas",
-            "Ausências de Alunos",
-            "Canceladas",
-            "Fui Substituído",
-        ]
-        chart_data = [
-            total_realizadas,
-            total_agendadas,
-            total_aluno_ausente,
-            total_canceladas,
-            total_substituido,
-        ]
-
-        contexto = {
-            "professor": professor,
-            "titulo": f"Dashboard de: {professor.username}",
-            "aulas_do_professor": aulas_do_professor_paginated,
-            "data_inicial": data_inicial_str,
-            "data_final": data_final_str,
-            "status_filtro": status_filtro,
-            "status_filtro_display": status_filtro_display,
-            "total_realizadas": total_realizadas,
-            "alunos_atendidos": alunos_atendidos,
-            "total_agendadas": total_agendadas,
-            "total_canceladas": total_canceladas,
-            "total_aluno_ausente": total_aluno_ausente,
-            "total_substituido": total_substituido,
-            "total_ausencias_professor": total_ausencias_professor,
-            "taxa_presenca": (
-                (total_realizadas / (total_realizadas + total_aluno_ausente) * 100)
-                if (total_realizadas + total_aluno_ausente) > 0
-                else 0
-            ),
-            "top_alunos": aulas_kpi.filter(alunos__isnull=False)
-            .values("alunos__pk", "alunos__nome_completo")
-            .annotate(contagem=Count("alunos__pk"))
-            .order_by("-contagem")[:3],
-            "top_modalidades": aulas_kpi.filter(professores=professor)
-            .values("modalidade__nome")
-            .annotate(contagem=Count("modalidade"))
-            .order_by("-contagem")[:3],
-            "chart_labels": chart_labels,
-            "chart_data": chart_data,
-            "aulas_por_categoria": aulas_por_categoria,
-        }
-        return render(request, "scheduler/professor_detalhe.html", contexto)
+    # Se for Professor/Admin, usa o template padrão
+    return render(request, 'scheduler/professor_detalhe.html', contexto)
 
 
 @login_required

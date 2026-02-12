@@ -110,8 +110,10 @@
     <div>
         <h1 class="h3 mb-1">{{ titulo }}</h1>
         <p class="text-muted mb-0">
-            {% if user.tipo in 'admin, comercial' %}
-                Visão geral e performance de <strong>{{ today|date:"F/Y"|title }}</strong>.
+            {% if user.tipo == 'admin' %}
+                Visão geral e performance financeira de <strong>{{ today|date:"F/Y"|title }}</strong>.
+            {% elif user.tipo == 'comercial' %}
+                Visão geral das atividades operacionais de <strong>{{ today|date:"F/Y"|title }}</strong>.
             {% else %}
                 Resumo das suas atividades e agenda.
             {% endif %}
@@ -133,7 +135,7 @@
 <div class="vstack gap-4">
     
     {# --- BLOCO ADMIN/COMERCIAL --- #}
-    {% if user.tipo in 'admin,comercial' %}
+    {% if user.tipo == 'admin' %}
         
         <div>
             <div class="section-title"><i class="bi bi-graph-up-arrow me-2"></i> Financeiro (Mês Atual)</div>
@@ -204,7 +206,6 @@
                 </div>
             </div>
         </div>
-
         <div>
             <div class="section-title"><i class="bi bi-activity me-2"></i> Operacional</div>
             <div class="row g-4">
@@ -262,14 +263,9 @@
                 </div>
             </div>
         </div>
+    {% endif %}
 
-    {% else %}
-        {# --- BLOCO PROFESSOR --- #}
-        <div class="d-flex justify-content-end align-items-center gap-2">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#agendamentoModal">
-                <i class="bi bi-plus-circle me-1"></i> Agendar Aula
-            </button>
-        </div>
+    {% if user.tipo == 'comercial' %}
         <div class="row g-4">
             <div class="col-lg-4 col-md-6">
                 <a href="{% url 'scheduler:aula_listar' %}?data_inicial={{ today_iso }}&data_final={{ today_iso }}" class="text-decoration-none">
@@ -352,7 +348,7 @@
                 <select id="professor_calendario_filtro_desktop" class="form-select form-select-sm" style="max-width: 200px;">
                     <option value="">Todos os Professores</option>
                     {% for prof in professores_list %}
-                    <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                    <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.first_name|title }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -367,7 +363,7 @@
             <select id="professor_calendario_filtro_mobile" class="form-select form-select-sm w-75 mx-auto" style="max-width: 200px;">
                 <option value="">Todos os Professores</option>
                 {% for prof in professores_list %}
-                <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.username|title }}</option>
+                <option value="{{ prof.id }}" {% if request.GET.professor_filtro_id == prof.id|stringformat:"s" %}selected{% endif %}>{{ prof.first_name|title }}</option>
                 {% endfor %}
             </select>
             {% endif %}
