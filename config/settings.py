@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'core',
     'finances',
     'leads',
-    'logs',
+    'logs.apps.LogsConfig',
     'scheduler',
     'store',
     'simple_history',
