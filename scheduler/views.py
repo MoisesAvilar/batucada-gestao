@@ -173,12 +173,12 @@ def dashboard(request):
 
     # --- Lógica Específica por Tipo de Usuário ---
     if request.user.tipo in ["admin", "comercial"]:
-        # 1. Definição do QuerySet Base com Filtro (Ajuste aqui)
+        # 1. Definição do QuerySet Base com Filtro
         aulas_qs = Aula.objects.all()
         if professor_filtro_id and professor_filtro_id.isdigit():
             aulas_qs = aulas_qs.filter(professores__id=professor_filtro_id).distinct()
         
-        # 2. Stats Operacionais (KPIs fixos da unidade, não mudam com o filtro do calendário)
+        # 2. Stats Operacionais (KPIs fixos da unidade)
         aulas_hoje_count = Aula.objects.filter(data_hora__date=today).count()
         aulas_semana_count = Aula.objects.filter(
             data_hora__date__range=[start_of_week, end_of_week]
@@ -190,7 +190,7 @@ def dashboard(request):
             data_criacao__year=today.year, data_criacao__month=today.month
         ).count()
 
-        # 3. Stats Financeiros (Mantidos conforme sua lógica original)
+        # 3. Stats Financeiros
         kpi_recebido = kpi_atrasado = kpi_em_aberto = kpi_previsto = Decimal("0.00")
         count_recebido = count_atrasado = count_em_aberto = count_previsto = 0
         kpi_mes_ref, kpi_ano_ref = today.month, today.year
@@ -212,30 +212,44 @@ def dashboard(request):
 
                 for aluno in Aluno.objects.filter(status="ativo"):
                     valor, status = Decimal("0.00"), ""
+                    
+                    # Cálculo seguro do último dia do mês para evitar ValueError
+                    _, ultimo_dia_mes = calendar.monthrange(kpi_ano_ref, kpi_mes_ref)
+                    
                     if aluno.id in receitas_dict:
                         r = receitas_dict[aluno.id]
                         valor, status = r.valor, ('Paga' if r.status == 'recebido' or r.transacao else 'Pendente')
                         if status == 'Pendente':
-                            venc = r.data_recebimento or (date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento) if aluno.dia_vencimento else date(kpi_ano_ref, kpi_mes_ref, 28))
+                            dia_vencimento = min(aluno.dia_vencimento or 28, ultimo_dia_mes)
+                            venc = r.data_recebimento or date(kpi_ano_ref, kpi_mes_ref, dia_vencimento)
                             status = 'Atrasada' if today > venc else 'Em aberto'
                     elif aluno.id in transacoes_dict:
                         valor, status = transacoes_dict[aluno.id].amount, 'Paga'
                     elif aluno.valor_mensalidade and aluno.dia_vencimento:
                         valor = aluno.valor_mensalidade
-                        venc = date(kpi_ano_ref, kpi_mes_ref, aluno.dia_vencimento)
+                        dia_vencimento = min(aluno.dia_vencimento, ultimo_dia_mes)
+                        venc = date(kpi_ano_ref, kpi_mes_ref, dia_vencimento)
                         status = 'Atrasada' if today > venc else 'Em aberto'
                     
-                    if status == 'Paga': kpi_recebido += valor; count_recebido += 1
-                    elif status == 'Atrasada': kpi_atrasado += valor; count_atrasado += 1
-                    elif status == 'Em aberto': kpi_em_aberto += valor; count_em_aberto += 1
+                    if status == 'Paga': 
+                        kpi_recebido += valor
+                        count_recebido += 1
+                    elif status == 'Atrasada': 
+                        kpi_atrasado += valor
+                        count_atrasado += 1
+                    elif status == 'Em aberto': 
+                        kpi_em_aberto += valor
+                        count_em_aberto += 1
 
                 kpi_previsto = kpi_recebido + kpi_atrasado + kpi_em_aberto
                 count_previsto = count_recebido + count_atrasado + count_em_aberto
 
         contexto = {
             "titulo": f"Painel de Controle - {request.user.get_tipo_display()}",
-            "aulas_hoje_count": aulas_hoje_count, "aulas_semana_count": aulas_semana_count,
-            "aulas_agendadas_total": aulas_agendadas_total, "novos_alunos_mes": novos_alunos_mes,
+            "aulas_hoje_count": aulas_hoje_count, 
+            "aulas_semana_count": aulas_semana_count,
+            "aulas_agendadas_total": aulas_agendadas_total, 
+            "novos_alunos_mes": novos_alunos_mes,
             "professores_list": CustomUser.objects.filter(tipo__in=["professor", "admin", "comercial"], is_active=True).order_by("first_name"),
             "primeiro_dia_mes": today.replace(day=1).strftime("%Y-%m-%d"),
             "ultimo_dia_mes": today.replace(day=calendar.monthrange(today.year, today.month)[1]).strftime("%Y-%m-%d"),
@@ -260,7 +274,7 @@ def dashboard(request):
             "mostrar_tour_horarios": False,
         }
 
-    # --- Lógica do Calendário e Agenda Lateral (Agora usa o aulas_qs filtrado acima) ---
+    # --- Lógica do Calendário e Agenda Lateral ---
     aulas_do_mes = (
         aulas_qs.filter(data_hora__year=year, data_hora__month=month)
         .select_related("modalidade")
@@ -288,7 +302,7 @@ def dashboard(request):
         "today": today,
         "mes_atual": date(year, month, 1),
         "calendario_mes": calendario_final,
-        "aulas_do_mes_lista": aulas_do_mes, # Agora filtrada pela Ana se selecionada
+        "aulas_do_mes_lista": aulas_do_mes,
         "today_iso": today_iso,
         "week_start_iso": week_start_iso,
         "week_end_iso": week_end_iso,
@@ -299,6 +313,7 @@ def dashboard(request):
     })
 
     return render(request, "scheduler/dashboard.html", contexto)
+
 
 @login_required
 def get_calendario_html(request):
