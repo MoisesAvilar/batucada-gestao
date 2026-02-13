@@ -10,44 +10,72 @@ def get_client_ip(request):
     return request.META.get("REMOTE_ADDR")
 
 
+class RequestMiddleware:
+    """
+    Middleware focado apenas em capturar o request para uso global (Signals).
+    Não herda de MiddlewareMixin para evitar conflitos de __call__.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        set_current_request(request)
+        response = self.get_response(request)
+        return response
+
+
 class AuditMiddleware(MiddlewareMixin):
-    IGNORED_PATHS = ("/static/", "/media/", "/favicon.ico", "/health", "/admin/")
+    """
+    Middleware para logs de visualização (GET) e erros.
+    """
+
+    IGNORED_PATHS = (
+        "/static/",
+        "/media/",
+        "/favicon.ico",
+        "/health",
+        "/admin/",
+        "/__debug__/",
+    )
 
     def process_response(self, request, response):
+        # Ignora paths indesejados
+        if any(request.path.startswith(p) for p in self.IGNORED_PATHS):
+            return response
+
+        # Só registra GETs ou Erros (>=400)
+        should_log = (request.method == "GET" and response.status_code < 400) or (
+            response.status_code >= 400
+        )
+
+        if not should_log:
+            return response
+
+        # Evita logar a própria API de logs
+        if request.path.startswith("/logs/api/"):
+            return response
+
+        user = getattr(request, "user", None)
+        username = "anon"
+        if user and user.is_authenticated:
+            username = user.get_full_name() or user.username
+
+        ip = get_client_ip(request)
+
         try:
-            # Ignora paths que não queremos logar
-            if any(request.path.startswith(p) for p in self.IGNORED_PATHS):
-                return response
-
-            # Só registra GETs bem-sucedidos ou qualquer requisição com erro
-            should_log = (request.method == "GET" and response.status_code < 400) or \
-                         (response.status_code >= 400)
-
-            if not should_log:
-                return response
-
-            user = getattr(request, "user", None)
-            username = ""
-            if user and getattr(user, "is_authenticated", False):
-                username = user.get_full_name() or user.username
-            else:
-                username = "anon"
-            
-            ip = get_client_ip(request)
-
-            # Para GET, definimos a ação como "visualizou"
             if request.method == "GET":
                 action = "visualizou"
                 resource_name = f"Página {request.path}"
                 detail = {}
                 if request.GET:
                     detail["query_params"] = dict(request.GET)
-            else: # Para erros (status >= 400)
+            else:
                 action = f"erro_{response.status_code}"
                 resource_name = f"Falha em {request.path}"
                 detail = {
                     "reason_phrase": response.reason_phrase,
-                    "method": request.method
+                    "method": request.method,
                 }
 
             AuditLog.objects.create(
@@ -63,18 +91,7 @@ class AuditMiddleware(MiddlewareMixin):
                 detail=detail,
                 tags=f"http,{action}",
             )
-        except Exception as e:
-            print("AuditMiddleware erro:", e)
+        except Exception:
+            pass  # Falha silenciosa em logs de visualização para não travar o app
 
         return response
-
-
-class RequestMiddleware(MiddlewareMixin):
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        set_current_request(request)
-        response = self.get_response(request)
-        return response
-    
